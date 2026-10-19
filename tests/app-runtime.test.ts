@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test, type TestContext } from 'node:test';
 import { AppRuntime, type AppRuntimeOptions } from '../src/app/application/AppRuntime';
+import { BootstrapError, type BootstrapErrorCode } from '../src/app/domain/BootstrapError';
 import type { RadioPermissionReport, RadioPermissions, RuntimeResources } from '../src/app/domain/types';
 import type { BatteryState, NativeRuntimeEvent } from '../src/app/infrastructure/NativeMeshRuntime';
 import type { ChatSnapshot } from '../src/features/chat';
@@ -342,10 +343,55 @@ test('a resource-factory failure leaves an actionable startup error and retries 
   t.after(() => runtime.stop());
   await runtime.start();
   assert.equal(runtime.getSnapshot().status, 'error'); assert.equal(runtime.getSnapshot().issue, 'startup-failed');
+  assert.equal(runtime.getSnapshot().startupFailure, 'unknown');
+  assert.equal(JSON.stringify(runtime.getSnapshot()).includes('SQLite open failed'), false);
   assert.equal(runtime.getSnapshot().resources, null);
   await runtime.start();
   assert.equal(creates, 2); assert.equal(runtime.getSnapshot().status, 'ready');
+  assert.equal(runtime.getSnapshot().startupFailure, null);
   assert.equal(runtime.getSnapshot().resources, controlled.resources);
+});
+
+for (const code of ['secure-storage-unavailable', 'encryption-unavailable', 'data-recovery-required',
+  'identity-recovery-required', 'provisioning-incomplete'] satisfies BootstrapErrorCode[]) {
+  test(`sanitizes ${code} into a recovery category and clears it throughout a successful retry`, async t => {
+    const controlled = controlledResources(); const permissions = controlledPermissions();
+    let failure = true;
+    const runtime = new AppRuntime({ permissions: permissions.permissions,
+      async createResources() { if (failure) throw new BootstrapError(code); return controlled.resources; } });
+    t.after(() => runtime.stop());
+    await runtime.start();
+    assert.equal(runtime.getSnapshot().status, 'error');
+    assert.equal(runtime.getSnapshot().startupFailure, code);
+    assert.equal(runtime.getSnapshot().resources, null);
+    assert.equal(controlled.log.includes('engine.start'), false);
+    assert.equal((await runtime.sendSos()).status, 'rejected');
+    assert.equal(controlled.state.sosCalls, 0);
+    const seen: { status: string; failure: string | null }[] = [];
+    const unsubscribe = runtime.subscribe(() => { const snapshot = runtime.getSnapshot(); seen.push({ status: snapshot.status, failure: snapshot.startupFailure }); });
+    failure = false;
+    await runtime.start();
+    unsubscribe();
+    assert.equal(runtime.getSnapshot().status, 'ready');
+    assert.equal(runtime.getSnapshot().startupFailure, null);
+    assert.equal(runtime.getSnapshot().issue, null);
+    assert.ok(seen.some(snapshot => snapshot.status === 'starting' && snapshot.failure === null));
+    await runtime.stop();
+    assert.equal(runtime.getSnapshot().startupFailure, null);
+  });
+}
+
+test('untrusted error-like values never select privileged recovery guidance or expose their native messages', async t => {
+  for (const failure of [Object.assign(new Error('private-native-path-and-key'), { code: 'identity-recovery-required' }),
+    { code: 'data-recovery-required', message: 'private-native-path-and-key' }, 'private-native-path-and-key', null]) {
+    const runtime = new AppRuntime({ permissions: controlledPermissions().permissions,
+      async createResources() { throw failure; } });
+    t.after(() => runtime.stop());
+    await runtime.start();
+    assert.equal(runtime.getSnapshot().status, 'error');
+    assert.equal(runtime.getSnapshot().startupFailure, 'unknown');
+    assert.equal(JSON.stringify(runtime.getSnapshot()).includes('private-native-path-and-key'), false);
+  }
 });
 
 test('a failed engine startup cleans every resource and cannot retain an unusable runtime', async t => {

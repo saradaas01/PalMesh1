@@ -26,6 +26,12 @@ export class SecurityError extends Error {
   constructor(message: string) { super(message); this.name = 'SecurityError'; }
 }
 
+/** Established key material is missing/corrupt. Keep this distinct from a
+ * temporarily locked native vault so bootstrap can offer safe recovery steps. */
+export class SecurityRecoveryError extends SecurityError {
+  constructor(message: string) { super(message); this.name = 'SecurityRecoveryError'; }
+}
+
 function ownObject(input: unknown, names: readonly string[]): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || Array.isArray(input)
     || (Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null)) {
@@ -306,7 +312,7 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     const raw = await this.vault.read(IDENTITY_RECORD);
     const directory = await this.vault.read(DIRECTORY_RECORD);
     if (raw === null && (requireExistingIdentity || directory !== null)) {
-      throw new SecurityError('Secure identity is missing for existing installation data; recovery is required.');
+      throw new SecurityRecoveryError('Secure identity is missing for existing installation data; recovery is required.');
     }
     let signing: Uint8Array;
     let encryption: Uint8Array;
@@ -316,28 +322,32 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
       await this.vault.write(IDENTITY_RECORD, JSON.stringify({ version: 1,
         signingSecret: bytesToHex(signing), encryptionSecret: bytesToHex(encryption) }));
     } else {
-      if (raw.length > 1024) throw new SecurityError('Secure identity record is oversized.');
-      const fields = ownObject(JSON.parse(raw) as unknown, ['version', 'signingSecret', 'encryptionSecret']);
-      if (fields.version !== 1 || typeof fields.signingSecret !== 'string' || !HEX_32.test(fields.signingSecret)
-        || typeof fields.encryptionSecret !== 'string' || !HEX_32.test(fields.encryptionSecret)) {
-        throw new SecurityError('Secure identity record is corrupt or unsupported.');
-      }
-      signing = hexToBytes(fields.signingSecret);
-      encryption = hexToBytes(fields.encryptionSecret);
+      try {
+        if (raw.length > 1024) throw new SecurityError('Secure identity record is oversized.');
+        const fields = ownObject(JSON.parse(raw) as unknown, ['version', 'signingSecret', 'encryptionSecret']);
+        if (fields.version !== 1 || typeof fields.signingSecret !== 'string' || !HEX_32.test(fields.signingSecret)
+          || typeof fields.encryptionSecret !== 'string' || !HEX_32.test(fields.encryptionSecret)) {
+          throw new SecurityError('Secure identity record is corrupt or unsupported.');
+        }
+        signing = hexToBytes(fields.signingSecret);
+        encryption = hexToBytes(fields.encryptionSecret);
+      } catch { throw new SecurityRecoveryError('Secure identity record is corrupt or unsupported; recovery is required.'); }
     }
     if (directory !== null) {
-      if (directory.length > 100 * 1024) throw new SecurityError('Peer key directory is oversized.');
-      const entries: unknown = JSON.parse(directory);
-      if (!Array.isArray(entries) || entries.length > MAX_PEERS) throw new SecurityError('Invalid peer key directory.');
-      for (const entry of entries) {
-        const fields = ownObject(entry, ['signingKey', 'encryptionKey', 'pinned']);
-        if (typeof fields.pinned !== 'boolean') throw new SecurityError('Invalid persisted contact state.');
-        const identity = publicIdentity({ signingKey: fields.signingKey, encryptionKey: fields.encryptionKey });
-        const id = identityFingerprint(identity);
-        if (this.peers.has(id)) throw new SecurityError('Duplicate persisted peer identity.');
-        this.peers.set(id, identity);
-        if (fields.pinned) this.pinnedPeers.add(id);
-      }
+      try {
+        if (directory.length > 100 * 1024) throw new SecurityError('Peer key directory is oversized.');
+        const entries: unknown = JSON.parse(directory);
+        if (!Array.isArray(entries) || entries.length > MAX_PEERS) throw new SecurityError('Invalid peer key directory.');
+        for (const entry of entries) {
+          const fields = ownObject(entry, ['signingKey', 'encryptionKey', 'pinned']);
+          if (typeof fields.pinned !== 'boolean') throw new SecurityError('Invalid persisted contact state.');
+          const identity = publicIdentity({ signingKey: fields.signingKey, encryptionKey: fields.encryptionKey });
+          const id = identityFingerprint(identity);
+          if (this.peers.has(id)) throw new SecurityError('Duplicate persisted peer identity.');
+          this.peers.set(id, identity);
+          if (fields.pinned) this.pinnedPeers.add(id);
+        }
+      } catch { throw new SecurityRecoveryError('Saved contact identities require recovery.'); }
     }
     this.signingSecret = signing;
     this.encryptionSecret = encryption;

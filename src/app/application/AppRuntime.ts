@@ -1,6 +1,7 @@
 import type { PowerMode } from '../../features/dtn';
 import type { LocationActionResult } from '../../features/maps';
 import type { AppRoute, AppSnapshot, RadioPermissions, RuntimeResources } from '../domain/types';
+import { BootstrapError } from '../domain/BootstrapError';
 import type { NativeMeshRuntime, NativeRuntimeEvent, BatteryState } from '../infrastructure/NativeMeshRuntime';
 
 export interface AppRuntimeOptions {
@@ -11,8 +12,8 @@ export interface AppRuntimeOptions {
 }
 
 /** Owns one mesh node and its persistent feature services. Navigation changes
- * visibility, never storage ownership. Discovery is foreground-only; background
- * delivery is not promised by JavaScript timers or an unconfigured OS service. */
+ * visibility, never storage ownership. Discovery requires a visible app or an
+ * explicit native background session; JavaScript timers cannot ensure delivery. */
 export class AppRuntime {
   private state: AppSnapshot;
   private readonly listeners = new Set<() => void>();
@@ -35,7 +36,7 @@ export class AppRuntime {
 
   constructor(private readonly options: AppRuntimeOptions) {
     this.state = Object.freeze({
-      status: 'idle', route: 'chat', foreground: options.initiallyForeground ?? true,
+      status: 'idle', startupFailure: null, route: 'chat', foreground: options.initiallyForeground ?? true,
       resources: null, permissions: null, radios: Object.freeze({}), connectedPeers: 0,
       requestingPermissions: false, pendingSos: false, powerMode: 'normal', issue: null, notice: null,
       backgroundEnabled: false, backgroundBusy: false, backgroundSupported: options.platformRuntime?.supportsBackground ?? false,
@@ -58,7 +59,7 @@ export class AppRuntime {
       const generation = ++this.generation;
       this.attachPlatform(generation);
       let resources: RuntimeResources | null = null;
-      this.patch({ status: 'starting', issue: null, notice: null, pendingSos: false, requestingPermissions: false,
+      this.patch({ status: 'starting', startupFailure: null, issue: null, notice: null, pendingSos: false, requestingPermissions: false,
         permissions: null, resources: null, radios: Object.freeze({}), connectedPeers: 0 });
       void this.checkPermissions(generation);
       try {
@@ -83,15 +84,19 @@ export class AppRuntime {
         const failure = features.find(result => result.status === 'rejected');
         if (failure?.status === 'rejected') throw failure.reason;
         if (!this.live(generation)) return;
-        this.patch({ status: 'ready', resources, connectedPeers: resources.node.mesh.connectedPeers().length });
+        this.patch({ status: 'ready', startupFailure: null, resources, connectedPeers: resources.node.mesh.connectedPeers().length });
         this.applyVisibility();
         if (this.state.foreground) void this.resumeRadios(generation, resources);
-      } catch {
+      } catch (error) {
         if (this.live(generation)) {
           this.active = false;
           this.detach();
           this.unsubscribePlatform?.(); this.unsubscribePlatform = null;
-          this.patch({ status: 'error', resources: null, issue: 'startup-failed' });
+          // Only trusted typed bootstrap errors select recovery guidance. Native
+          // messages, arbitrary error codes and private exception details never
+          // enter the UI snapshot, notifications or persisted application state.
+          const startupFailure = error instanceof BootstrapError ? error.code : 'unknown';
+          this.patch({ status: 'error', startupFailure, resources: null, issue: 'startup-failed' });
         }
       } finally {
         if (resources && !this.live(generation)) {
@@ -115,7 +120,7 @@ export class AppRuntime {
     // stop() cancels in-flight discovery immediately, rather than waiting for
     // an outstanding native start before beginning cancellation.
     if (resources) this.pauseRadios(resources);
-    this.patch({ status: 'idle', foreground: false, resources: null, requestingPermissions: false, pendingSos: false, connectedPeers: 0,
+    this.patch({ status: 'idle', startupFailure: null, foreground: false, resources: null, requestingPermissions: false, pendingSos: false, connectedPeers: 0,
       backgroundEnabled: false, backgroundBusy: false, alertsBusy: false });
     return this.transition(async () => {
       // An OS permission dialog cannot be cancelled. Its stale completion is

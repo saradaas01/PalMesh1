@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { test, type TestContext } from 'node:test';
-import { SecurityService, SecurityError, identityFingerprint } from '../src/features/security/application/SecurityService';
+import { SecurityService, SecurityError, SecurityRecoveryError, identityFingerprint } from '../src/features/security/application/SecurityService';
 import { NativeSecurityVault } from '../src/features/security/infrastructure/NativeSecurityVault';
 import type { SecurityVault } from '../src/features/security/domain/types';
 import { createMessage, parseMessage } from '../src/features/dtn/domain/validation';
@@ -362,6 +362,25 @@ test('an existing-installation bootstrap requires original identity before entro
   const restarted = new SecurityService(existing.vault);
   await restarted.initialize({ requireExistingIdentity: true });
   assert.equal(restarted.deviceId, existing.security.deviceId);
+});
+
+test('recovery failures are distinct from transient native vault failures and preserve saved records', async () => {
+  const existing = await identity();
+  const original = existing.vault.records.get('identity-v1')!;
+  for (const corrupt of ['{', '{"version":7}', `${original}\ntrailing`, 'x'.repeat(1025)]) {
+    existing.vault.records.set('identity-v1', corrupt);
+    await assert.rejects(new SecurityService(existing.vault).initialize(), SecurityRecoveryError);
+    assert.equal(existing.vault.records.get('identity-v1'), corrupt);
+  }
+  existing.vault.records.set('identity-v1', original);
+  existing.vault.records.set('peer-directory-v1', '[{"pinned":false}]');
+  const records = new Map(existing.vault.records);
+  await assert.rejects(new SecurityService(existing.vault).initialize(), SecurityRecoveryError);
+  assert.deepEqual(existing.vault.records, records);
+  existing.vault.failure = true;
+  await assert.rejects(new SecurityService(existing.vault).initialize(), error => {
+    return error instanceof Error && !(error instanceof SecurityRecoveryError) && error.message === 'vault locked';
+  });
 });
 
 

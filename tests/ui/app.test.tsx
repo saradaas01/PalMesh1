@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 import type { AppRoute, AppSnapshot, RuntimeResources } from '../../src/app/domain/types';
+import type { BootstrapErrorCode } from '../../src/app/domain/BootstrapError';
 import { PalMeshApp, type AppUiRuntime } from '../../src/app/ui';
 import type { ChatUiService } from '../../src/features/chat/ui';
 import type { ChatActionResult, ChatMessage, ChatSnapshot } from '../../src/features/chat/domain/types';
@@ -12,7 +13,7 @@ import type { LocationFix, OutgoingMessage, PowerMode } from '../../src/features
 import { createMessage } from '../../src/features/dtn/domain/validation';
 import { EmergencyService, type EmergencyEntry } from '../../src/features/emergency';
 import { SecurityService } from '../../src/features/security';
-import { I18nProvider, ar } from '../../src/shared/i18n';
+import { I18nProvider, ar, en } from '../../src/shared/i18n';
 
 jest.mock('../../src/features/maps/ui/OfflineMapView', () => ({ OfflineMapView: jest.fn(() => null) }));
 
@@ -111,18 +112,19 @@ class RuntimeDouble implements AppUiRuntime {
     },
     release: async () => {},
   };
-  snapshot: AppSnapshot = { status: 'idle', route: 'chat', foreground: true, resources: null,
+  snapshot: AppSnapshot = { status: 'idle', startupFailure: null, route: 'chat', foreground: true, resources: null,
     permissions: null, radios: {}, connectedPeers: 0, requestingPermissions: false, pendingSos: false,
     powerMode: 'normal', issue: null, notice: null, backgroundEnabled: false, backgroundBusy: false,
     backgroundSupported: true, battery: null, automaticPowerMode: true, alertsEnabled: false, alertsBusy: false };
   failStartup = false;
+  startupFailure: BootstrapErrorCode | 'unknown' = 'unknown';
   patch(change: Partial<AppSnapshot>): void { this.snapshot = Object.freeze({ ...this.snapshot, ...change }); for (const listener of this.listeners) listener(); }
   getSnapshot = (): AppSnapshot => this.snapshot;
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   start = jest.fn(async (): Promise<void> => {
-    if (this.failStartup) { this.patch({ status: 'error', resources: null, issue: 'startup-failed' }); return; }
+    if (this.failStartup) { this.patch({ status: 'error', startupFailure: this.startupFailure, resources: null, issue: 'startup-failed' }); return; }
     await this.resources.node.start(); await this.chat.start(); await this.locations.start(); await this.emergency.start();
-    this.patch({ status: 'ready', resources: this.resources, issue: null,
+    this.patch({ status: 'ready', startupFailure: null, resources: this.resources, issue: null,
       permissions: { platform: 'android', wifiDirect: false, bluetooth: false, canRequest: true } });
     this.applyVisibility();
   });
@@ -213,21 +215,24 @@ describe('PalMesh app shell', () => {
     expect(screen.queryByText('SOS queued locally. Receipt or assistance is not confirmed.')).toBeNull();
   });
 
-  test('reports unavailable startup queues and failed SOS truthfully, then retries startup', async () => {
+  test('reports unavailable startup queues, disables SOS and retries without claiming it was queued', async () => {
     const runtime = new RuntimeDouble(); runtime.failStartup = true;
     await render(<PalMeshApp runtime={runtime} />);
     expect(screen.getByText(/Messages and SOS cannot be queued until startup succeeds/)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeDisabled();
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
-    expect(screen.getByText('SOS could not be queued on this device. Please try again.')).toBeOnTheScreen();
+    expect(runtime.sendSos).not.toHaveBeenCalled();
     expect(screen.queryByText(/SOS queued on this device/)).toBeNull();
     expect(runtime.locations.sendSos).not.toHaveBeenCalled();
     runtime.failStartup = false;
     await fireEvent.press(screen.getByRole('button', { name: 'Retry starting PalMesh' }));
     expect(runtime.start).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('button', { name: 'New message' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+    expect(screen.queryByText(en['app.recovery.title'])).toBeNull();
   });
 
-  test('keeps loading queues explicitly unavailable and SOS visible until startup completes', async () => {
+  test('keeps loading queues explicitly unavailable and SOS visible but disabled until startup completes', async () => {
     const runtime = new RuntimeDouble();
     runtime.start.mockImplementation(async () => { runtime.patch({ status: 'starting' }); });
     await render(<PalMeshApp runtime={runtime} />);
@@ -235,10 +240,35 @@ describe('PalMesh app shell', () => {
     expect(screen.getByText('Messaging queues are not ready yet.')).toBeOnTheScreen();
     expect(screen.getByRole('tab', { name: 'Messages' })).toBeDisabled();
     expect(screen.getByRole('tab', { name: 'Map' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeDisabled();
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
-    expect(screen.getByText('SOS could not be queued on this device. Please try again.')).toBeOnTheScreen();
+    expect(runtime.sendSos).not.toHaveBeenCalled();
     expect(screen.queryByText(/SOS queued on this device/)).toBeNull();
   });
+
+  for (const language of ['en', 'ar'] as const) {
+    for (const failure of ['secure-storage-unavailable', 'encryption-unavailable', 'data-recovery-required',
+      'identity-recovery-required', 'provisioning-incomplete', 'unknown'] as const) {
+      test(`provides ${language} data-preserving guidance for ${failure} and re-enables SOS only after recovery`, async () => {
+        const runtime = new RuntimeDouble(); runtime.failStartup = true; runtime.startupFailure = failure;
+        const translations = language === 'ar' ? ar : en;
+        await render(<I18nProvider initialLanguage={language}><PalMeshApp runtime={runtime} /></I18nProvider>);
+        expect(screen.getByText(translations['app.recovery.title'])).toBeOnTheScreen();
+        expect(screen.getByText(translations[`app.recovery.${failure}`])).toBeOnTheScreen();
+        expect(screen.getByText(translations['app.recovery.preserve'])).toBeOnTheScreen();
+        expect(screen.getByRole('button', { name: translations['common.sos'] })).toBeDisabled();
+        await fireEvent.press(screen.getByRole('button', { name: translations['common.sos'] }));
+        expect(runtime.sendSos).not.toHaveBeenCalled();
+        expect(screen.queryByText(/private-native-path|private-key|SQLITE_CORRUPT/)).toBeNull();
+        runtime.failStartup = false;
+        await fireEvent.press(screen.getByRole('button', { name: translations['app.retry'] }));
+        expect(screen.queryByText(translations['app.recovery.title'])).toBeNull();
+        expect(screen.getByRole('button', { name: translations['common.sos'] })).toBeEnabled();
+        await fireEvent.press(screen.getByRole('button', { name: translations['common.sos'] }));
+        expect(runtime.sendSos).toHaveBeenCalledTimes(1);
+      });
+    }
+  }
 
   test('requires a deliberate action before requesting nearby radio permissions', async () => {
     const runtime = new RuntimeDouble();

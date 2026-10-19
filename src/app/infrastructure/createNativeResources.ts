@@ -6,7 +6,7 @@ import { ChatService, SqliteChatRepository } from '../../features/chat';
 import { OpSqliteDatabase, SqliteDtnStore, type IdGenerator } from '../../features/dtn';
 import { LocationService, SqliteLocationRepository, type NativeOfflineMapOptions } from '../../features/maps';
 import { EmergencyService, SqliteEmergencyRepository, type EmergencyAlerts } from '../../features/emergency';
-import { NativeSecurityVault, SecurityService } from '../../features/security';
+import { NativeSecurityVault, SecurityService, SecurityRecoveryError } from '../../features/security';
 import { bundledMapOptions } from '../../features/maps/infrastructure/bundledMap';
 import {
   createReactNativeLocationSource,
@@ -19,6 +19,7 @@ import {
 import type { NativeRadioModule } from '../../features/mesh/infrastructure/radios/NativeStreamRadio';
 import type { RadioPermissions, RuntimeResources } from '../domain/types';
 import { EncryptedStorage } from './EncryptedStorage';
+import { BootstrapError } from '../domain/BootstrapError';
 import { lazyBleManager } from './LazyBleManager';
 
 export interface CreateNativeResourcesOptions {
@@ -61,7 +62,9 @@ export async function createNativeResources(options: CreateNativeResourcesOption
     })();
     return releasing;
   };
-  const vault = new NativeSecurityVault(NativeModules.PalMeshSecurity);
+  let vault: NativeSecurityVault;
+  try { vault = new NativeSecurityVault(NativeModules.PalMeshSecurity); }
+  catch { throw new BootstrapError('secure-storage-unavailable'); }
   const encryptedStorage = new EncryptedStorage(vault, isSQLCipher, open);
   const database = (name: string): OpSqliteDatabase => {
     const connection = encryptedStorage.connect(name);
@@ -71,9 +74,16 @@ export async function createNativeResources(options: CreateNativeResourcesOption
 
   try {
     const ids: IdGenerator = { next: () => uuidV4() };
-    await encryptedStorage.initialize();
     const security = new SecurityService(vault);
-    await security.initialize({ requireExistingIdentity: encryptedStorage.wasProvisioned });
+    await encryptedStorage.initialize({
+      beforeProvision: async existingKey => {
+        try { await security.initialize({ requireExistingIdentity: existingKey }); }
+        catch (error) {
+          throw new BootstrapError(error instanceof SecurityRecoveryError
+            ? 'identity-recovery-required' : 'secure-storage-unavailable');
+        }
+      },
+    });
     const deviceId = security.deviceId;
     const store = new SqliteDtnStore(database('palmesh-dtn.sqlite'));
     const registry = new SqlitePeerRegistry(database('palmesh-peers.sqlite'));

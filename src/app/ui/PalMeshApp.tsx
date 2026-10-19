@@ -66,7 +66,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   }, [runtime]);
   const ready = snapshot.status === 'ready' && snapshot.resources !== null && mapsService !== null;
   const requestSos = (): void => {
-    if (sosInFlight.current || snapshot.pendingSos) return;
+    if (!ready || sosInFlight.current || snapshot.pendingSos) return;
     sosInFlight.current = true;
     void runtime.sendSos(t('emergency.newHelp')).finally(() => { sosInFlight.current = false; });
   };
@@ -123,6 +123,9 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
               <Text style={styles.secondary}>{t('app.queuesNotReady')}</Text>
             </> : <>
               <Text accessibilityRole="alert" style={styles.body}>{t('app.servicesUnavailable')}</Text>
+              <Text accessibilityRole="header" style={styles.body}>{t('app.recovery.title')}</Text>
+              <Text style={styles.secondary}>{t(`app.recovery.${snapshot.startupFailure ?? 'unknown'}`)}</Text>
+              <Text style={styles.secondary}>{t('app.recovery.preserve')}</Text>
               <Button label={t('app.retry')} onPress={() => { void runtime.start(); }} />
             </>}
           </ScrollView>}
@@ -141,8 +144,8 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
       <View style={styles.sosContainer}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.sos')}
           accessibilityHint={t('app.cachedGpsHint')}
-          accessibilityState={{ disabled: snapshot.pendingSos, busy: snapshot.pendingSos }} disabled={snapshot.pendingSos}
-          onPress={requestSos} style={({ pressed }) => [styles.sos, snapshot.pendingSos && styles.disabled, pressed && styles.pressed]}>
+          accessibilityState={{ disabled: !ready || snapshot.pendingSos, busy: snapshot.pendingSos }} disabled={!ready || snapshot.pendingSos}
+          onPress={requestSos} style={({ pressed }) => [styles.sos, (!ready || snapshot.pendingSos) && styles.disabled, pressed && styles.pressed]}>
           <Text style={styles.sosText}>{t(snapshot.pendingSos ? 'common.queueingSos' : 'common.sos')}</Text>
         </Pressable>
         <Text style={styles.caption}>{t('app.cachedGps')}</Text>

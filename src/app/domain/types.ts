@@ -5,6 +5,7 @@ import type { MeshEvent, RadioKind, RadioStatus } from '../../features/mesh';
 import type { EmergencyService } from '../../features/emergency';
 import type { SecurityService } from '../../features/security';
 import type { BatteryState } from '../infrastructure/NativeMeshRuntime';
+import type { BootstrapErrorCode } from './BootstrapError';
 
 export interface RadioPermissionReport {
   readonly platform: 'android' | 'ios' | 'unsupported';
@@ -51,6 +52,8 @@ export interface RuntimeResources {
 export type AppRoute = 'chat' | 'maps' | 'emergencies' | 'contacts';
 export interface AppSnapshot {
   readonly status: 'idle' | 'starting' | 'ready' | 'error';
+  /** Sanitized recovery category only; never retain native error text or keys. */
+  readonly startupFailure: BootstrapErrorCode | 'unknown' | null;
   readonly route: AppRoute;
   readonly foreground: boolean;
   readonly resources: RuntimeResources | null;

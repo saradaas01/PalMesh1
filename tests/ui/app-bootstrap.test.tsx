@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import type { RadioPermissions, RuntimeResources } from '../../src/app/domain/types';
+import { BootstrapError } from '../../src/app/domain/BootstrapError';
 import { createNativeResources } from '../../src/app/infrastructure/createNativeResources';
 import { SecurityService } from '../../src/features/security';
 import type { OpSqliteScalar, SqliteValue } from '../../src/features/dtn';
@@ -192,13 +193,16 @@ test('release is idempotent, closes in reverse order, and retained identity is r
   expect(vault.randomBytes).toHaveBeenCalledTimes(entropyCalls);
 });
 
-test('a partial database-open failure closes earlier handles and preserves the original failure', async () => {
+test('a partial database-open failure closes earlier handles and preserves a sanitized recovery category', async () => {
   const failure = new Error('Peer database cannot open');
   sqlite.open.mockImplementation(({ name }) => {
     if (name === 'palmesh-peers.sqlite') throw failure;
     return openConnection(name);
   });
-  await expect(createNativeResources({ permissions })).rejects.toBe(failure);
+  const error: unknown = await createNativeResources({ permissions }).catch((cause: unknown) => cause);
+  expect(error).toBeInstanceOf(BootstrapError);
+  expect(error).toMatchObject({ code: 'secure-storage-unavailable' });
+  expect(String(error)).not.toContain(failure.message);
   expect(releaseOrder).toEqual(['palmesh-dtn.sqlite']);
   expect(connections.every(connection => connection.closed)).toBe(true);
   expect(ble.BleManager).not.toHaveBeenCalled();
@@ -217,28 +221,63 @@ test('a late construction failure releases every handle without creating a Bluet
 
 test('a corrupted identity prevents further resource creation and is never silently rotated', async () => {
   vaultRecords.set('identity-v1', '{"version":7}');
-  await expect(createNativeResources({ permissions })).rejects.toThrow(/secure storage|identity/i);
+  await expect(createNativeResources({ permissions })).rejects.toMatchObject({
+    name: 'BootstrapError', code: 'identity-recovery-required',
+  });
   expect(vaultRecords.get('identity-v1')).toBe('{"version":7}');
   expect(vault.write.mock.calls.some(([key]) => key === 'identity-v1')).toBe(false);
   expect(uuid.v4).not.toHaveBeenCalled();
+  expect(vault.randomBytes).not.toHaveBeenCalled();
   expect(connections).toEqual([]);
   expect(ble.BleManager).not.toHaveBeenCalled();
 });
 
 test('missing secure vault, SQLCipher backend, or corrupt database key prevents opening any database', async () => {
   NativeModules.PalMeshSecurity = undefined;
-  await expect(createNativeResources({ permissions })).rejects.toThrow(/Secure native key storage/);
+  await expect(createNativeResources({ permissions })).rejects.toMatchObject({
+    name: 'BootstrapError', code: 'secure-storage-unavailable',
+  });
   NativeModules.PalMeshSecurity = vault;
   sqlite.isSQLCipher.mockReturnValue(false);
-  await expect(createNativeResources({ permissions })).rejects.toThrow(/SQLCipher/);
+  await expect(createNativeResources({ permissions })).rejects.toMatchObject({
+    name: 'BootstrapError', code: 'encryption-unavailable',
+  });
   expect(vault.read).not.toHaveBeenCalled();
   sqlite.isSQLCipher.mockReturnValue(true);
   vaultRecords.set('database-key-v1', 'corrupt');
-  await expect(createNativeResources({ permissions })).rejects.toThrow(/Stored database key/);
+  await expect(createNativeResources({ permissions })).rejects.toMatchObject({
+    name: 'BootstrapError', code: 'data-recovery-required',
+  });
   expect(vaultRecords.get('database-key-v1')).toBe('corrupt');
   expect(vault.write).not.toHaveBeenCalled();
+  expect(vault.randomBytes).not.toHaveBeenCalled();
   expect(sqlite.open).not.toHaveBeenCalled();
   expect(ble.BleManager).not.toHaveBeenCalled();
+});
+
+test('factory retry reuses an identity whose native write committed before rejecting without stranding a database key', async () => {
+  vault.write.mockImplementation(async (key, value) => {
+    vaultRecords.set(key, value);
+    if (key === 'identity-v1') throw new Error('Private interrupted native callback');
+  });
+  await expect(createNativeResources({ permissions })).rejects.toMatchObject({
+    name: 'BootstrapError', code: 'secure-storage-unavailable',
+  });
+  const savedIdentity = vaultRecords.get('identity-v1');
+  expect(savedIdentity).toBeDefined();
+  expect(vaultRecords.has('database-key-v1')).toBe(false);
+  expect(vault.randomBytes).toHaveBeenCalledTimes(2);
+  expect(connections).toEqual([]);
+  expect(ble.BleManager).not.toHaveBeenCalled();
+  vault.write.mockImplementation(async (key, value) => { vaultRecords.set(key, value); });
+  resources = await createNativeResources({ permissions });
+  expect(resources.deviceId).toMatch(/^pm1:[0-9a-f]{64}$/);
+  expect(vaultRecords.get('identity-v1')).toBe(savedIdentity);
+  expect(vault.write.mock.calls.filter(([key]) => key === 'identity-v1')).toHaveLength(1);
+  expect(vault.randomBytes).toHaveBeenCalledTimes(3);
+  expect(vaultRecords.get('database-key-v1')).toMatch(/^[0-9a-f]{64}$/);
+  expect(connections).toHaveLength(5);
+  expectNoPermissionOrGpsPrompts();
 });
 
 test('Bluetooth is created only after granted permissions, then cleanup closes databases despite a manager failure', async () => {
