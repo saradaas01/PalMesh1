@@ -40,7 +40,7 @@ jobs:
           working-directory: ios
       - run: npm ci
       - run: python3 scripts/maps/package.py --fonts-only
-      - run: bundle exec pod install | tee "$RUNNER_TEMP/palmesh-pods.log"
+      - run: bundle exec pod install 2>&1 | tee "$RUNNER_TEMP/palmesh-pods.log"
         shell: bash
         working-directory: ios
       - name: Compile simulator host without distribution credentials
@@ -50,8 +50,36 @@ jobs:
           -configuration Release -destination 'generic/platform=iOS Simulator' \
           -derivedDataPath "$RUNNER_TEMP/PalMeshDerivedData" \
           -resultBundlePath "$RUNNER_TEMP/PalMeshBuild.xcresult" \
-          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 \
           | tee "$RUNNER_TEMP/palmesh-xcodebuild.log"
+      - name: Surface failed native build diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import re
+
+          # Run annotations remain readable even when downloading the retained
+          # full logs requires sign-in. Keep them bounded and escape workflow
+          # control characters before printing compiler-supplied text.
+          failure = re.compile(r'error:|fatal error|undefined symbols|could not|unable to|no such module|not found|build failed|\[!\]', re.IGNORECASE)
+          root = Path(os.environ['RUNNER_TEMP'])
+          names = ('palmesh-xcodebuild.log',) if (root / 'palmesh-xcodebuild.log').is_file() else ('palmesh-pods.log',)
+          for name in names:
+              path = root / name
+              if not path.is_file():
+                  continue
+              lines = [line.strip() for line in path.read_text(errors='replace').splitlines() if line.strip()]
+              selected = [line for line in lines if failure.search(line)]
+              if not selected:
+                  selected = ['The failed build produced no recognized error lines; inspect the retained diagnostics artifact.']
+              elif len(selected) > 30:
+                  selected = selected[:15] + selected[-15:]
+              for line in selected:
+                  message = (name + ': ' + line)[:1800]
+                  message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print('::error title=iOS native build diagnostics::' + message)
       - name: Retain native compile diagnostics
         if: always()
         uses: actions/upload-artifact@v4
