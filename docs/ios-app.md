@@ -2,6 +2,8 @@
 
 The native host is based on the official `@react-native-community/template@0.88.0` npm package, matching the pinned React Native version. The app uses its SceneDelegate factory entry point and `PalMesh` JavaScript registry name. Template license: [`ios/TEMPLATE-LICENSE`](../ios/TEMPLATE-LICENSE).
 
+The app executable is named `PalMeshApp`, while the app bundle and displayed name remain `PalMesh`. This prevents a case-insensitive filesystem collision between the default executable name and the bundled `palmesh` map-resource directory during macOS builds. `CFBundleExecutable` follows the project's `EXECUTABLE_NAME` setting.
+
 ## Build on macOS
 
 Use Xcode 16.1 or newer, its command line tools, Ruby/Bundler and the repository's supported Node version. iOS 15.1 is the minimum deployment target. The Linux environment can validate project metadata and autolinking, but cannot compile Apple frameworks, run CocoaPods/Xcode or exercise CoreBluetooth.
