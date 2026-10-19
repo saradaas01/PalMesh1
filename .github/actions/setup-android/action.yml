@@ -1,0 +1,68 @@
+name: Install pinned Android SDK
+description: Bootstrap the official Android CLI and install the SDK used by PalMesh.
+runs:
+  using: composite
+  steps:
+    - name: Install verified official Android command-line tools
+      shell: python
+      run: |
+        import hashlib
+        import os
+        from pathlib import Path
+        import shutil
+        import subprocess
+        import urllib.request
+        import zipfile
+
+        # Pins are published by Google's repository2-3.xml. The current CLI
+        # replaces the sdkmanager executable absent from recent hosted runners.
+        url = 'https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip'
+        expected_size = 181052239
+        expected_sha1 = 'e025545c62a8e64c7559119566a569fb1dec5f60'
+        temporary = Path(os.environ['RUNNER_TEMP'])
+        archive = temporary / 'palmesh-android-command-line-tools.zip'
+        with urllib.request.urlopen(url, timeout=60) as source, archive.open('wb') as output:
+            shutil.copyfileobj(source, output, 1024 * 1024)
+        with archive.open('rb') as source:
+            digest = hashlib.file_digest(source, 'sha1').hexdigest()
+        if archive.stat().st_size != expected_size or digest != expected_sha1:
+            raise RuntimeError('Official Android CLI archive size/SHA1 verification failed')
+
+        sdk = temporary / 'palmesh-android-sdk'
+        cli = sdk / 'cmdline-tools/latest'
+        cli.mkdir(parents=True)
+        with zipfile.ZipFile(archive) as contents:
+            for member in contents.infolist():
+                relative = Path(member.filename).relative_to('cmdline-tools')
+                if relative.is_absolute() or '..' in relative.parts:
+                    raise RuntimeError('Unexpected path in verified Android CLI archive')
+                if not relative.parts:
+                    continue
+                destination = cli / relative
+                if member.is_dir():
+                    destination.mkdir(parents=True, exist_ok=True)
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with contents.open(member) as source, destination.open('wb') as output:
+                    shutil.copyfileobj(source, output, 1024 * 1024)
+                mode = (member.external_attr >> 16) & 0o777
+                if mode:
+                    destination.chmod(mode)
+        archive.unlink()
+        user = temporary / 'palmesh-android-user'
+        user.mkdir()
+        environment = dict(os.environ, ANDROID_HOME=str(sdk), ANDROID_SDK_ROOT=str(sdk), ANDROID_USER_HOME=str(user))
+        command = str(cli / 'bin/android')
+        subprocess.run([command, '--no-metrics', '--version'], env=environment, check=True)
+        # The official installer verifies package archives and writes the SDK
+        # license records. Do not substitute a legacy yes | sdkmanager command.
+        subprocess.run([
+            command, '--no-metrics', '--sdk=' + str(sdk), 'sdk', 'install',
+            'platforms;android-37.0', 'build-tools;37.0.0', 'build-tools;36.0.0',
+            'platform-tools', 'ndk;27.1.12297006', 'cmake;3.30.5',
+        ], env=environment, check=True)
+        with open(os.environ['GITHUB_ENV'], 'a') as output:
+            for key in ('ANDROID_HOME', 'ANDROID_SDK_ROOT', 'ANDROID_USER_HOME'):
+                output.write(key + '=' + environment[key] + '\n')
+        with open(os.environ['GITHUB_PATH'], 'a') as output:
+            output.write(str(cli / 'bin') + '\n' + str(sdk / 'platform-tools') + '\n')

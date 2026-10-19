@@ -8,8 +8,8 @@ jobs:
   application:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
@@ -27,17 +27,17 @@ jobs:
   android:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - run: npm ci
-      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
+      - uses: ./.github/actions/setup-android
       - run: python3 scripts/maps/package.py --fonts-only
       - run: python3 scripts/android/gradle.py --bundle-debug :app:assembleDebug
       - run: python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --require-bundle --report dist/android/debug-verification.json

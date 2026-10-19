@@ -1,14 +1,35 @@
 name: Verify iOS host on macOS
 on:
   workflow_dispatch:
+  push:
+    branches: [main, work]
+    paths:
+      - 'ios/**'
+      - 'native/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/verify-ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'native/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/verify-ios.yml'
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   simulator-build:
     runs-on: macos-15
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
@@ -19,11 +40,24 @@ jobs:
           working-directory: ios
       - run: npm ci
       - run: python3 scripts/maps/package.py --fonts-only
-      - run: bundle exec pod install
+      - run: bundle exec pod install | tee "$RUNNER_TEMP/palmesh-pods.log"
         working-directory: ios
       - name: Compile simulator host without distribution credentials
-        run: >-
-          xcodebuild -workspace ios/PalMesh.xcworkspace -scheme PalMesh
-          -configuration Release -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath "$RUNNER_TEMP/PalMeshDerivedData"
-          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+        run: |
+          xcodebuild -workspace ios/PalMesh.xcworkspace -scheme PalMesh \
+          -configuration Release -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath "$RUNNER_TEMP/PalMeshDerivedData" \
+          -resultBundlePath "$RUNNER_TEMP/PalMeshBuild.xcresult" \
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
+          | tee "$RUNNER_TEMP/palmesh-xcodebuild.log"
+      - name: Retain native compile diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-compile-diagnostics
+          path: |
+            ${{ runner.temp }}/palmesh-pods.log
+            ${{ runner.temp }}/palmesh-xcodebuild.log
+            ${{ runner.temp }}/PalMeshBuild.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

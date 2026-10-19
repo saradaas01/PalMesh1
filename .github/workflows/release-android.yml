@@ -27,17 +27,17 @@ jobs:
       PALMESH_RELEASE_KEY_PASSWORD: ${{ secrets.PALMESH_RELEASE_KEY_PASSWORD }}
       PALMESH_RELEASE_CERT_SHA256: ${{ vars.PALMESH_RELEASE_CERT_SHA256 }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - run: npm ci
-      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
+      - uses: ./.github/actions/setup-android
       - name: Materialize operator signing identity
         env:
           KEYSTORE_BASE64: ${{ secrets.PALMESH_RELEASE_KEYSTORE_BASE64 }}
