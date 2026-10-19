@@ -63,6 +63,28 @@ APK is not installable as an ordinary application and is not a deployable releas
 The current missing map and signing credentials must not be replaced by dummy
 production resources to make a release gate pass.
 
+Inspect that production-mode compilation artifact without creating a signing
+identity:
+
+```sh
+python3 scripts/android/gradle.py :app:assembleRelease
+python3 scripts/android/verify-apk.py \
+  android/app/build/outputs/apk/release/app-release-unsigned.apk \
+  --unsigned-preview --architectures arm64-v8a \
+  --report dist/android/unsigned-preview.verification.json
+```
+
+Use the same `--source-build` option on the Gradle command if required. The
+preview checks native runtime entries, ABI, embedded JavaScript, application ID,
+nondebuggable manifest, ZIP integrity and 16 KiB ZIP page alignment. It rejects
+APK signing material, including damaged signing blocks, rather than mistaking
+a signature verification failure for an unsigned file. The JSON report records
+`signatureVerified: false`, `installable: false`, `releaseEligible: false` and
+whether Palestine tiles are present. Missing tiles are permitted only for this
+explicit compilation inspection; it is not a map-complete release check.
+`--unsigned-preview` cannot be combined with `--release`, and `release.py` never
+uses it. Do not install or distribute the unsigned inspection artifact.
+
 ## GitHub Actions
 
 `verify.yml` checks application code, map/release tooling and local fonts, builds

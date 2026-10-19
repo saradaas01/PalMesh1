@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import struct
 import tarfile
 import tempfile
 import unittest
@@ -103,6 +104,48 @@ class ApkVerificationTests(unittest.TestCase):
             for entry, value in contents.items(): archive.writestr(entry, value)
         with self.assertRaisesRegex(ValueError, 'provenance manifest'):
             self.verify(apk, '--release')
+
+    def test_unsigned_preview_requires_no_identity_and_reports_not_installable(self):
+        report = self.verify(self.apk(), '--unsigned-preview', '--architectures', 'arm64-v8a', pin=False)
+        self.assertEqual(report['verificationMode'], 'unsigned-preview')
+        self.assertFalse(report['signatureVerified'])
+        self.assertFalse(report['installable'])
+        self.assertFalse(report['releaseEligible'])
+        self.assertFalse(report['bundledPalestineMap'])
+        self.assertEqual(report['signingCertificateSha256'], [])
+
+    def test_unsigned_preview_rejects_debuggable_apk(self):
+        self.badging += '\napplication-debuggable\n'
+        with self.assertRaisesRegex(ValueError, 'must not be debuggable'):
+            self.verify(self.apk(), '--unsigned-preview', pin=False)
+
+    def test_unsigned_preview_requires_embedded_javascript(self):
+        with self.assertRaisesRegex(ValueError, 'JavaScript'):
+            self.verify(self.apk(bundle=False), '--unsigned-preview', pin=False)
+
+    def test_unsigned_preview_rejects_v1_signing_material(self):
+        apk = self.apk()
+        with zipfile.ZipFile(apk, 'a') as archive:
+            archive.writestr('META-INF/CERT.RSA', b'not-even-a-valid-signature')
+        with self.assertRaisesRegex(ValueError, 'must not contain APK signing material'):
+            self.verify(apk, '--unsigned-preview', pin=False)
+
+    def test_unsigned_preview_rejects_apk_signing_block_even_if_damaged(self):
+        apk = self.apk()
+        with zipfile.ZipFile(apk) as archive:
+            central_directory = archive.start_dir
+        content = apk.read_bytes()
+        block = struct.pack('<QQ', 24, 24) + b'APK Sig Block 42'
+        changed = bytearray(content[:central_directory] + block + content[central_directory:])
+        eocd = changed.rfind(b'PK\x05\x06')
+        struct.pack_into('<I', changed, eocd + 16, central_directory + len(block))
+        apk.write_bytes(changed)
+        with self.assertRaisesRegex(ValueError, 'must not contain APK signing material'):
+            self.verify(apk, '--unsigned-preview', pin=False)
+
+    def test_unsigned_preview_cannot_be_a_release(self):
+        with patch('sys.stderr', io.StringIO()), self.assertRaises(SystemExit):
+            self.verify(self.apk(), '--unsigned-preview', '--release', pin=False)
 
 
 class SourceArchiveTests(unittest.TestCase):
