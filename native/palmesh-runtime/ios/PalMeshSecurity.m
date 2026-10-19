@@ -12,7 +12,10 @@
 RCT_EXPORT_MODULE()
 + (BOOL)requiresMainQueueSetup { return NO; }
 - (BOOL)validKey:(NSString *)key {
-  return [key isKindOfClass:NSString.class] && [key rangeOfString:@"^[A-Za-z0-9._:-]{1,128}$" options:NSRegularExpressionSearch].location != NSNotFound;
+  if (![key isKindOfClass:NSString.class]) return NO;
+  NSRange match = [key rangeOfString:@"^[A-Za-z0-9._:-]{1,128}$" options:NSRegularExpressionSearch];
+  // ICU's `$` may match before a final newline; account names must match fully.
+  return match.location == 0 && match.length == key.length;
 }
 - (NSMutableDictionary *)query:(NSString *)key {
   NSString *service = [[NSBundle.mainBundle bundleIdentifier] stringByAppendingString:@".palmesh.vault.v1"];
@@ -44,7 +47,7 @@ RCT_REMAP_METHOD(write, writeKey:(NSString *)key value:(NSString *)value resolve
   if (![self validKey:key] || !data || data.length > 1024 * 1024) { reject(@"INVALID_SECURE_VALUE",@"Invalid secure record",nil); return; }
   OSStatus status; NSData *previous = [self readRecord:key status:&status];
   if (status != errSecSuccess && status != errSecItemNotFound) { reject(@"SECURE_VAULT_UNAVAILABLE",@"Keychain is unavailable; existing keys were not replaced",nil); return; }
-  if (status == errSecSuccess && (previous.length > 1024 * 1024 || ![[NSString alloc] initWithData:previous encoding:NSUTF8StringEncoding])) {
+  if (status == errSecSuccess && (![previous isKindOfClass:NSData.class] || previous.length > 1024 * 1024 || ![[NSString alloc] initWithData:previous encoding:NSUTF8StringEncoding])) {
     reject(@"SECURE_VAULT_UNAVAILABLE",@"Refusing to overwrite an unreadable secure record",nil); return;
   }
   NSMutableDictionary *query = [self query:key];

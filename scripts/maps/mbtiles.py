@@ -2,7 +2,7 @@
 """Strict, dependency-free checks shared by map build and release packaging.
 
 These checks validate an artifact, not whether the map reflects conditions on
- the ground. Missing or out-of-date OSM features must never imply a safe route.
+the ground. Missing or out-of-date OSM features must never imply a safe route.
 """
 from __future__ import annotations
 import datetime as dt
@@ -27,6 +27,25 @@ COVERAGE_POINTS = {
     "Jenin": (35.30, 32.46), "Jericho": (35.44, 31.86),
     "Tulkarm": (35.03, 32.31),
 }
+
+
+def data_timestamp(value: object) -> dt.datetime:
+    """Require an explicit UTC source timestamp, never substitute build time."""
+    if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)', value):
+        raise ValueError('Map data timestamp must be an actual past UTC timestamp')
+    timestamp = dt.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    if timestamp > dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=5):
+        raise ValueError('Map data timestamp must be an actual past UTC timestamp')
+    return timestamp
+
+
+def provenance_url(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError('A public HTTPS source URL is required')
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment or re.search(r'[\x00-\x20\x7f]', value):
+        raise ValueError('A public HTTPS source URL without credentials or query tokens is required')
+    return value
 
 
 def sha256(path: Path) -> str:
@@ -145,12 +164,16 @@ def validate(path: Path, expected_sha256: str, require_palestine: bool = True) -
             raise ValueError('Invalid map bounds')
         if require_palestine and not (bounds[0] <= 34.21 and bounds[1] <= 31.21 and bounds[2] >= 35.58 and bounds[3] >= 32.56):
             raise ValueError('Map bounds do not cover Gaza and the West Bank')
-        source_layers = json.loads(metadata['json'])['vector_layers']
-        names = [layer['id'] for layer in source_layers]
-        if not 0 < len(names) <= 128 or len(set(names)) != len(names) or any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name) for name in names):
+        descriptor = json.loads(metadata['json'])
+        source_layers = descriptor.get('vector_layers') if isinstance(descriptor, dict) else None
+        if not isinstance(source_layers, list) or not 0 < len(source_layers) <= 128:
             raise ValueError('Invalid vector-layer metadata')
-        if not metadata.get('attribution', '').strip():
-            raise ValueError('Map attribution is required')
+        names = [layer.get('id') if isinstance(layer, dict) else None for layer in source_layers]
+        if any(not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name) for name in names) or len(set(names)) != len(names):
+            raise ValueError('Invalid vector-layer metadata')
+        attribution = metadata.get('attribution', '')
+        if not attribution.strip() or len(attribution) > 1024 or re.search(r'[<>\x00-\x1f\x7f]', attribution):
+            raise ValueError('Plain-text map attribution of at most 1024 characters is required')
         counts, layer_features, arabic_attributes = {}, {}, False
         previous = None
         for zoom, column, row, stored in db.execute('SELECT zoom_level,tile_column,tile_row,tile_data FROM tiles ORDER BY zoom_level,tile_column,tile_row'):
@@ -184,22 +207,30 @@ def validate(path: Path, expected_sha256: str, require_palestine: bool = True) -
         query_plan = ' '.join(str(part) for row in db.execute('EXPLAIN QUERY PLAN SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1', (upper, 0, 0)) for part in row)
         if 'SEARCH' not in query_plan.upper():
             raise ValueError('Tile coordinate lookup lacks an index')
-        return {'sha256': digest, 'bytes': path.stat().st_size, 'bounds': list(bounds), 'minZoom': lower, 'maxZoom': upper,
+        report = {'sha256': digest, 'bytes': path.stat().st_size, 'bounds': list(bounds), 'minZoom': lower, 'maxZoom': upper,
                 'sourceLayers': names, 'tilesByZoom': counts, 'layerFeatureOccurrences': layer_features,
                 'hasArabicNames': arabic_attributes, 'attribution': metadata['attribution']}
+        if 'osm_data_timestamp' in metadata:
+            data_timestamp(metadata['osm_data_timestamp'])
+            report['dataTimestamp'] = metadata['osm_data_timestamp']
+        return report
 
 
 def checked_manifest(path: Path, mbtiles: Path) -> dict:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 262144:
+        raise ValueError('Map manifest must be a regular JSON file of at most 256 KiB')
     manifest = json.loads(path.read_text(encoding='utf-8'))
-    if manifest.get('schemaVersion') != 1 or manifest.get('file') != 'palestine.mbtiles':
+    if not isinstance(manifest, dict) or manifest.get('schemaVersion') != 1 or manifest.get('file') != 'palestine.mbtiles':
         raise ValueError('Unsupported map manifest')
-    timestamp = dt.datetime.fromisoformat(manifest['dataTimestamp'].replace('Z', '+00:00'))
-    if timestamp.tzinfo is None or timestamp > dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=5):
-        raise ValueError('Map data timestamp must be an actual past UTC timestamp')
-    if manifest.get('license') != 'ODbL-1.0' or not manifest.get('sourceUrl', '').startswith('https://'):
+    data_timestamp(manifest.get('dataTimestamp'))
+    provenance_url(manifest.get('sourceUrl'))
+    if manifest.get('license') != 'ODbL-1.0' or manifest.get('licenseUrl') != 'https://opendatacommons.org/licenses/odbl/1-0/':
         raise ValueError('OSM map provenance and ODbL license are required')
+    for key in ('sourceSha256', 'generatorSha256', 'configurationSha256', 'profileSha256'):
+        if not isinstance(manifest.get(key), str) or not re.fullmatch(r'[a-f0-9]{64}', manifest[key]):
+            raise ValueError('Map provenance digest is required: ' + key)
     report = validate(mbtiles, manifest['sha256'])
-    for key in ('bytes', 'bounds', 'minZoom', 'maxZoom', 'sourceLayers'):
-        if manifest.get(key) != report[key]:
+    for key in ('bytes', 'bounds', 'minZoom', 'maxZoom', 'sourceLayers', 'attribution', 'dataTimestamp'):
+        if manifest.get(key) != report.get(key):
             raise ValueError('Manifest disagrees with MBTiles: ' + key)
     return manifest

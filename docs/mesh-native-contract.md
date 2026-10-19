@@ -178,9 +178,10 @@ operations. Keep the native permission/foreground/background policy in the
 mobile host; these portable adapters cannot guarantee background availability or
 survival of OS process termination. Do not hardcode emergency/background bypasses.
 
-The mesh handshake provides protocol compatibility and loop/session binding. It
-is not authentication, encryption, identity attestation or protection against
-malicious nearby radios. Neither Wi-Fi peer discovery nor GATT service UUIDs
-prove a trusted PalMesh peer. High-risk deployment requires authenticated
-end-to-end encryption, a peer/key trust design, rate-limit review and on-device
-radio/lifecycle tests before carrying sensitive emergency traffic.
+The native byte stream itself does not establish a trusted human identity.
+The integrated host supplies signed handshake challenges, authenticated session
+tags and signed packets through `SecurityService`; direct chat is encrypted at
+the application layer. A GATT UUID or nearby advertisement alone remains
+untrusted. Broadcast emergency/location traffic and routing metadata are visible
+to mesh participants. See [security](security.md) for trust/cryptographic limits
+and [device acceptance](device-acceptance.md) for native validation.

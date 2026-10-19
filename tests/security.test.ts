@@ -219,3 +219,161 @@ test('native secure node authenticates real fragmented radio handshakes and deli
   await nodes[0]!.node.engine.flush();
   assert.deepEqual((await nodes[1]!.node.engine.history())[0]!.message.payload, { text: 'radio secret' });
 });
+
+
+test('retained public history authenticates after restart without dropping legitimately old records', async () => {
+  const alice = await identity(); const bob = await identity();
+  const sos = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'Need assistance' } }, randomUUID(), alice.security.deviceId, now));
+  await bob.security.verify(sos);
+  // Arrival-time retention can outlast the maximum age for new admissions.
+  const restarted = new SecurityService(bob.vault, { now: () => now + 86_400_001 });
+  await restarted.initialize();
+  await assert.rejects(restarted.verify(sos), /expired/);
+  assert.deepEqual(await restarted.project(sos), sos);
+  await assert.rejects(restarted.project(mutate(sos, { payload: { text: 'Forged emergency' } })), /signature/);
+  const { security: _security, ...unsigned } = sos;
+  await assert.rejects(restarted.project(unsigned), /Unsigned/);
+});
+
+test('restarted local history does not exhaust network signature admission capacity', async () => {
+  const alice = await identity(); const bob = await identity();
+  const packets = [];
+  for (let index = 0; index < 70; index += 1) {
+    packets.push(await alice.security.seal(createMessage({ kind: 'location', payload: { location: {
+      latitude: 31.5, longitude: 34.4, timestamp: now,
+    } } }, randomUUID(), alice.security.deviceId, now)));
+  }
+  for (const packet of packets) assert.deepEqual(await bob.security.project(packet), packet);
+  const fresh = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'New emergency' } }, randomUUID(), alice.security.deviceId, now));
+  await bob.security.verify(fresh);
+});
+
+test('signature flood work is bounded, cached duplicates remain cheap, and the admission budget refills', async () => {
+  const alice = await identity(); const bob = await identity();
+  let clock = now;
+  const receiver = new SecurityService(bob.vault, { now: () => clock });
+  await receiver.initialize();
+  const first = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'Authentic' } }, randomUUID(), alice.security.deviceId, now));
+  await receiver.verify(first);
+  for (let index = 0; index < 100; index += 1) await receiver.verify(first);
+  // Different, well-shaped invalid signatures must never enter the positive cache.
+  for (let index = 0; index < 63; index += 1) {
+    const forged = mutate(first, { security: { ...first.security!, signature: index.toString(16).padStart(128, '0') } });
+    await assert.rejects(receiver.verify(forged), /signature/);
+  }
+  const next = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'Next' } }, randomUUID(), alice.security.deviceId, now));
+  await assert.rejects(receiver.verify(next), /capacity/);
+  await receiver.verify(first); // Dedup retries retain their valid signature cache hit.
+  clock += 1000;
+  await receiver.verify(next);
+});
+
+test('recipient-key persistence fails closed and imported identity input never executes accessors', async () => {
+  const alice = await identity(); const bob = await identity();
+  alice.vault.failure = true;
+  await assert.rejects(alice.security.importPeer(bob.security.publicIdentity), /persist/);
+  await assert.rejects(alice.security.seal(chat(alice.security.deviceId, bob.security.deviceId)), /persistence/);
+  let read = false;
+  await assert.rejects(bob.security.importPeer({ get signingKey() { read = true; return alice.security.publicIdentity.signingKey; },
+    encryptionKey: alice.security.publicIdentity.encryptionKey }), /property/);
+  assert.equal(read, false);
+  await assert.rejects(bob.security.importPeer({ ...alice.security.publicIdentity, privateKey: 'not allowed' }), /fields/);
+  await assert.rejects(bob.security.importPeer(null), /record/);
+});
+
+test('sealing rejects malformed and non-originating hop budgets before requesting entropy', async () => {
+  const alice = await identity();
+  let calls = 0;
+  alice.vault.randomBytes = async length => { calls += 1; return randomBytes(length); };
+  const sos = createMessage({ kind: 'sos', payload: { text: 'Help' } }, randomUUID(), alice.security.deviceId, now);
+  await assert.rejects(alice.security.seal({ ...sos, ttl: Infinity }), /ttl/);
+  await assert.rejects(alice.security.seal({ ...sos, ttl: 14 }), /default hop/);
+  assert.equal(calls, 0);
+});
+
+test('a tampered radio ACK never establishes durable custody even when the peer stored the packet', async t => {
+  const alice = await identity(); const bob = await identity();
+  const network = new Map<string, TestRadio>();
+  let corruptedAcks = 0;
+  const nodes = [alice, bob].map(({ security }, index) => {
+    const db = createTestStore();
+    const radio = new TestRadio('wifi-direct', `ack-secure-${index}`, network);
+    if (index === 1) {
+      const original = radio.write.bind(radio);
+      // These short control frames fit one native chunk; the normal packet
+      // decoder still validates every frame before we simulate wire tampering.
+      radio.write = async (linkId, bytes, signal) => {
+        const frame = new FrameDecoder().push(bytes)[0];
+        if (frame?.type === 'ack') {
+          corruptedAcks += 1;
+          return original(linkId, encodeFrame({ ...frame, authenticationTag: '0'.repeat(64) }), signal);
+        }
+        return original(linkId, bytes, signal);
+      };
+    }
+    const peersDb = new TestSqliteDatabase();
+    const node = createMeshNode({ deviceId: security.deviceId, security, store: db.store,
+      registry: new SqlitePeerRegistry(peersDb), radios: [radio], ids: { next: randomUUID }, clock: { now: () => now },
+      meshConfig: { handshakeTimeoutMs: 1000, maintenanceIntervalMs: 100 } });
+    t.after(async () => { await node.stop(); db.close(); peersDb.close(); });
+    return { node, radio, store: db.store };
+  });
+  await Promise.all(nodes.map(({ node }) => node.start()));
+  nodes[0]!.radio.discover(nodes[1]!.radio.address);
+  const deadline = Date.now() + 2000;
+  while (nodes.some(({ node }) => node.mesh.connectedPeers().length === 0)) {
+    if (Date.now() > deadline) assert.fail('Secure radio handshake did not finish');
+    await new Promise<void>(resolve => { setTimeout(resolve, 5); });
+  }
+  const result = await nodes[0]!.node.engine.publish({ kind: 'chat', destination: bob.security.deviceId, payload: { text: 'ACK protection' } });
+  assert.equal(result.status, 'accepted');
+  if (result.status !== 'accepted') return;
+  await nodes[0]!.node.engine.flush();
+  assert.equal(corruptedAcks, 1);
+  assert.ok(await nodes[1]!.store.getMessage(result.record.message.id));
+  assert.equal((await nodes[0]!.store.listHistoryWithCustody(10))[0]!.peerStored, false);
+  assert.deepEqual(nodes[0]!.node.mesh.connectedPeers(), []);
+});
+
+
+test('loss of the identity record cannot silently readdress an installation with saved contacts', async () => {
+  const alice = await identity(); const bob = await identity();
+  await alice.security.importPeer(bob.security.publicIdentity);
+  const directory = alice.vault.records.get('peer-directory-v1');
+  assert.ok(directory);
+  alice.vault.records.delete('identity-v1');
+  await assert.rejects(identity(alice.vault), /missing.*recovery/);
+  assert.equal(alice.vault.records.has('identity-v1'), false);
+  assert.equal(alice.vault.records.get('peer-directory-v1'), directory);
+});
+
+
+test('an existing-installation bootstrap requires original identity before entropy or writes', async () => {
+  const vault = new Vault();
+  let entropyCalls = 0; let writes = 0;
+  vault.randomBytes = async length => { entropyCalls += 1; return randomBytes(length); };
+  vault.write = async () => { writes += 1; };
+  const missing = new SecurityService(vault);
+  await assert.rejects(missing.initialize({ requireExistingIdentity: true }), /missing.*recovery/);
+  assert.equal(entropyCalls, 0);
+  assert.equal(writes, 0);
+  assert.equal(vault.records.size, 0);
+  const existing = await identity();
+  const restarted = new SecurityService(existing.vault);
+  await restarted.initialize({ requireExistingIdentity: true });
+  assert.equal(restarted.deviceId, existing.security.deviceId);
+});
+
+
+test('even a vault rejection without an Error fails closed and explicit import can retry persistence', async () => {
+  const alice = await identity(); const bob = await identity();
+  const originalWrite = alice.vault.write.bind(alice.vault);
+  alice.vault.write = async () => { throw undefined; };
+  await assert.rejects(alice.security.importPeer(bob.security.publicIdentity), /persist/);
+  await assert.rejects(alice.security.seal(chat(alice.security.deviceId, bob.security.deviceId)), /persistence/);
+  alice.vault.write = originalWrite;
+  await alice.security.importPeer(bob.security.publicIdentity);
+  const wire = await alice.security.seal(chat(alice.security.deviceId, bob.security.deviceId, 'Recovered persistence'));
+  await bob.security.verify(wire);
+  assert.deepEqual((await bob.security.project(wire))?.payload, { text: 'Recovered persistence' });
+});

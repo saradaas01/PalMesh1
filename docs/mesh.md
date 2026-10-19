@@ -23,8 +23,10 @@ wrapped by `NativeBlePeripheralRadio`. No central service or Internet discovery
 endpoint participates in the protocol.
 
 The repository includes an [Android application host](android-app.md), shared
-runtime and permission UI. Discovery runs only in the foreground; no native
-foreground service or reliable background-delivery policy is implemented.
+runtime and permission UI. Discovery runs in the foreground unless the user
+explicitly opts into Android background connections through the connected-device
+foreground service. OS process termination still stops forwarding; see the
+[Android lifecycle policy](android-app.md).
 
 ## Android host wiring
 
@@ -34,73 +36,20 @@ UUID provider, and the local package `native/palmesh-wifi-direct`. Follow the
 [native library instructions](../native/palmesh-wifi-direct/README.md) and
 [radio contract](mesh-native-contract.md) for manifest/runtime permissions.
 
-```ts
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
-import { NativeEventEmitter, NativeModules } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
-import { open } from '@op-engineering/op-sqlite';
-import { OpSqliteDatabase, SqliteDtnStore } from '../src/features/dtn';
-import {
-  BlePlxRadio, NativeBlePeripheralRadio, NativeWifiDirectRadio,
-  SqlitePeerRegistry, createMeshNode,
-} from '../src/features/mesh';
+The native host's [`createNativeResources`](../src/app/infrastructure/createNativeResources.ts)
+initializes device-bound key storage, `SecurityService` and dedicated SQLCipher
+handles, then supplies them to `createMeshNode`. The same security instance owns
+handshake authentication and packet verification. It lazily constructs the BLE
+manager after the platform permission flow; constructing CoreBluetooth early can
+prompt unexpectedly on iOS. Reuse this composition root for the complete native
+wiring instead of opening plaintext stores or supplying a different random ID.
 
-declare const stableDeviceId: string; // Persist a random application identity.
-declare function bluetoothPermissionsGranted(): Promise<boolean>;
+For domain tests/custom hosts, `createMeshNode` accepts adapter/storage ports
+without importing React Native. Its optional security port exists to support
+isolated tests and does not make an unsecured custom host deployable. The shipped
+native host always supplies the security boundary. See [security](security.md).
 
-const wifiModule = NativeModules.PalMeshWifiDirect;
-const peripheralModule = NativeModules.PalMeshBlePeripheral;
-const wifi = new NativeWifiDirectRadio(
-  wifiModule, wifiModule ? new NativeEventEmitter(wifiModule) : undefined,
-);
-const peripheral = peripheralModule ? new NativeBlePeripheralRadio(
-  peripheralModule, new NativeEventEmitter(peripheralModule),
-) : undefined;
-const manager = new BleManager();
-const ble = new BlePlxRadio(manager, {
-  permissionsGranted: bluetoothPermissionsGranted,
-  ...(peripheral ? { peripheral } : {}),
-});
-
-// Separate dedicated handles/files keep store transactions exclusive.
-const messages = open({ name: 'palmesh-dtn.sqlite' });
-const peers = open({ name: 'palmesh-peers.sqlite' });
-const node = createMeshNode({
-  deviceId: stableDeviceId,
-  ids: { next: uuidv4 },
-  store: new SqliteDtnStore(new OpSqliteDatabase(messages, {
-    exclusiveConnection: true,
-  })),
-  registry: new SqlitePeerRegistry(new OpSqliteDatabase(peers, {
-    exclusiveConnection: true,
-  })),
-  radios: [wifi, ble],
-});
-
-node.mesh.subscribe(event => {
-  // Show permission/power/status failures without claiming disconnected peers
-  // are reachable. Do not log packet bodies, locations or radio addresses.
-});
-await node.start(); // SQLite first, then radio discovery/acceptance.
-
-const result = await node.engine.publish({
-  kind: 'sos', payload: { text: 'I need help' },
-});
-// accepted means locally queued; check full and surface queuing failures.
-// hop-acknowledged means a peer stored it, not that help is coming.
-
-// After the user grants permission or enables a radio:
-await node.mesh.refreshRadios();
-
-// On disposal; the host decides foreground/background policy:
-await node.stop();
-manager.destroy();
-messages.close();
-peers.close();
-```
-
-The permission function checks existing grants. Request permissions through the
+The radio permission check reads existing grants. Request permissions through the
 host UI before discovery; background discovery does not present prompts. With no
 available radios, the DTN engine still accepts local offline messages and reports
 radio status separately. Missing BLE hosting is explicitly exposed through
@@ -113,6 +62,8 @@ radio status separately. Missing BLE hosting is explicitly exposed through
 2. Each endpoint sends a v1 `hello` with its stable device ID and fresh UUID nonce.
    The peer echoes that nonce in `hello-ack` while supplying its own identity and
    nonce. Conflicting identities, self-connections and stale echoes close the link.
+   The integrated security boundary verifies Ed25519 challenge signatures and the
+   self-certifying address/public-key relationship before admission.
    Up to three hello attempts share the same nonce within the handshake deadline,
    allowing recovery when an initial complete notification was missed.
 3. Once both hello and nonce echo agree, the local peer becomes ready. A `ready`
@@ -124,7 +75,8 @@ radio status separately. Missing BLE hosting is explicitly exposed through
    `accepted` or `duplicate` result produces an `ack`. Capacity/validation/storage
    failures produce a `nack` and never success custody.
 5. The sender matches the receiving link, local session nonce, transfer UUID and
-   message UUID. Native socket/GATT write completion does not acknowledge custody.
+   message UUID. Authenticated session tags bind control/packet frames to the
+   two challenged peers. Native socket/GATT write completion does not acknowledge custody.
 
 Wi-Fi is preferred for a ready peer. Write failure, link loss or ACK timeout can
 retry the same packet over an already-ready BLE link. UUID deduplication protects
@@ -173,23 +125,22 @@ be recovered; resetting counters would allow unlimited unresolved writes.
 Android Wi-Fi Direct operates in groups; a device cannot maintain arbitrary
 simultaneous Wi-Fi Direct links. DTN carries packets between later contacts, and
 BLE provides a separate possible path. Wi-Fi Direct is unsupported on iOS; the
-BLE protocol/adapter can be reused there, but an iOS `CBPeripheralManager` hosting
-bridge and its permission/background handling remain to be implemented.
+included CoreBluetooth peripheral bridge and BLE-PLX central adapter provide the
+iOS path. See [iOS host limits](ios-app.md) for permission and suspension behavior.
 
-`npm run check` exercises TypeScript contracts, codecs, cancellation, native
-wrappers with test doubles, discovery/handshake/fallback scenarios and real
-SQLite custody/persistence. Android source validation is reported separately;
-simulated adapters cannot establish hardware interoperability. There are no
-physical-device radio results yet. Native signature compilation was blocked when
-the official React Native AAR download redirected to `repo.reactnative.dev` and
-returned HTTP 403. Native Java syntax/manifest checks are not a successful Android
-build. Build the host and test two or more phones
-with Internet/cellular disabled, permission/power changes, group role changes,
-lost connections, duplicate discovery, radio fallback, restart and background
-suspension before relying on this module.
+`npm run check` exercises codecs, cancellation, native wrappers with test doubles,
+discovery/handshake/fallback scenarios, cryptographic tamper rejection and real
+SQLite custody/persistence. An earlier Android development APK compiled using
+the supported React Native source fallback. New native changes need a fresh
+build; simulated adapters cannot establish radio interoperability.
 
-Handshakes provide protocol/session agreement, **not cryptographic identity or
-encryption**. This protocol still carries plaintext. Native Wi-Fi link security
-does not fix application identity spoofing, device capture or untrusted relays.
-Reviewed authentication, key management, encrypted payload/storage and a native
-background execution design remain required for high-risk deployment.
+Run [physical-device acceptance](device-acceptance.md) with at least three phones
+and internet/cellular disabled. Include group role changes, permission/power
+changes, lost connections, duplicates, BLE fallback, restart and screen-off
+operation. No physical-phone radio result or Apple compilation is claimed here.
+
+In the integrated host, cryptographic identities authenticate possession of keys;
+they do not identify a human, prevent Sybil identities or establish responder
+qualifications. Direct chat is encrypted, while broadcast SOS/location and routing
+metadata remain visible to mesh participants. The application protocol requires
+independent security review; link security alone cannot protect a captured device.

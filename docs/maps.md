@@ -1,6 +1,6 @@
 # Offline maps and last-known location
 
-The maps feature adds MapLibre rendering, a read-only Android vector MBTiles
+The maps feature adds MapLibre rendering, read-only Android and iOS vector MBTiles
 host, foreground GPS capture, opt-in DTN location broadcasts and an independent
 SQLite location registry. The SOS control queues directly through the DTN
 engine with a timestamped cached fix when available, without waiting for GPS,
@@ -9,8 +9,14 @@ map initialization or the location database.
 **No Palestine MBTiles file is included.** With no asset, the screen reports
 that the map is unavailable and continues to show stored coordinates and SOS.
 No remote basemap or download is substituted. The included
-[Android application shell](android-app.md) mounts the feature modules; its
-native compilation and physical-device behavior remain unverified.
+[Android application shell](android-app.md) mounts the feature modules and has
+built a development APK. Physical-device rendering and GPS behavior remain
+unverified; the [iOS host](ios-app.md) requires a macOS/Xcode build.
+
+The verified 256-page Noto glyph atlas and Arabic presentation forms are bundled
+for local street/place labels. The real map-data download is currently blocked
+by the cloud proxy. Follow [map generation and packaging](../mapdata/README.md)
+once official Geofabrik access or an authentic local extract is available.
 
 ## Files and dependencies
 
@@ -20,7 +26,10 @@ src/features/maps/
   application/LocationService.ts   State, persistence, broadcasts and SOS
   infrastructure/                 SQLite, cancellable GPS and native map adapters
   ui/                             MapsProvider, useMaps, PalMeshMapsApp
-native/palmesh-offline-maps/        Android read-only MBTiles tile bridge
+native/palmesh-offline-maps/        Android/iOS read-only MBTiles and glyph hosts
+scripts/maps/                      Real OSM generation, validation and packaging
+assets/map-fonts/                  Verified Noto glyph atlas and SIL OFL license
+assets/map-licenses/               ODbL text and OpenStreetMap attribution
 ```
 
 Pinned dependencies are MapLibre React Native 11.5.0 and community geolocation
@@ -30,13 +39,15 @@ React Native, MapLibre or the geolocation native module. Import screens from
 
 ## Map asset and native setup
 
-Install/link `native/palmesh-offline-maps` as a local dependency in the Android
-host, alongside MapLibre, geolocation, safe-area context and the chosen SQLite
-binding. Follow its [native integration guide](../native/palmesh-offline-maps/README.md).
-Supply a licensed, verified Palestine vector pack at:
+The delivered hosts link `native/palmesh-offline-maps`, MapLibre, geolocation
+and safe-area context. Follow the
+[native integration guide](../native/palmesh-offline-maps/README.md) when embedding
+the feature elsewhere. Generate and stage licensed, verified data using
+`scripts/maps/package.py`; it places the map at:
 
 ```text
 android/app/src/main/assets/palmesh/palestine.mbtiles
+ios/PalMesh/palmesh/palestine.mbtiles
 ```
 
 The bridge expects a standard `metadata` table and `tiles` table/view, PBF
@@ -45,13 +56,17 @@ vector tiles, TMS rows, `format=pbf`, `bounds=west,south,east,north`, integer
 source layers are supported. Attribution is displayed as inert text. Use the
 pack's required credit/license, including OpenStreetMap attribution if relevant.
 The source-layer geometry style adapts to metadata rather than assuming a
-particular tile schema. It supplies polygons, lines and points; street/place
-labels require separately bundled font resources and are not included.
+particular tile schema. It supplies polygons, lines, points and street/place
+labels when the native descriptor includes bundled glyphs. Label selection
+prefers `name:ar`, then `name`, `name:en` and `name:latin`. Older/custom packs
+without glyph resources can render geometry without labels.
 
 The native host copies the bundled database into internal no-backup storage,
 opens it read-only and serves tiles only on a token-protected `127.0.0.1` port.
 XYZ requests are translated to MBTiles TMS rows; gzip tiles retain their content
-encoding. An optional trusted SHA-256 digest validates the copied map. Large
+encoding. The map packager generates a pinned SHA-256 for the delivered host to
+validate the copied map. Custom native-source callers can supply a trusted
+`expectedSha256`; omitting it removes this content check. Large
 packs need space for both the APK asset and extracted file, plus a temporary
 copy during preparation. Never copy a live SQLite database with an uncheckpointed
 WAL as a standalone MBTiles asset.
@@ -59,9 +74,10 @@ WAL as a standalone MBTiles asset.
 Android sockets require `INTERNET` even without internet connectivity. Permit
 cleartext only for loopback using the native guide's network-security config;
 do not enable application-wide cleartext. The style has no remote TileJSON,
-glyphs, sprites or online fallback. Leave MapLibre network handling enabled for
-the local tile socket. iOS can use the same injected map-source contract but no
-iOS MBTiles host is implemented here.
+glyph service, sprites or online fallback. Tiles and glyphs share the same
+random session token and loopback host. Leave MapLibre network handling enabled
+for that socket. The iOS bridge implements the same descriptor, bounded reads
+and token-protected local glyph contract; its host preserves the asset folder.
 
 For GPS, the host manifest must grant fine/coarse foreground location. The radio
 library's fine-location declaration has a maximum SDK for Wi-Fi discovery, so
@@ -86,31 +102,15 @@ permission or persistent GPS watch is requested.
 ## Composition root
 
 ```tsx
-import { open } from '@op-engineering/op-sqlite';
-import { OpSqliteDatabase } from '../src/features/dtn';
-import { LocationService, SqliteLocationRepository } from '../src/features/maps';
-import { createReactNativeLocationSource, createReactNativeOfflineMapSource }
-  from '../src/features/maps/infrastructure/reactNative';
+import type { RuntimeResources } from '../src/app/domain/types';
 import { PalMeshMapsApp } from '../src/features/maps/ui';
 
-declare const node: ReturnType<typeof import('../src/features/mesh').createMeshNode>;
-const connection = open({ name: 'palmesh-locations.sqlite' });
-const locations = new LocationService({
-  engine: node.engine,
-  repository: new SqliteLocationRepository(new OpSqliteDatabase(connection, {
-    exclusiveConnection: true,
-  })),
-  source: createReactNativeLocationSource(),
-  mapSource: createReactNativeOfflineMapSource({
-    assetName: 'palmesh/palestine.mbtiles',
-    // expectedSha256: '<trusted 64-character hex digest>',
-  }),
-});
-
-// Start node in the native host bootstrap before mounting the screen.
-await node.start();
+// Created once by createNativeResources, with a secure vault, SQLCipher
+// location repository, authenticated DTN engine and bundled map options.
+// AppRuntime owns their lifecycle and starts the engine before the features.
+declare const resources: RuntimeResources;
 function MapsRoute({ isFocused }: { readonly isFocused: boolean }) {
-  return <PalMeshMapsApp service={locations} visible={isFocused} />;
+  return <PalMeshMapsApp service={resources.locations} visible={isFocused} />;
 }
 ```
 
@@ -118,7 +118,7 @@ Keep one service/provider and one native map-source owner per runtime. The
 provider starts/stops feature subscriptions and its local tile host, never the
 DTN engine, radios or host-owned database. At runtime disposal, unmount the
 screen, await `locations.stop()`, stop the node, then close the connection.
-Use a separate dedicated SQLite handle with the synchronous adapter.
+The native composition uses separate dedicated encrypted SQLite handles.
 
 ## Sharing, persistence and freshness
 
@@ -128,7 +128,8 @@ normal 10-hop TTL. Periodic sharing is explicit and attempts at most once per
 60 seconds by default. It runs only while both the app and maps route are
 visible. Hiding the route, backgrounding, stopping or disabling sharing cancels
 an active GPS action. A queued routing packet cannot be recalled by switching
-sharing off. The UI explains that coordinate broadcasts are currently plaintext.
+sharing off. Coordinate broadcasts are signed, but readable by mesh participants;
+direct-chat encryption does not make public locations confidential.
 
 `setPowerMode('conserve')` pauses automatic capture/sharing. Explicit GPS/share
 actions and SOS remain available; the host can also call the DTN engine's
@@ -150,8 +151,10 @@ reports are evicted. Local fixes persist independently of routing retention.
 Only broadcast `location` or SOS packets containing a fix create peer markers.
 Relayed private unicast messages do not. Future fixes beyond a five-minute
 skew allowance relative to local arrival/current time are rejected. Sender clocks
-and source IDs remain unauthenticated; a newer timestamp is not a guarantee of
-accuracy. Clock correction can affect which future fixes pass the bound.
+and reported coordinates are self-asserted. The native app authenticates the
+source key fingerprint, which does not prove a person's identity or the truth
+of a location. A newer timestamp is not a guarantee of accuracy. Clock correction
+can affect which future fixes pass the bound. See [the security model](security.md).
 
 The peer list shows both GPS-fix age and local report-receipt age. A DTN report
 received just now may describe an old location. Report age never establishes
@@ -174,9 +177,18 @@ foreground and conservation policy, map-source races and SOS during failure.
 UI tests replace the native renderer at its boundary; they do not render real
 vector tiles or establish hardware GPS performance.
 
-The Android native sources have syntax checks, not a successful Android build.
-Official React Native AAR retrieval was blocked with HTTP 403 in this environment.
-Physical-device map rendering, loopback policy, permissions and airplane-mode
-GPS/radio interruptions remain unverified. A real approved map asset, mobile
-host integration, iOS tile hosting, authentication and encryption are still
-required before deployment in the intended environment.
+`python3 -m unittest discover -s scripts/maps/tests -v` checks map build inputs,
+MBTiles validation, source dates/provenance, native-compatible metadata,
+bounded compression, glyph integrity/licensing and safe asset replacement.
+Synthetic data appears only in validation fixtures and is never packaged as a
+real map. `python3 scripts/maps/package.py --fonts-only --check` verifies the
+real licensed glyph resources without claiming map data exists.
+
+The Android app has built a development APK. Physical-device map rendering,
+loopback policy, permissions and airplane-mode GPS/radio interruptions remain
+unverified. A real approved Palestine dataset is still required. The generator
+checks structural coverage at nine cities and retains the OSM source date;
+it cannot verify present-day conditions. iOS compilation and device rendering
+require macOS/Xcode. Application cryptography and encrypted persistence are
+implemented, with the limitations described in the security model; no field
+validation or independent security audit is claimed.

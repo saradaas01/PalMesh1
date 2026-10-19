@@ -52,7 +52,11 @@ RCT_REMAP_METHOD(getStatus, statusWithResolver:(RCTPromiseResolveBlock)resolve r
 RCT_REMAP_METHOD(start, startOperation:(NSString *)operation resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   if (CBManager.authorization != CBManagerAuthorizationAllowedAlways) { reject(@"permission-denied",@"Enable Bluetooth permission before discovery",nil); return; }
   if (operation.length < 1 || operation.length > 256) { reject(@"invalid",@"Invalid operation",nil); return; }
-  if (_running) { resolve(nil); return; }
+  if (_running) {
+    if (_startResolve) reject(@"busy",@"BLE advertising is still starting",nil);
+    else resolve(nil);
+    return;
+  }
   _running = YES; _centrals = [NSMutableDictionary new]; _links = [NSMutableDictionary new];
   _revoked = [NSMutableSet new]; _writes = [NSMutableArray new];
   _startOperation = operation; _startResolve = resolve; _startReject = reject;
@@ -73,6 +77,7 @@ RCT_REMAP_METHOD(start, startOperation:(NSString *)operation resolver:(RCTPromis
     [self emit:@{@"type":@"status",@"status":[self status]}];
     [self failStart:@"Bluetooth peripheral is unavailable"]; return;
   }
+  if (_receiveCharacteristic) return; // A repeated power callback must not add the service twice.
   _receiveCharacteristic = [[CBMutableCharacteristic alloc] initWithType:[CBUUID UUIDWithString:PMWrite]
     properties:CBCharacteristicPropertyWrite value:nil permissions:CBAttributePermissionsWriteable];
   _notifyCharacteristic = [[CBMutableCharacteristic alloc] initWithType:[CBUUID UUIDWithString:PMNotify]

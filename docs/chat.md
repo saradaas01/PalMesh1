@@ -26,44 +26,11 @@ The UI uses React Native 0.88.0, React 19.3.1 and
 The host must link native safe-area/SQLite/radio packages, run in a native app
 and start the mesh node before mounting the chat UI.
 
-```tsx
-import React from 'react';
-import { AppRegistry } from 'react-native';
-import { open } from '@op-engineering/op-sqlite';
-import { OpSqliteDatabase } from '../src/features/dtn';
-import { ChatService, SqliteChatRepository } from '../src/features/chat';
-import { PalMeshChatApp } from '../src/features/chat/ui';
-
-// node is the real createMeshNode(...) instance from docs/mesh.md.
-declare const node: ReturnType<typeof import('../src/features/mesh').createMeshNode>;
-
-const archiveConnection = open({ name: 'palmesh-chat.sqlite' });
-const service = new ChatService({
-  engine: node.engine,
-  mesh: node.mesh,
-  repository: new SqliteChatRepository(new OpSqliteDatabase(archiveConnection, {
-    exclusiveConnection: true,
-  })),
-});
-
-// In the host's bootstrap, start the node before exposing the screen.
-await node.start();
-
-function App(): React.JSX.Element {
-  return <PalMeshChatApp service={service} />;
-}
-AppRegistry.registerComponent('PalMesh', () => App);
-
-// On final runtime disposal, after unmounting screens:
-// await service.stop();
-// await node.stop();
-// archiveConnection.close();
-```
-
-This is composition-root wiring, not code to put in a screen. The repository's
-[Android application](android-app.md) supplies this wiring already, keeping
-bootstrap/lifecycle ownership outside the screens. The example also supports
-other native hosts; an iOS host is not included.
+The native composition root is [`createNativeResources`](../src/app/infrastructure/createNativeResources.ts).
+It initializes the security vault and SQLCipher before opening the chat archive,
+then supplies one `ChatService` shared by the tabs. Reuse that boundary when
+creating another host; opening an unencrypted SQLite handle is not the production
+configuration. [Android](android-app.md) and [iOS](ios-app.md) hosts are included.
 
 `ChatProvider` starts/stops only chat subscriptions. It never closes the routing
 database or stops radios when a screen unmounts. Keep one shared `ChatService`
@@ -89,7 +56,11 @@ An offline recipient can be entered manually using its stable peer ID. A direct
 conversation does not require a currently connected recipient or a known route.
 Nearby broadcasts (`*`) are shared with mesh participants and collect SOS history.
 Unicast packets carried for other devices and standalone GPS packets never appear
-as local chat conversations. Direct messages are not encrypted in this build.
+as local chat conversations. In the integrated app direct messages are signed
+and end-to-end encrypted; recipient public keys must already be known from an
+authenticated contact or imported identity. An arbitrary peer ID alone is not
+sufficient to encrypt a first message. Discovery authenticates a cryptographic
+address, not the person holding that phone. See [security](security.md).
 
 The inbox shows unread counts and last-message previews. Opening a conversation
 marks incoming messages read through their local archive sequence; timestamps
@@ -155,7 +126,10 @@ While its routing write is pending, repeat presses are suppressed. Success says
 The standalone chat control does not attach GPS. In the integrated Android app,
 one shared SOS control on both routes uses the maps service's timestamped stored
 fix when available; see [maps integration](maps.md).
-Responder acknowledgments are not implemented.
+The [emergency inbox](../src/features/emergency/README.md) supplies urgent incoming
+SOS review and authenticated **responding** statements tied to the original SOS.
+Those are separate from chat custody labels. A statement is a person's intent,
+not proof of receipt by an emergency organization or guaranteed assistance.
 
 ## Verification and remaining work
 
@@ -168,7 +142,8 @@ UI tests render the actual RN components with an application-boundary service
 double and native safe-area mocks.
 
 This does not establish physical Android/iOS layout, keyboard, accessibility,
-radio or background behavior. Native Android compilation remains unverified
-because official React Native AAR retrieval returned HTTP 403; no phone build
-or hardware result is claimed. Application authentication, encryption, an iOS
-peripheral host and physical map/GPS validation remain outstanding.
+radio or background behavior. An earlier Android development APK compiled and
+passed packaging checks; later native integrations need a fresh build. Follow
+[device acceptance](device-acceptance.md), including Arabic/RTL, screen readers,
+unknown recipient keys, encrypted storage, native map/GPS and interrupted radios.
+No physical-phone or iOS compilation result is claimed by these JavaScript tests.

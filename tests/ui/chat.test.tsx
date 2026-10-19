@@ -90,7 +90,7 @@ describe('PalMesh chat UI', () => {
     expect(service.start).toHaveBeenCalledTimes(1);
     expect(screen.getByText('1 unread')).toBeOnTheScreen();
     expect(screen.getByText('Your peer ID: local-device')).toBeOnTheScreen();
-    expect(screen.getByText('Messages are not encrypted yet.')).toBeOnTheScreen();
+    expect(screen.getByText('Direct chats are encrypted. SOS and locations are public.')).toBeOnTheScreen();
     await view.unmount();
     expect(service.stop).toHaveBeenCalledTimes(1);
   });

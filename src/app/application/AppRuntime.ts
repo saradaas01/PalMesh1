@@ -7,7 +7,7 @@ export interface AppRuntimeOptions {
   readonly createResources: () => Promise<RuntimeResources>;
   readonly permissions: RadioPermissions;
   readonly initiallyForeground?: boolean;
-  readonly platformRuntime?: Pick<NativeMeshRuntime, 'supportsBackground' | 'start' | 'stop' | 'requestNotifications' | 'getBatteryState' | 'subscribe'>;
+  readonly platformRuntime?: Pick<NativeMeshRuntime, 'supportsBackground' | 'start' | 'stop' | 'requestNotifications' | 'checkNotifications' | 'getBatteryState' | 'subscribe'>;
 }
 
 /** Owns one mesh node and its persistent feature services. Navigation changes
@@ -25,6 +25,7 @@ export class AppRuntime {
   private unsubscribe: (() => void) | null = null;
   private radioIntent = 0;
   private permissionRevision = 0;
+  private alertsRevision = 0;
   private unsubscribePlatform: (() => void) | null = null;
   private backgroundIntent = 0;
   private backgroundWork: Promise<void> = Promise.resolve();
@@ -38,6 +39,7 @@ export class AppRuntime {
       requestingPermissions: false, pendingSos: false, powerMode: 'normal', issue: null, notice: null,
       backgroundEnabled: false, backgroundBusy: false, backgroundSupported: options.platformRuntime?.supportsBackground ?? false,
       battery: null, automaticPowerMode: true,
+      alertsEnabled: null, alertsBusy: false,
     });
   }
 
@@ -87,6 +89,7 @@ export class AppRuntime {
         if (this.live(generation)) {
           this.active = false;
           this.detach();
+          this.unsubscribePlatform?.(); this.unsubscribePlatform = null;
           this.patch({ status: 'error', resources: null, issue: 'startup-failed' });
         }
       } finally {
@@ -112,9 +115,10 @@ export class AppRuntime {
     // an outstanding native start before beginning cancellation.
     if (resources) this.pauseRadios(resources);
     this.patch({ status: 'idle', foreground: false, resources: null, requestingPermissions: false, pendingSos: false, connectedPeers: 0,
-      backgroundEnabled: false, backgroundBusy: false });
+      backgroundEnabled: false, backgroundBusy: false, alertsBusy: false });
     return this.transition(async () => {
-      await this.backgroundWork;
+      // An OS permission dialog cannot be cancelled. Its stale completion is
+      // generation guarded; it must not delay closing routing/storage handles.
       await stoppingBackground;
       if (resources) {
         try { await this.cleanup(resources); }
@@ -141,6 +145,7 @@ export class AppRuntime {
     else if (this.state.status === 'ready') {
       const generation = this.generation;
       void this.checkPermissions(generation);
+      void this.checkAlertPermission(generation);
       void this.resumeRadios(generation, resources);
       // Reconcile reports/custody collected while native background execution
       // suspended JavaScript, while preserving route-specific unread semantics.
@@ -167,7 +172,7 @@ export class AppRuntime {
     }
   };
 
-  sendSos = async (): Promise<LocationActionResult> => {
+  sendSos = async (text?: string): Promise<LocationActionResult> => {
     const resources = this.resources;
     if (!this.active || this.state.status !== 'ready' || !resources) {
       this.patch({ issue: 'sos-unavailable', notice: null });
@@ -179,7 +184,7 @@ export class AppRuntime {
     try {
       // One use case from every route: locations attaches the timestamped
       // cached fix, then publishes immediately through the durable DTN queue.
-      const result = await resources.locations.sendSos();
+      const result = await resources.locations.sendSos(text);
       if (this.live(generation)) {
         if (result.status === 'queued') this.patch({ notice: 'sos-queued' });
         else this.patch({ issue: result.status === 'rejected' && result.reason === 'capacity' ? 'queue-full' : 'sos-unavailable' });
@@ -203,6 +208,20 @@ export class AppRuntime {
     if (typeof automatic !== 'boolean') throw new TypeError('Invalid automatic battery mode');
     this.patch({ automaticPowerMode: automatic });
     this.applyPowerMode(automatic ? this.batteryPowerMode(this.state.battery) : this.manualPowerMode);
+  };
+
+  requestAlerts = async (): Promise<void> => {
+    const platform = this.options.platformRuntime;
+    if (!this.active || !this.state.foreground || this.state.alertsBusy || !platform) return;
+    const generation = this.generation;
+    const revision = ++this.alertsRevision;
+    this.patch({ alertsBusy: true, issue: null });
+    try {
+      const enabled = await platform.requestNotifications();
+      if (this.live(generation) && revision === this.alertsRevision) this.patch({ alertsEnabled: enabled,
+        ...(enabled ? {} : { issue: 'alerts-unavailable' as const }) });
+    } catch { if (this.live(generation)) this.patch({ issue: 'alerts-unavailable' }); }
+    finally { if (this.live(generation)) this.patch({ alertsBusy: false }); }
   };
 
   setBackgroundEnabled = (enabled: boolean): Promise<void> => {
@@ -232,7 +251,9 @@ export class AppRuntime {
       }
       this.patch({ backgroundBusy: true, issue: null });
       try {
+        const revision = ++this.alertsRevision;
         if (!await platform.requestNotifications()) throw new Error('Notifications disabled');
+        if (this.live(generation) && revision === this.alertsRevision) this.patch({ alertsEnabled: true });
         if (!this.live(generation) || intent !== this.backgroundIntent || !this.state.foreground) return;
         await platform.start();
         if (!this.live(generation) || intent !== this.backgroundIntent) { await platform.stop(); return; }
@@ -329,6 +350,16 @@ export class AppRuntime {
     void platform.getBatteryState().then(battery => {
       if (this.live(generation)) this.onPlatformEvent({ type: 'battery', battery });
     }).catch(() => { /* Unknown battery readings never disable SOS. */ });
+    void this.checkAlertPermission(generation);
+  }
+  private async checkAlertPermission(generation: number): Promise<void> {
+    const platform = this.options.platformRuntime;
+    if (!platform || this.state.alertsBusy) return;
+    const revision = this.alertsRevision;
+    try {
+      const alertsEnabled = await platform.checkNotifications();
+      if (this.live(generation) && revision === this.alertsRevision) this.patch({ alertsEnabled });
+    } catch { /* A failed read-only check is not a permission request. */ }
   }
   private onPlatformEvent(event: NativeRuntimeEvent): void {
     if (event.type === 'battery') {

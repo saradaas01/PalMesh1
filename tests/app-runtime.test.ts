@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test, type TestContext } from 'node:test';
-import { AppRuntime } from '../src/app/application/AppRuntime';
+import { AppRuntime, type AppRuntimeOptions } from '../src/app/application/AppRuntime';
 import type { RadioPermissionReport, RadioPermissions, RuntimeResources } from '../src/app/domain/types';
+import type { BatteryState, NativeRuntimeEvent } from '../src/app/infrastructure/NativeMeshRuntime';
 import type { ChatSnapshot } from '../src/features/chat';
 import type { PowerMode } from '../src/features/dtn';
 import type { LocationActionResult, MapsSnapshot } from '../src/features/maps';
@@ -102,12 +103,43 @@ function controlledPermissions() {
   };
 }
 
-function fixture(t: TestContext, initiallyForeground = true) {
+function fixture(t: TestContext, initiallyForeground = true, platformRuntime?: AppRuntimeOptions['platformRuntime']) {
   const controlled = controlledResources();
   const permissions = controlledPermissions();
-  const runtime = new AppRuntime({ createResources: async () => controlled.resources, permissions: permissions.permissions, initiallyForeground });
+  const runtime = new AppRuntime({ createResources: async () => controlled.resources, permissions: permissions.permissions, initiallyForeground,
+    ...(platformRuntime ? { platformRuntime } : {}) });
   t.after(() => runtime.stop());
   return { runtime, ...controlled, permissions };
+}
+
+function controlledPlatform(supportsBackground = true) {
+  const calls = { starts: 0, stops: 0, requests: 0, checks: 0, batteryReads: 0, unsubscribes: 0 };
+  const listeners = new Set<(event: NativeRuntimeEvent) => void>();
+  const subscriptions: ((event: NativeRuntimeEvent) => void)[] = [];
+  let notificationRequest: () => Promise<boolean> = async () => true;
+  let notificationCheck: () => Promise<boolean> = async () => false;
+  let readBattery: () => Promise<BatteryState> = async () => ({ level: 0.7, charging: false, lowPower: false });
+  let start: () => Promise<void> = async () => {};
+  const platformRuntime: NonNullable<AppRuntimeOptions['platformRuntime']> = {
+    supportsBackground,
+    async start() { calls.starts++; await start(); },
+    async stop() { calls.stops++; },
+    async requestNotifications() { calls.requests++; return notificationRequest(); },
+    async checkNotifications() { calls.checks++; return notificationCheck(); },
+    async getBatteryState() { calls.batteryReads++; return readBattery(); },
+    subscribe(listener) {
+      listeners.add(listener); subscriptions.push(listener);
+      return () => { calls.unsubscribes++; listeners.delete(listener); };
+    },
+  };
+  return {
+    platformRuntime, calls, listeners, subscriptions,
+    setNotificationRequest(callback: typeof notificationRequest) { notificationRequest = callback; },
+    setNotificationCheck(callback: typeof notificationCheck) { notificationCheck = callback; },
+    setBatteryRead(callback: typeof readBattery) { readBattery = callback; },
+    setStart(callback: typeof start) { start = callback; },
+    emit(event: NativeRuntimeEvent) { for (const listener of [...listeners]) listener(event); },
+  };
 }
 
 async function settle(): Promise<void> {
@@ -405,4 +437,252 @@ test('a late permission result after stop cannot refresh radios or mutate a repl
   release.resolve(granted); await requesting; await settle();
   assert.equal(runtime.getSnapshot(), snapshot);
   assert.equal(second.log.filter(entry => entry === 'mesh.refresh').length, refreshes);
+});
+
+test('platform startup reads battery and alert permission without prompting or enabling background execution', async t => {
+  const platform = controlledPlatform();
+  const { runtime, permissions } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  assert.equal(platform.calls.checks, 1);
+  assert.equal(platform.calls.batteryReads, 1);
+  assert.equal(platform.calls.requests, 0);
+  assert.equal(platform.calls.starts, 0);
+  assert.equal(permissions.requests(), 0);
+  assert.equal(runtime.getSnapshot().backgroundSupported, true);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().alertsEnabled, false);
+  assert.deepEqual(runtime.getSnapshot().battery, { level: 0.7, charging: false, lowPower: false });
+  runtime.setForeground(false); runtime.setForeground(true); await settle();
+  assert.equal(platform.calls.requests, 0, 'resuming must never open a notification permission prompt');
+});
+
+test('automatic low battery and OS power saving reach routing and GPS while SOS remains available', async t => {
+  const platform = controlledPlatform();
+  platform.setBatteryRead(async () => ({ level: 0.2, charging: false, lowPower: false }));
+  const { runtime, power, state } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  assert.equal(runtime.getSnapshot().automaticPowerMode, true);
+  assert.deepEqual(power, { engine: 'conserve', locations: 'conserve' });
+  assert.equal((await runtime.sendSos()).status, 'queued');
+  assert.equal(state.sosCalls, 1);
+  platform.emit({ type: 'battery', battery: { level: 0.1, charging: true, lowPower: false } });
+  assert.deepEqual(power, { engine: 'normal', locations: 'normal' });
+  platform.emit({ type: 'battery', battery: { level: 0.9, charging: true, lowPower: true } });
+  assert.deepEqual(power, { engine: 'conserve', locations: 'conserve' });
+  runtime.setPowerMode('normal');
+  assert.equal(runtime.getSnapshot().automaticPowerMode, false);
+  platform.emit({ type: 'battery', battery: { level: 0.05, charging: false, lowPower: true } });
+  assert.deepEqual(power, { engine: 'normal', locations: 'normal' }, 'manual override must survive later battery events');
+  runtime.setAutomaticPowerMode(true);
+  assert.deepEqual(power, { engine: 'conserve', locations: 'conserve' });
+  runtime.setAutomaticPowerMode(false);
+  assert.deepEqual(power, { engine: 'normal', locations: 'normal' }, 'leaving automatic mode restores the manual choice');
+});
+
+test('denied notification permission never starts a background service or blocks local SOS', async t => {
+  const platform = controlledPlatform();
+  platform.setNotificationRequest(async () => false);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.setBackgroundEnabled(true);
+  assert.equal(platform.calls.requests, 1);
+  assert.equal(platform.calls.starts, 0);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().backgroundBusy, false);
+  assert.equal(runtime.getSnapshot().issue, 'background-unavailable');
+  assert.equal((await runtime.sendSos()).status, 'queued');
+});
+
+test('explicit background opt-in keeps radios active with hidden UI until the user disables it', async t => {
+  const platform = controlledPlatform();
+  const { runtime, state, log } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.setBackgroundEnabled(true);
+  assert.equal(platform.calls.requests, 1);
+  assert.equal(platform.calls.starts, 1);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, true);
+  assert.equal(runtime.getSnapshot().alertsEnabled, true);
+  const previousStops = log.filter(entry => entry === 'mesh.stop').length;
+  runtime.setForeground(false); await settle();
+  assert.equal(state.discovery, true);
+  assert.equal(state.chatVisible, false); assert.equal(state.locationsVisible, false);
+  assert.equal(log.filter(entry => entry === 'mesh.stop').length, previousStops);
+  await runtime.setBackgroundEnabled(false);
+  await until(() => !state.discovery, 'discovery paused after background opt-out');
+  assert.equal(platform.calls.stops, 1);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().backgroundBusy, false);
+});
+
+test('stopping from the native notification pauses hidden mesh without restarting the service', async t => {
+  const platform = controlledPlatform();
+  const { runtime, state, log } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.setBackgroundEnabled(true);
+  runtime.setForeground(false); await settle();
+  assert.equal(state.discovery, true);
+  platform.emit({ type: 'background', running: false, reason: 'user-stopped' });
+  await until(() => !state.discovery, 'native notification stop pauses hidden radios');
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(platform.calls.starts, 1);
+  assert.equal(log.includes('chat.stop'), false);
+  assert.equal(log.includes('locations.stop'), false);
+});
+
+test('cancelling background opt-in while its OS permission dialog is pending prevents a stale service start', { timeout: 5_000 }, async t => {
+  const permission = deferred<boolean>();
+  t.after(() => permission.resolve(true));
+  const platform = controlledPlatform();
+  platform.setNotificationRequest(() => permission.promise);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const enabling = runtime.setBackgroundEnabled(true);
+  await until(() => platform.calls.requests === 1);
+  assert.equal(runtime.getSnapshot().backgroundBusy, true);
+  const cancelling = runtime.setBackgroundEnabled(false);
+  permission.resolve(true);
+  await Promise.all([enabling, cancelling]);
+  assert.equal(platform.calls.starts, 0);
+  assert.equal(platform.calls.stops, 1);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().backgroundBusy, false);
+});
+
+test('runtime shutdown closes resources before an unanswered notification dialog resolves', { timeout: 5_000 }, async t => {
+  const permission = deferred<boolean>();
+  t.after(() => permission.resolve(true));
+  const platform = controlledPlatform();
+  platform.setNotificationRequest(() => permission.promise);
+  const { runtime, log } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const enabling = runtime.setBackgroundEnabled(true);
+  await until(() => platform.calls.requests === 1);
+  const stopping = runtime.stop();
+  await until(() => log.includes('release'), 'storage cleanup cannot wait for an unanswerable OS permission dialog');
+  await stopping;
+  assert.equal(platform.calls.starts, 0);
+  assert.equal(platform.calls.stops, 1);
+  const stopped = runtime.getSnapshot();
+  permission.resolve(true); await enabling; await settle();
+  assert.equal(platform.calls.starts, 0);
+  assert.equal(runtime.getSnapshot(), stopped, 'a permission result from a stopped runtime must be ignored');
+});
+
+test('stopping during native service startup unwinds a late start without resurrecting resources', { timeout: 5_000 }, async t => {
+  const start = deferred();
+  t.after(() => start.resolve());
+  const platform = controlledPlatform();
+  platform.setStart(() => start.promise);
+  const { runtime, log } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const enabling = runtime.setBackgroundEnabled(true);
+  await until(() => platform.calls.starts === 1);
+  await runtime.stop();
+  assert.equal(log.includes('release'), true);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  start.resolve(); await enabling; await settle();
+  assert.ok(platform.calls.stops >= 2, 'a late native start must be followed by a compensating stop');
+  assert.equal(runtime.getSnapshot().status, 'idle');
+  assert.equal(runtime.getSnapshot().resources, null);
+});
+
+test('unsupported iOS background execution still permits explicit, single-flight alert authorization', { timeout: 5_000 }, async t => {
+  const permission = deferred<boolean>();
+  t.after(() => permission.resolve(true));
+  const platform = controlledPlatform(false);
+  platform.setNotificationRequest(() => permission.promise);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  assert.equal(runtime.getSnapshot().backgroundSupported, false);
+  await runtime.setBackgroundEnabled(true);
+  assert.equal(platform.calls.requests, 0);
+  assert.equal(platform.calls.starts, 0);
+  const first = runtime.requestAlerts(); const repeated = runtime.requestAlerts();
+  assert.equal(platform.calls.requests, 1);
+  assert.equal(runtime.getSnapshot().alertsBusy, true);
+  permission.resolve(true); await Promise.all([first, repeated]);
+  assert.equal(runtime.getSnapshot().alertsEnabled, true);
+  assert.equal(runtime.getSnapshot().alertsBusy, false);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  runtime.setForeground(false); await runtime.requestAlerts();
+  assert.equal(platform.calls.requests, 1, 'a hidden iOS app must not open a permission prompt');
+});
+
+test('explicit alert denial is reported without disabling messaging or SOS', async t => {
+  const platform = controlledPlatform(false);
+  platform.setNotificationRequest(async () => false);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.requestAlerts();
+  assert.equal(runtime.getSnapshot().alertsEnabled, false);
+  assert.equal(runtime.getSnapshot().alertsBusy, false);
+  assert.equal(runtime.getSnapshot().issue, 'alerts-unavailable');
+  assert.equal(runtime.getSnapshot().status, 'ready');
+  assert.equal((await runtime.sendSos()).status, 'queued');
+});
+
+test('shutdown stops native execution, detaches events, and ignores delayed battery and alert checks', { timeout: 5_000 }, async t => {
+  const battery = deferred<BatteryState>(); const checked = deferred<boolean>();
+  t.after(() => { battery.resolve({ level: 0.01, charging: false, lowPower: true }); checked.resolve(true); });
+  const platform = controlledPlatform();
+  platform.setBatteryRead(() => battery.promise);
+  platform.setNotificationCheck(() => checked.promise);
+  const { runtime, power } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const stale = platform.subscriptions[0]!;
+  await runtime.stop();
+  assert.equal(platform.calls.stops, 1);
+  assert.equal(platform.listeners.size, 0);
+  assert.equal(platform.calls.unsubscribes, 1);
+  const stopped = runtime.getSnapshot();
+  stale({ type: 'battery', battery: { level: 0.01, charging: false, lowPower: true } });
+  stale({ type: 'background', running: false, reason: 'user-stopped' });
+  battery.resolve({ level: 0.01, charging: false, lowPower: true }); checked.resolve(true);
+  await settle();
+  assert.equal(runtime.getSnapshot(), stopped);
+  assert.deepEqual(power, { engine: 'normal', locations: 'normal' });
+});
+
+test('a delayed startup alert check cannot overwrite a newer explicit authorization result', { timeout: 5_000 }, async t => {
+  const checked = deferred<boolean>();
+  t.after(() => checked.resolve(false));
+  const platform = controlledPlatform();
+  platform.setNotificationCheck(() => checked.promise);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.requestAlerts();
+  assert.equal(runtime.getSnapshot().alertsEnabled, true);
+  checked.resolve(false); await settle();
+  assert.equal(runtime.getSnapshot().alertsEnabled, true, 'an earlier passive check cannot undo the permission granted by the user');
+});
+
+test('a delayed alert check cannot overwrite permission granted while enabling background mesh', { timeout: 5_000 }, async t => {
+  const checked = deferred<boolean>();
+  t.after(() => checked.resolve(false));
+  const platform = controlledPlatform();
+  platform.setNotificationCheck(() => checked.promise);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  await runtime.setBackgroundEnabled(true);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, true);
+  assert.equal(runtime.getSnapshot().alertsEnabled, true);
+  checked.resolve(false); await settle();
+  assert.equal(runtime.getSnapshot().alertsEnabled, true);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, true);
+});
+
+test('battery read failures and native service start failures preserve offline features and SOS', async t => {
+  const platform = controlledPlatform();
+  platform.setBatteryRead(async () => { throw new Error('Battery reading unavailable'); });
+  platform.setStart(async () => { throw new Error('OS declined the foreground service'); });
+  const { runtime, power } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  assert.equal(runtime.getSnapshot().status, 'ready');
+  assert.equal(runtime.getSnapshot().battery, null);
+  assert.deepEqual(power, { engine: 'normal', locations: 'normal' });
+  await runtime.setBackgroundEnabled(true);
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().backgroundBusy, false);
+  assert.equal(runtime.getSnapshot().issue, 'background-unavailable');
+  assert.equal((await runtime.sendSos()).status, 'queued');
 });

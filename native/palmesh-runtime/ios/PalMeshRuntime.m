@@ -53,7 +53,9 @@ RCT_REMAP_METHOD(startMeshService, startMeshServiceWithResolver:(RCTPromiseResol
 }
 RCT_REMAP_METHOD(stopMeshService, stopMeshServiceWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) { resolve(nil); }
 - (BOOL)validId:(NSString *)identifier {
-  return [identifier isKindOfClass:NSString.class] && [identifier rangeOfString:@"^[A-Za-z0-9_-]{1,128}$" options:NSRegularExpressionSearch].location != NSNotFound;
+  if (![identifier isKindOfClass:NSString.class]) return NO;
+  NSRange match = [identifier rangeOfString:@"^[A-Za-z0-9_-]{1,128}$" options:NSRegularExpressionSearch];
+  return match.location == 0 && match.length == identifier.length;
 }
 RCT_REMAP_METHOD(showEmergencyNotification, showEmergency:(NSString *)identifier resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   if (![self validId:identifier]) { reject(@"INVALID_ALERT",@"Invalid alert identifier",nil); return; }

@@ -22,7 +22,7 @@ end
 function node_function()
   local place = Find("place")
   if place ~= "" then
-    Layer("place")
+    Layer("place", false)
     Attribute("class", place)
     names()
     if place == "city" then MinZoom(6)
@@ -32,7 +32,7 @@ function node_function()
   end
   local poi = poi_class()
   if poi ~= "" then
-    Layer("poi")
+    Layer("poi", false)
     Attribute("class", poi)
     names()
   end

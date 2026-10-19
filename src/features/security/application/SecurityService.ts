@@ -95,7 +95,7 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
   private readonly verified = new Map<string, string>();
   private initialization: Promise<void> | undefined;
   private directoryWork: Promise<void> = Promise.resolve();
-  private directoryError: unknown;
+  private directoryFailed = false;
   private tokens = 64;
   private lastRefill = 0;
 
@@ -111,9 +111,11 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     return this.identity;
   }
 
-  initialize(): Promise<void> {
+  initialize(options: { readonly requireExistingIdentity?: boolean } = {}): Promise<void> {
+    // The host must require an existing identity when its encrypted data key
+    // predates this bootstrap. Missing identity data then requires recovery.
     // A failed or corrupt vault does not silently mint a replacement identity.
-    this.initialization ??= this.loadIdentity();
+    this.initialization ??= this.loadIdentity(options.requireExistingIdentity === true);
     return this.initialization;
   }
 
@@ -158,6 +160,11 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
   }
 
   async seal(message: MeshMessage): Promise<MeshMessage> {
+    const input = parseMessage(message);
+    if (!input.ok) throw new SecurityError(input.reason);
+    message = input.message;
+    const maximum = message.kind === 'sos' || message.kind === 'sos-response' ? SOS_TTL : NORMAL_TTL;
+    if (message.ttl !== maximum) throw new SecurityError('Originating packets require the default hop budget.');
     if (message.source !== this.deviceId || message.security) throw new SecurityError('Cannot sign a foreign or already sealed packet.');
     const identity = this.publicIdentity;
     const seed = await this.entropy(32);
@@ -168,7 +175,7 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     if (message.kind === 'chat') {
       if (message.destination === '*' || message.destination === this.deviceId) throw new SecurityError('Secure chat requires another device identity.');
       await this.directoryWork;
-      if (this.directoryError) throw new SecurityError('Peer-key persistence is unavailable.');
+      if (this.directoryFailed) throw new SecurityError('Peer-key persistence is unavailable.');
       const recipient = this.peers.get(message.destination);
       if (!recipient) throw new SecurityError('Recipient public keys are unknown. Connect to that device or import its verified identity first.');
       const nonce = await this.entropy(24);
@@ -191,13 +198,26 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
   }
 
   async verify(message: MeshMessage): Promise<void> {
+    this.verifyPacket(message, true, true);
+    const security = message.security!;
+    this.remember(message.source, { signingKey: security.signingKey, encryptionKey: security.encryptionKey });
+    // Validate AEAD before acknowledging a packet addressed to this endpoint.
+    if (message.kind === 'chat' && message.destination === this.deviceId) this.decrypt(message);
+  }
+
+  private verifyPacket(message: MeshMessage, enforceFreshness: boolean, meter: boolean): void {
+    const parsed = parseMessage(message);
+    if (!parsed.ok) throw new SecurityError(parsed.reason);
+    message = parsed.message;
     const security = message.security;
     if (!security) throw new SecurityError('Unsigned packets are rejected.');
     const maximum = message.kind === 'sos' || message.kind === 'sos-response' ? SOS_TTL : NORMAL_TTL;
     if (security.initialTtl !== maximum || message.ttl > security.initialTtl) throw new SecurityError('Invalid signed hop budget.');
-    const now = this.now();
-    if (message.createdAt > now + FUTURE_SKEW_MS || message.createdAt < now - MAX_AGE_MS) {
-      throw new SecurityError('Signed packet is expired or its clock is too far ahead.');
+    if (enforceFreshness) {
+      const now = this.now();
+      if (message.createdAt > now + FUTURE_SKEW_MS || message.createdAt < now - MAX_AGE_MS) {
+        throw new SecurityError('Signed packet is expired or its clock is too far ahead.');
+      }
     }
     if (identityFingerprint({ signingKey: security.signingKey, encryptionKey: security.encryptionKey }) !== message.source) {
       throw new SecurityError('Packet source does not match its signing keys.');
@@ -211,23 +231,23 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     const data = signedBytes(message, security);
     const digest = bytesToHex(sha256(data));
     if (this.verified.get(security.signature) !== digest) {
-      this.consumeVerification();
+      if (meter) this.consumeVerification();
       if (!ed25519.verify(hexToBytes(security.signature), data, hexToBytes(security.signingKey), { zip215: false })) {
         throw new SecurityError('Invalid packet signature.');
       }
       if (this.verified.size >= MAX_VERIFIED) this.verified.delete(this.verified.keys().next().value!);
       this.verified.set(security.signature, digest);
     }
-    this.remember(message.source, { signingKey: security.signingKey, encryptionKey: security.encryptionKey });
-    // Validate AEAD before acknowledging a packet addressed to this endpoint.
-    if (message.kind === 'chat' && message.destination === this.deviceId) this.decrypt(message);
   }
 
   async project(message: MeshMessage): Promise<MeshMessage | null> {
+    // Recheck retained packets after every restart, including public SOS/location
+    // data. Local history is bounded by SQLite and does not spend the network
+    // verification budget; already retained history need not be freshly sent.
+    this.verifyPacket(message, false, false);
     if (message.kind !== 'chat') return message;
     if (message.source !== this.deviceId && message.destination !== this.deviceId) return null;
-    // Signature verification happens at admission, and retained wire objects
-    // are validated by SQLite. Decryption still authenticates on every read.
+    // Decryption authenticates the ciphertext again on every endpoint read.
     return this.decrypt(message);
   }
 
@@ -241,13 +261,13 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
 
   /** Share the full self-certifying record offline (for example via a QR code).
    * Calling this establishes a cryptographic address, not human verification. */
-  async importPeer(identity: PublicIdentity): Promise<PeerId> {
+  async importPeer(identity: unknown): Promise<PeerId> {
     const validated = publicIdentity(identity);
     const id = identityFingerprint(validated);
     if (id === this.deviceId) throw new SecurityError('Cannot import the local identity as a peer.');
     this.remember(id, validated, true);
     await this.directoryWork;
-    if (this.directoryError) throw new SecurityError('Unable to persist recipient keys.');
+    if (this.directoryFailed) throw new SecurityError('Unable to persist recipient keys.');
     return id;
   }
 
@@ -282,8 +302,12 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     finally { shared.fill(0); }
   }
 
-  private async loadIdentity(): Promise<void> {
+  private async loadIdentity(requireExistingIdentity: boolean): Promise<void> {
     const raw = await this.vault.read(IDENTITY_RECORD);
+    const directory = await this.vault.read(DIRECTORY_RECORD);
+    if (raw === null && (requireExistingIdentity || directory !== null)) {
+      throw new SecurityError('Secure identity is missing for existing installation data; recovery is required.');
+    }
     let signing: Uint8Array;
     let encryption: Uint8Array;
     if (raw === null) {
@@ -301,7 +325,6 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
       signing = hexToBytes(fields.signingSecret);
       encryption = hexToBytes(fields.encryptionSecret);
     }
-    const directory = await this.vault.read(DIRECTORY_RECORD);
     if (directory !== null) {
       if (directory.length > 100 * 1024) throw new SecurityError('Peer key directory is oversized.');
       const entries: unknown = JSON.parse(directory);
@@ -326,7 +349,9 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
   private remember(peerId: PeerId, identity: PublicIdentity, pin = false): void {
     if (peerId === this.deviceId) return;
     if (this.peers.has(peerId)) {
-      if (!pin || this.pinnedPeers.has(peerId)) return;
+      // Explicit import may retry a failed vault write for an already pinned
+      // contact; reconnecting alone must not silently clear a persistence fault.
+      if (!pin || (this.pinnedPeers.has(peerId) && !this.directoryFailed)) return;
     } else {
       if (this.peers.size >= MAX_PEERS) {
         const evicted = [...this.peers.keys()].find(id => !this.pinnedPeers.has(id));
@@ -348,8 +373,8 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
       this.directoryQueued = false;
       await this.vault.write(DIRECTORY_RECORD, JSON.stringify([...this.peers.entries()]
         .map(([id, keys]) => ({ ...keys, pinned: this.pinnedPeers.has(id) }))));
-      this.directoryError = undefined;
-    }).catch(error => { this.directoryQueued = false; this.directoryError = error; });
+      this.directoryFailed = false;
+    }).catch(() => { this.directoryQueued = false; this.directoryFailed = true; });
   }
   private directoryQueued = false;
 

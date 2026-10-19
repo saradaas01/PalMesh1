@@ -10,6 +10,9 @@ import type { MapsUiService } from '../../src/features/maps/ui';
 import type { LocationActionResult, MapsSnapshot } from '../../src/features/maps/domain/types';
 import type { LocationFix, OutgoingMessage, PowerMode } from '../../src/features/dtn/domain/types';
 import { createMessage } from '../../src/features/dtn/domain/validation';
+import { EmergencyService, type EmergencyEntry } from '../../src/features/emergency';
+import { SecurityService } from '../../src/features/security';
+import { I18nProvider, ar } from '../../src/shared/i18n';
 
 jest.mock('../../src/features/maps/ui/OfflineMapView', () => ({ OfflineMapView: jest.fn(() => null) }));
 
@@ -79,8 +82,21 @@ class RuntimeDouble implements AppUiRuntime {
   readonly listeners = new Set<() => void>();
   readonly chat = new ChatDouble();
   readonly locations = new MapsDouble();
-  readonly resources: RuntimeResources = {
+  emergencyEntries: EmergencyEntry[] = [];
+  readonly emergency = new EmergencyService({
+    engine: { deviceId: 'local-device', subscribe: () => () => {}, historyWithCustody: async () => [],
+      publish: async input => {
+        const message = createMessage(input, '12345678-1234-4234-8234-123456789abc', 'local-device', NOW);
+        return { status: 'accepted', record: { message, receivedAt: NOW, expiresAt: NOW + 60_000, dedupExpiresAt: NOW + 120_000, forwardable: true } };
+      } },
+    repository: { initialize: async () => {}, ingest: async () => {}, read: async () => this.emergencyEntries,
+      dismiss: async id => { this.emergencyEntries = this.emergencyEntries.map(entry => entry.id === id ? { ...entry, dismissed: true } : entry); },
+      claimNotification: async () => false },
+    clock: { now: () => NOW },
+  });
+  resources: RuntimeResources = {
     deviceId: 'local-device', chat: this.chat, locations: this.locations,
+    emergency: this.emergency,
     node: {
       engine: {
         start: async () => {},
@@ -97,26 +113,27 @@ class RuntimeDouble implements AppUiRuntime {
   };
   snapshot: AppSnapshot = { status: 'idle', route: 'chat', foreground: true, resources: null,
     permissions: null, radios: {}, connectedPeers: 0, requestingPermissions: false, pendingSos: false,
-    powerMode: 'normal', issue: null, notice: null };
+    powerMode: 'normal', issue: null, notice: null, backgroundEnabled: false, backgroundBusy: false,
+    backgroundSupported: true, battery: null, automaticPowerMode: true, alertsEnabled: false, alertsBusy: false };
   failStartup = false;
   patch(change: Partial<AppSnapshot>): void { this.snapshot = Object.freeze({ ...this.snapshot, ...change }); for (const listener of this.listeners) listener(); }
   getSnapshot = (): AppSnapshot => this.snapshot;
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   start = jest.fn(async (): Promise<void> => {
     if (this.failStartup) { this.patch({ status: 'error', resources: null, issue: 'startup-failed' }); return; }
-    await this.resources.node.start(); await this.chat.start(); await this.locations.start();
+    await this.resources.node.start(); await this.chat.start(); await this.locations.start(); await this.emergency.start();
     this.patch({ status: 'ready', resources: this.resources, issue: null,
       permissions: { platform: 'android', wifiDirect: false, bluetooth: false, canRequest: true } });
     this.applyVisibility();
   });
-  stop = jest.fn(async (): Promise<void> => { await this.chat.stop(); await this.locations.stop(); await this.resources.node.stop(); });
+  stop = jest.fn(async (): Promise<void> => { await this.chat.stop(); await this.locations.stop(); await this.emergency.stop(); await this.resources.node.stop(); });
   setForeground = jest.fn((foreground: boolean): void => { this.patch({ foreground }); this.applyVisibility(); });
   navigate = jest.fn((route: AppRoute): void => { this.patch({ route }); this.applyVisibility(); });
   requestPermissions = jest.fn(async (): Promise<void> => { this.patch({
     permissions: { platform: 'android', wifiDirect: true, bluetooth: true, canRequest: true },
     radios: { 'wifi-direct': { available: true }, ble: { available: true } },
   }); });
-  sendSos = jest.fn(async (): Promise<LocationActionResult> => {
+  sendSos = jest.fn(async (_text?: string): Promise<LocationActionResult> => {
     if (this.snapshot.status !== 'ready' || this.snapshot.resources === null) {
       this.patch({ issue: 'sos-unavailable', notice: null });
       return { status: 'rejected', reason: 'unavailable' };
@@ -131,6 +148,9 @@ class RuntimeDouble implements AppUiRuntime {
     this.locations.setPowerMode(powerMode);
     this.patch({ powerMode });
   });
+  setAutomaticPowerMode = jest.fn((automaticPowerMode: boolean): void => { this.patch({ automaticPowerMode }); });
+  setBackgroundEnabled = jest.fn(async (backgroundEnabled: boolean): Promise<void> => { this.patch({ backgroundEnabled }); });
+  requestAlerts = jest.fn(async (): Promise<void> => { this.patch({ alertsEnabled: true }); });
   dismissIssue = jest.fn((): void => { this.patch({ issue: null }); });
   dismissNotice = jest.fn((): void => { this.patch({ notice: null }); });
   private applyVisibility(): void {
@@ -282,5 +302,99 @@ describe('PalMesh app shell', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(runtime.sendSos).toHaveBeenCalledTimes(1);
     expect(runtime.locations.sendSos).toHaveBeenCalledTimes(1);
+  });
+});
+
+async function identity(seed: number): Promise<SecurityService> {
+  const records = new Map<string, string>();
+  let sequence = seed;
+  const security = new SecurityService({ read: async key => records.get(key) ?? null,
+    write: async (key, value) => { records.set(key, value); },
+    randomBytes: async length => new Uint8Array(length).fill(sequence++) }, { now: () => NOW });
+  await security.initialize();
+  return security;
+}
+
+describe('integrated emergency, identity and offline settings', () => {
+  test('opens urgent SOS inline and keeps exactly one SOS action reachable on every route', async () => {
+    const runtime = new RuntimeDouble();
+    runtime.emergencyEntries = [{ id: 'incoming-help', source: 'peer-bob', text: 'Need water', createdAt: NOW,
+      receivedAt: NOW, expiresAt: NOW + 60_000, outgoing: false, dismissed: false, responseId: null, responses: [] }];
+    await render(<PalMeshApp runtime={runtime} />);
+    expect(screen.getByText('New incoming SOS')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open SOS inbox' }));
+    expect(screen.getByText('Need water')).toBeOnTheScreen();
+    expect(screen.queryByText('New incoming SOS')).toBeNull();
+    for (const route of ['Identity and contacts', 'Map', 'Messages', 'SOS inbox']) {
+      await fireEvent.press(screen.getByRole('tab', { name: route }));
+      expect(screen.getAllByRole('button', { name: 'I Need Help · SOS' })).toHaveLength(1);
+    }
+    await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
+    expect(runtime.sendSos).toHaveBeenCalledWith('I need help');
+  });
+
+  test('requests notification and background permissions only from explicit settings actions', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    expect(runtime.requestAlerts).not.toHaveBeenCalled();
+    expect(runtime.setBackgroundEnabled).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Enable SOS notifications' }));
+    expect(runtime.requestAlerts).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'SOS notifications enabled' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Keep mesh active in background' }));
+    expect(runtime.setBackgroundEnabled).toHaveBeenLastCalledWith(true);
+    await fireEvent.press(screen.getByRole('button', { name: 'Stop background mesh' }));
+    expect(runtime.setBackgroundEnabled).toHaveBeenLastCalledWith(false);
+    await fireEvent(screen.getByRole('switch', { name: 'Automatic battery conservation' }), 'change', { nativeEvent: { value: false } });
+    expect(runtime.setAutomaticPowerMode).toHaveBeenLastCalledWith(false);
+    await fireEvent(screen.getByRole('switch', { name: 'Manual low battery mode' }), 'change', { nativeEvent: { value: true } });
+    expect(runtime.setPowerMode).toHaveBeenLastCalledWith('conserve');
+  });
+
+  test('keeps unsupported background execution unavailable and still offers notification opt-in', async () => {
+    const runtime = new RuntimeDouble(); runtime.patch({ backgroundSupported: false });
+    await render(<PalMeshApp runtime={runtime} />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    expect(screen.queryByRole('button', { name: 'Keep mesh active in background' })).toBeNull();
+    expect(screen.getByText('Background mesh is unavailable. Keep PalMesh open for nearby connections.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Enable SOS notifications' })).toBeEnabled();
+  });
+
+  test('imports public keys through the strict security validator and never displays private identity material', async () => {
+    const runtime = new RuntimeDouble();
+    const own = await identity(1); const peer = await identity(10);
+    runtime.resources = { ...runtime.resources, security: own };
+    await render(<PalMeshApp runtime={runtime} />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    expect(screen.getByLabelText('Your identity fingerprint')).toHaveTextContent(own.deviceId);
+    expect(screen.getByLabelText('Your public identity JSON')).toHaveTextContent(JSON.stringify(own.publicIdentity));
+    expect(screen.queryByText(/signingSecret|encryptionSecret/)).toBeNull();
+    const input = screen.getByLabelText('Contact public identity JSON');
+    for (const invalid of ['{', 'x'.repeat(2049), JSON.stringify(own.publicIdentity),
+      JSON.stringify({ ...peer.publicIdentity, signingSecret: 'unsafe' })]) {
+      await fireEvent.changeText(input, invalid);
+      await fireEvent.press(screen.getByRole('button', { name: 'Save contact identity' }));
+      expect(screen.getByRole('alert')).toHaveTextContent(/Contact identity could not be saved/);
+    }
+    await fireEvent.changeText(input, JSON.stringify(peer.publicIdentity));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save contact identity' }));
+    expect(screen.getByText('Contact identity saved.')).toBeOnTheScreen();
+    expect(screen.getByText(peer.deviceId)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Contact public identity JSON')).toHaveDisplayValue('');
+    await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
+    expect(runtime.sendSos).toHaveBeenCalledTimes(1);
+  });
+
+  test('renders all app routes in Arabic with one reachable localized SOS and translated SOS payload', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<I18nProvider initialLanguage="ar"><PalMeshApp runtime={runtime} /></I18nProvider>);
+    for (const route of ['app.security', 'app.map', 'app.emergencies', 'app.messages'] as const) {
+      await fireEvent.press(screen.getByRole('tab', { name: ar[route] }));
+      expect(screen.getAllByRole('button', { name: ar['common.sos'] })).toHaveLength(1);
+    }
+    await fireEvent.press(screen.getByRole('button', { name: ar['common.sos'] }));
+    expect(runtime.sendSos).toHaveBeenCalledWith(ar['emergency.newHelp']);
+    expect(screen.queryByText('Messages are not encrypted yet.')).toBeNull();
   });
 });

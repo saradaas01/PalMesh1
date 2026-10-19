@@ -174,34 +174,40 @@ export class DtnEngine {
     return result;
   }
 
-  async history(limit = 100): Promise<readonly StoredMessage[]> {
+  history(limit = 100): Promise<readonly StoredMessage[]> {
     this.assertRunning();
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
       throw new RangeError('History limit must be between 1 and 1000');
     }
-    const entries = await this.store.listHistory(limit);
-    if (!this.security) return entries;
-    const projected: StoredMessage[] = [];
-    for (const entry of entries) {
-      const message = await this.security.project(entry.message);
-      if (message) projected.push(Object.freeze({ ...entry, message }));
-    }
-    return Object.freeze(projected);
+    const entries = this.store.listHistory(limit);
+    const security = this.security;
+    if (!security) return entries;
+    return entries.then(async records => {
+      const projected: StoredMessage[] = [];
+      for (const entry of records) {
+        const message = await security.project(entry.message);
+        if (message) projected.push(Object.freeze({ ...entry, message }));
+      }
+      return Object.freeze(projected);
+    });
   }
 
-  async historyWithCustody(limit = 1_000): Promise<readonly RoutingHistoryEntry[]> {
+  historyWithCustody(limit = 1_000): Promise<readonly RoutingHistoryEntry[]> {
     this.assertRunning();
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
       throw new RangeError('History limit must be between 1 and 1000');
     }
-    const entries = await this.store.listHistoryWithCustody(limit);
-    if (!this.security) return entries;
-    const projected: RoutingHistoryEntry[] = [];
-    for (const entry of entries) {
-      const message = await this.security.project(entry.message);
-      if (message) projected.push(Object.freeze({ ...entry, message }));
-    }
-    return Object.freeze(projected);
+    const entries = this.store.listHistoryWithCustody(limit);
+    const security = this.security;
+    if (!security) return entries;
+    return entries.then(async records => {
+      const projected: RoutingHistoryEntry[] = [];
+      for (const entry of records) {
+        const message = await security.project(entry.message);
+        if (message) projected.push(Object.freeze({ ...entry, message }));
+      }
+      return Object.freeze(projected);
+    });
   }
 
   /** Useful for tests/manual synchronization. Waits for ready work across bounded

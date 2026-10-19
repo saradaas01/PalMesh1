@@ -65,6 +65,8 @@ export interface AppSnapshot {
   readonly backgroundSupported: boolean;
   readonly battery: BatteryState | null;
   readonly automaticPowerMode: boolean;
-  readonly issue: 'startup-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'background-unavailable' | null;
+  readonly alertsEnabled: boolean | null;
+  readonly alertsBusy: boolean;
+  readonly issue: 'startup-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'background-unavailable' | 'alerts-unavailable' | null;
   readonly notice: 'sos-queued' | null;
 }

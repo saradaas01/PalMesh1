@@ -15,7 +15,8 @@ permissions:
 jobs:
   android-release:
     # Configure this GitHub environment with required reviewers and signing
-    # secrets. Artifacts remain private workflow outputs; nothing is published.
+    # secrets. Artifacts inherit repository/workflow access; nothing is published
+    # to a release page or application store by this workflow.
     environment: android-release
     runs-on: ubuntu-24.04
     env:

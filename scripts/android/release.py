@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-SIGNING = ['PALMESH_RELEASE_STORE_FILE', 'PALMESH_RELEASE_STORE_PASSWORD', 'PALMESH_RELEASE_KEY_ALIAS', 'PALMESH_RELEASE_KEY_PASSWORD']
+SIGNING = ['PALMESH_RELEASE_STORE_FILE', 'PALMESH_RELEASE_STORE_PASSWORD', 'PALMESH_RELEASE_KEY_ALIAS', 'PALMESH_RELEASE_KEY_PASSWORD', 'PALMESH_RELEASE_CERT_SHA256']
 
 
 def run(command: list[str]) -> None:
@@ -26,7 +26,9 @@ def main() -> None:
     parser.add_argument('--skip-checks', action='store_true', help='Use only after the exact sources have passed npm run check')
     args = parser.parse_args()
     if any(not os.environ.get(key) for key in SIGNING):
-        parser.error('Configure all four PALMESH_RELEASE_* signing variables; no debug or generated identity is used for releases')
+        parser.error('Configure the four PALMESH_RELEASE_* signing credentials and PALMESH_RELEASE_CERT_SHA256; releases require an operator identity')
+    fingerprint = os.environ[SIGNING[4]].replace(':', '')
+    if not re.fullmatch(r'[0-9a-fA-F]{64}', fingerprint): parser.error('PALMESH_RELEASE_CERT_SHA256 must be a SHA-256 certificate fingerprint')
     key = Path(os.environ[SIGNING[0]]).expanduser()
     if not key.is_absolute() or not key.is_file(): parser.error('PALMESH_RELEASE_STORE_FILE must be an existing absolute keystore path')
     version = os.environ.get('PALMESH_VERSION_NAME', '0.1.0')
@@ -45,9 +47,11 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = output.with_suffix('.verification.json')
     # Verify before copying, so a stale or wrong variant cannot be distributed.
-    run([sys.executable, 'scripts/android/verify-apk.py', str(original), '--release'])
+    verification = ['--release', '--architectures', args.architectures, '--version-name', version,
+                    '--version-code', os.environ.get('PALMESH_VERSION_CODE', '1')]
+    run([sys.executable, 'scripts/android/verify-apk.py', str(original), *verification])
     shutil.copyfile(original, output)
-    run([sys.executable, 'scripts/android/verify-apk.py', str(output), '--release', '--report', str(report)])
+    run([sys.executable, 'scripts/android/verify-apk.py', str(output), *verification, '--report', str(report)])
     with output.open('rb') as stream: digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     output.with_suffix('.apk.sha256').write_text(digest + '  ' + output.name + '\n')
     print('Signed release and verification report: ' + str(output.parent))

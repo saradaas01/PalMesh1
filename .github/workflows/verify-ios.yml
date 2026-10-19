@@ -1,0 +1,29 @@
+name: Verify iOS host on macOS
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - run: npm ci
+      - run: python3 scripts/maps/package.py --fonts-only
+      - run: bundle exec pod install
+        working-directory: ios
+      - name: Compile simulator host without distribution credentials
+        run: >-
+          xcodebuild -workspace ios/PalMesh.xcworkspace -scheme PalMesh
+          -configuration Release -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/PalMeshDerivedData"
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build

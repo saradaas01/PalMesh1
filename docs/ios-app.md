@@ -48,4 +48,8 @@ When fonts are bundled, the descriptor also exposes token-protected glyph reques
 
 ## Validation still required
 
-The iOS source and autolinking can be reviewed on Linux. Before distribution, run the macOS compile gate and physical iPhone checks: explicit permission denial/recovery, bidirectional Android/iPhone BLE, MTU negotiation/backpressure, stop/cancel/reconnect, Keychain locked-device behavior, SQLCipher opening, actual MapLibre tile/glyph rendering, Arabic layouts, GPS, alert settings and suspension/foreground restoration. No iOS binary or phone validation is claimed by the Linux setup.
+The iOS source and autolinking can be reviewed on Linux. The app privacy manifest is copied into the app resources. `tests/ios-tile-parser.test.ts` compiles the production C parser with a host C compiler and zlib, then exercises valid and malformed protobuf frames, complete/truncated/corrupt gzip streams, trailing members and the decompression budget. These tests validate that parser only; they do not compile the Objective-C host or Apple frameworks.
+
+The manually triggered [`verify-ios.yml`](../.github/workflows/verify-ios.yml) workflow installs CocoaPods on macOS and builds the Release configuration for the iPhone simulator with signing disabled. A workflow definition is not evidence that the Apple build passed: inspect its actual run before claiming a compiled iOS host.
+
+Before distribution, run that macOS compile gate and physical iPhone checks: explicit permission denial/recovery, bidirectional Android/iPhone BLE, MTU negotiation/backpressure, stop/cancel/reconnect, Keychain locked-device behavior, SQLCipher opening, actual MapLibre tile/glyph rendering, Arabic layouts, GPS, alert settings and suspension/foreground restoration. No iOS binary or phone validation is claimed by the Linux setup.

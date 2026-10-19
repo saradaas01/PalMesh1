@@ -14,6 +14,12 @@ export interface EncryptedOpenOptions { readonly name: string; readonly encrypti
 export class EncryptedStorage<Connection extends EncryptedConnection> {
   private key: string | undefined;
   private initialization: Promise<void> | undefined;
+  private existingKey = false;
+
+  get wasProvisioned(): boolean {
+    if (!this.key) throw new Error('Initialize encrypted storage before reading installation state.');
+    return this.existingKey;
+  }
 
   constructor(
     private readonly vault: SecurityVault,
@@ -57,6 +63,7 @@ export class EncryptedStorage<Connection extends EncryptedConnection> {
     if (stored !== null) {
       if (!HEX_KEY.test(stored)) throw new Error('Stored database key is invalid; recovery is required.');
       this.key = stored;
+      this.existingKey = true;
       return;
     }
     const bytes = await this.vault.randomBytes(32);

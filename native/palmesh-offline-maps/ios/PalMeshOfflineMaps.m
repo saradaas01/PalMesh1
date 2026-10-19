@@ -11,61 +11,24 @@
 #import <fcntl.h>
 #import <errno.h>
 #import <math.h>
+#import "PMVectorTileValidation.h"
 
 static const NSUInteger PMMaxTile = 1024 * 1024;
 static NSError *PMError(NSString *message) { return [NSError errorWithDomain:@"PalMeshOfflineMaps" code:1 userInfo:@{NSLocalizedDescriptionKey:message}]; }
 static BOOL PMMatches(NSString *value, NSString *pattern) {
-  return [value isKindOfClass:NSString.class] && [value rangeOfString:pattern options:NSRegularExpressionSearch].location != NSNotFound;
+  if (![value isKindOfClass:NSString.class]) return NO;
+  NSRange match = [value rangeOfString:pattern options:NSRegularExpressionSearch];
+  return match.location == 0 && match.length == value.length;
 }
 static NSString *PMHex(const unsigned char *bytes, NSUInteger length) {
   NSMutableString *result = [NSMutableString stringWithCapacity:length * 2];
   for (NSUInteger index = 0; index < length; index++) [result appendFormat:@"%02x",bytes[index]];
   return result;
 }
-static BOOL PMVarint(NSData *data, NSUInteger *offset, uint64_t *value) {
-  const uint8_t *bytes = data.bytes; *value = 0;
-  for (NSUInteger shift = 0; shift < 63 && *offset < data.length; shift += 7) {
-    uint8_t byte = bytes[(*offset)++]; *value |= ((uint64_t)(byte & 127)) << shift;
-    if (!(byte & 128)) return YES;
-  }
-  return NO;
-}
 /** Bound gzip inflation before checking protobuf Tile layer framing. Geometry
  * is interpreted by MapLibre; this host never treats vector data as code. */
 static BOOL PMVectorTile(NSData *stored) {
-  if (stored.length < 1 || stored.length > PMMaxTile) return NO;
-  NSData *data = stored; const uint8_t *bytes = stored.bytes;
-  if (stored.length > 1 && bytes[0] == 31 && bytes[1] == 139) {
-    z_stream stream = {0};
-    if (inflateInit2(&stream, 16 + MAX_WBITS) != Z_OK) return NO;
-    stream.next_in = (Bytef *)stored.bytes; stream.avail_in = (uInt)stored.length;
-    NSMutableData *decoded = [NSMutableData new]; uint8_t buffer[16384]; int status;
-    do {
-      stream.next_out = buffer; stream.avail_out = sizeof(buffer);
-      status = inflate(&stream,Z_NO_FLUSH);
-      NSUInteger produced = sizeof(buffer) - stream.avail_out;
-      if (decoded.length + produced > 4 * 1024 * 1024 || (status != Z_OK && status != Z_STREAM_END)) { inflateEnd(&stream); return NO; }
-      [decoded appendBytes:buffer length:produced];
-    } while (status != Z_STREAM_END);
-    BOOL complete = stream.avail_in == 0; inflateEnd(&stream); if (!complete) return NO;
-    data = decoded;
-  }
-  NSUInteger offset = 0; BOOL layer = NO;
-  while (offset < data.length) {
-    uint64_t tag, length;
-    if (!PMVarint(data,&offset,&tag) || tag == 0 || tag > UINT32_MAX || (tag >> 3) == 0) return NO;
-    if (tag == 26) layer = YES;
-    switch (tag & 7) {
-      case 0: if (!PMVarint(data,&offset,&length)) return NO; continue;
-      case 1: length = 8; break;
-      case 2: if (!PMVarint(data,&offset,&length)) return NO; break;
-      case 5: length = 4; break;
-      default: return NO;
-    }
-    if (length > data.length - offset) return NO;
-    offset += (NSUInteger)length;
-  }
-  return layer;
+  return PMTileValidateStored(stored.bytes,stored.length);
 }
 static int PMQueryDeadline(void *context) {
   NSTimeInterval deadline = *(NSTimeInterval *)context;
@@ -119,11 +82,12 @@ static int PMQueryDeadline(void *context) {
     sqlite3_stmt *statement = NULL;
     NSMutableDictionary *metadata = [NSMutableDictionary new];
     if (sqlite3_prepare_v2(_database,"SELECT CASE WHEN length(name)<=128 THEN name END, CASE WHEN length(value)<=262144 THEN value END FROM metadata LIMIT 257",-1,&statement,NULL) != SQLITE_OK) @throw PMError(@"MBTiles metadata is missing");
-    int step;
+    int step; NSUInteger metadataBytes = 0;
     while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+      metadataBytes += (NSUInteger)sqlite3_column_bytes(statement,0) + (NSUInteger)sqlite3_column_bytes(statement,1);
       const char *key = (const char *)sqlite3_column_text(statement,0); const char *value = (const char *)sqlite3_column_text(statement,1);
       NSString *name = key ? [NSString stringWithUTF8String:key] : nil; NSString *text = value ? [NSString stringWithUTF8String:value] : nil;
-      if (!name || !text || metadata[name] || metadata.count >= 256) { sqlite3_finalize(statement); @throw PMError(@"Invalid MBTiles metadata"); }
+      if (!name || !text || metadata[name] || metadata.count >= 256 || metadataBytes > 2 * 1024 * 1024) { sqlite3_finalize(statement); @throw PMError(@"Invalid MBTiles metadata"); }
       metadata[name] = text;
     }
     sqlite3_finalize(statement);

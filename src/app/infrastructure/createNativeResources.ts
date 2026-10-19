@@ -73,7 +73,7 @@ export async function createNativeResources(options: CreateNativeResourcesOption
     const ids: IdGenerator = { next: () => uuidV4() };
     await encryptedStorage.initialize();
     const security = new SecurityService(vault);
-    await security.initialize();
+    await security.initialize({ requireExistingIdentity: encryptedStorage.wasProvisioned });
     const deviceId = security.deviceId;
     const store = new SqliteDtnStore(database('palmesh-dtn.sqlite'));
     const registry = new SqlitePeerRegistry(database('palmesh-peers.sqlite'));

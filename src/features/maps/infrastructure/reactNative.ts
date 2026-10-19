@@ -33,8 +33,8 @@ export function createReactNativeLocationSource(): GeolocationSource {
 }
 
 export function createReactNativeOfflineMapSource(options: NativeOfflineMapOptions = {}): NativeOfflineMapSource {
-  // Android bridge supplied by native/palmesh-offline-maps; iOS hosts may
-  // provide the same contract. Missing bridges produce an explicit empty state.
+  // Both native hosts are supplied by native/palmesh-offline-maps. Missing
+  // bridges or dataset assets produce an explicit empty state.
   const bridge = NativeModules.PalMeshOfflineMaps as NativeOfflineMapsBridge | undefined;
   return new NativeOfflineMapSource(bridge, options);
 }

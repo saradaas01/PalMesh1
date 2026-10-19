@@ -157,7 +157,7 @@ export class LocationService {
   dismissIssue = (): void => { this.patch({ issue: null }); };
   dismissNotice = (): void => { this.patch({ notice: null }); };
 
-  sendSos = async (): Promise<LocationActionResult> => {
+  sendSos = async (text = this.sosText): Promise<LocationActionResult> => {
     if (!this.active) {
       this.patch({ issue: 'broadcast-unavailable' });
       return { status: 'rejected', reason: 'unavailable' };
@@ -170,7 +170,7 @@ export class LocationService {
       // separate location archive before queuing a priority-15-hop SOS.
       const location = this.state.localLocation;
       const result = await this.engine.publish({ kind: 'sos', payload: {
-        text: this.sosText, ...(location && this.safeLocal(location) ? { location } : {}),
+        text, ...(location && this.safeLocal(location) ? { location } : {}),
       } });
       if (result.status === 'full') {
         if (this.live(generation)) this.patch({ issue: 'queue-full' });

@@ -1,5 +1,6 @@
 #import <CoreBluetooth/CoreBluetooth.h>
 #import <React/RCTBridgeModule.h>
+#import <UIKit/UIKit.h>
 
 /** Checking the class authorization property does not instantiate CoreBluetooth
  * or prompt. A central manager is constructed only after the user's Enable tap. */
@@ -27,6 +28,9 @@ RCT_REMAP_METHOD(check, checkWithResolver:(RCTPromiseResolveBlock)resolve reject
 RCT_REMAP_METHOD(request, requestWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   NSString *authorization = [self authorization];
   if (![authorization isEqualToString:@"not-determined"]) { resolve(authorization); return; }
+  if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) {
+    reject(@"FOREGROUND_REQUIRED",@"Enable Bluetooth from the open app",nil); return;
+  }
   if (!_pending) _pending = [NSMutableArray new];
   [_pending addObject:[resolve copy]];
   if (!_manager) _manager = [[CBCentralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue()

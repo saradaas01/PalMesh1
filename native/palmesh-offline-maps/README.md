@@ -88,8 +88,9 @@ Do not globally enable cleartext traffic to make maps work. The local socket is
 HTTP rather than HTTPS, has a fresh random 128-bit path token per session, and
 requires an exact loopback Host header. The token limits casual local access;
 it is not isolation from malicious software running inside the same app or a
-compromised device. No glyph, font, sprite, style or remote tile URL is supplied
-by this library; the application style must also remain offline.
+compromised device. When bundled Noto resources are present, the descriptor also
+supplies a glyph URL on that same token-protected local host. No remote font,
+sprite, style or tile URL is supplied; the application style must remain offline.
 
 ## Limits and lifecycle
 
