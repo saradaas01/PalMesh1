@@ -1,0 +1,2 @@
+"NSBluetoothAlwaysUsageDescription" = "PalMesh uses Bluetooth to exchange emergency messages directly with nearby phones, without internet.";
+"NSLocationWhenInUseUsageDescription" = "PalMesh uses your location only when you request a GPS fix. Sharing is optional.";

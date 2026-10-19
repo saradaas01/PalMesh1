@@ -1,0 +1,9 @@
+<resources>
+    <string name="palmesh_mesh_channel">اتصالات الشبكة القريبة</string>
+    <string name="palmesh_mesh_title">اتصالات PalMesh القريبة نشطة</string>
+    <string name="palmesh_mesh_body">اضغط لفتح PalMesh. حافظ على شحن هاتفك.</string>
+    <string name="palmesh_mesh_stop">إيقاف جلسة الخلفية</string>
+    <string name="palmesh_emergency_channel">تنبيهات الطوارئ</string>
+    <string name="palmesh_emergency_title">تم استلام طلب استغاثة</string>
+    <string name="palmesh_emergency_body">افتح PalMesh لعرض الطلب.</string>
+</resources>

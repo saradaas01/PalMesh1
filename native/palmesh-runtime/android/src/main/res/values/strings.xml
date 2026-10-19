@@ -1,0 +1,9 @@
+<resources>
+    <string name="palmesh_mesh_channel">Nearby mesh connections</string>
+    <string name="palmesh_mesh_title">PalMesh nearby connections active</string>
+    <string name="palmesh_mesh_body">Tap to open PalMesh. Keep your phone charged.</string>
+    <string name="palmesh_mesh_stop">Stop background session</string>
+    <string name="palmesh_emergency_channel">Emergency alerts</string>
+    <string name="palmesh_emergency_title">Emergency SOS received</string>
+    <string name="palmesh_emergency_body">Open PalMesh to view the request.</string>
+</resources>

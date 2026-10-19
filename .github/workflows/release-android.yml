@@ -1,0 +1,64 @@
+name: Build signed Android release
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Semantic version
+        required: true
+        type: string
+      version_code:
+        description: Monotonically increasing Android version code
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  android-release:
+    # Configure this GitHub environment with required reviewers and signing
+    # secrets. Artifacts remain private workflow outputs; nothing is published.
+    environment: android-release
+    runs-on: ubuntu-24.04
+    env:
+      PALMESH_VERSION_NAME: ${{ inputs.version_name }}
+      PALMESH_VERSION_CODE: ${{ inputs.version_code }}
+      PALMESH_RELEASE_STORE_PASSWORD: ${{ secrets.PALMESH_RELEASE_STORE_PASSWORD }}
+      PALMESH_RELEASE_KEY_ALIAS: ${{ secrets.PALMESH_RELEASE_KEY_ALIAS }}
+      PALMESH_RELEASE_KEY_PASSWORD: ${{ secrets.PALMESH_RELEASE_KEY_PASSWORD }}
+      PALMESH_RELEASE_CERT_SHA256: ${{ vars.PALMESH_RELEASE_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
+      - name: Materialize operator signing identity
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PALMESH_RELEASE_KEYSTORE_BASE64 }}
+        shell: python
+        run: |
+          import base64, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'palmesh-release.keystore'
+          path.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          path.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('PALMESH_RELEASE_STORE_FILE=' + str(path) + '\n')
+      - run: python3 scripts/android/release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: palmesh-signed-android
+          path: dist/android/PalMesh-*-release*
+          retention-days: 14
+      - name: Remove temporary signing identity
+        if: always()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          (Path(os.environ['RUNNER_TEMP']) / 'palmesh-release.keystore').unlink(missing_ok=True)
