@@ -686,3 +686,38 @@ test('battery read failures and native service start failures preserve offline f
   assert.equal(runtime.getSnapshot().issue, 'background-unavailable');
   assert.equal((await runtime.sendSos()).status, 'queued');
 });
+
+test('a delayed startup battery read cannot replace a newer native power-saving event', { timeout: 5_000 }, async t => {
+  const reading = deferred<BatteryState>();
+  t.after(() => reading.resolve({ level: 0.9, charging: false, lowPower: false }));
+  const platform = controlledPlatform();
+  platform.setBatteryRead(() => reading.promise);
+  const { runtime, power } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const latest = { level: 0.1, charging: false, lowPower: true };
+  platform.emit({ type: 'battery', battery: latest });
+  assert.deepEqual(runtime.getSnapshot().battery, latest);
+  assert.deepEqual(power, { engine: 'conserve', locations: 'conserve' });
+  reading.resolve({ level: 0.9, charging: false, lowPower: false }); await settle();
+  assert.deepEqual(runtime.getSnapshot().battery, latest, 'a startup read predating the OS event must be ignored');
+  assert.deepEqual(power, { engine: 'conserve', locations: 'conserve' });
+  assert.equal((await runtime.sendSos()).status, 'queued');
+});
+
+test('the native notification stop overrides an in-flight background service start', { timeout: 5_000 }, async t => {
+  const started = deferred();
+  t.after(() => started.resolve());
+  const platform = controlledPlatform();
+  platform.setStart(() => started.promise);
+  const { runtime } = fixture(t, true, platform.platformRuntime);
+  await runtime.start(); await settle();
+  const enabling = runtime.setBackgroundEnabled(true);
+  await until(() => platform.calls.starts === 1);
+  // The notification action can reach JavaScript before the native start
+  // promise is delivered. The user's stop remains the latest session intent.
+  platform.emit({ type: 'background', running: false, reason: 'user-stopped' });
+  started.resolve(); await enabling; await settle();
+  assert.equal(runtime.getSnapshot().backgroundEnabled, false);
+  assert.equal(runtime.getSnapshot().backgroundBusy, false);
+  assert.equal(platform.calls.stops, 1, 'a late service start must be followed by a compensating stop');
+});

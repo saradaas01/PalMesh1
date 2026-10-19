@@ -37,7 +37,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci
-      - run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
       - name: Materialize operator signing identity
         env:
           KEYSTORE_BASE64: ${{ secrets.PALMESH_RELEASE_KEYSTORE_BASE64 }}

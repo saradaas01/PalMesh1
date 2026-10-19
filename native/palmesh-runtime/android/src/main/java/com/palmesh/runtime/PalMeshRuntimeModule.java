@@ -112,8 +112,17 @@ public final class PalMeshRuntimeModule extends ReactContextBaseJavaModule {
     @ReactMethod public void stopMeshService(Promise promise) {
         main.post(() -> {
             getReactApplicationContext().stopService(new Intent(getReactApplicationContext(), MeshForegroundService.class));
-            promise.resolve(null);
+            // stopService queues onDestroy. Do not resolve while the previous
+            // session still reports running: a quick enable could otherwise
+            // mistake that dying service for its newly started session.
+            awaitServiceStopped(promise, 50);
         });
+    }
+
+    private void awaitServiceStopped(Promise promise, int remaining) {
+        if (!MeshForegroundService.isRunning()) { promise.resolve(null); return; }
+        if (remaining == 0) { promise.reject("BACKGROUND_STOP_TIMEOUT", "Foreground service did not stop"); return; }
+        main.postDelayed(() -> awaitServiceStopped(promise, remaining - 1), 100);
     }
 
     @ReactMethod public synchronized void showEmergencyNotification(String id, Promise promise) {

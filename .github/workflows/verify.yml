@@ -37,7 +37,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci
-      - run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.30.5'
       - run: python3 scripts/maps/package.py --fonts-only
       - run: python3 scripts/android/gradle.py --bundle-debug :app:assembleDebug
       - run: python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --require-bundle --report dist/android/debug-verification.json

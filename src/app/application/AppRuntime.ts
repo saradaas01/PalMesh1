@@ -26,6 +26,7 @@ export class AppRuntime {
   private radioIntent = 0;
   private permissionRevision = 0;
   private alertsRevision = 0;
+  private batteryRevision = 0;
   private unsubscribePlatform: (() => void) | null = null;
   private backgroundIntent = 0;
   private backgroundWork: Promise<void> = Promise.resolve();
@@ -260,7 +261,7 @@ export class AppRuntime {
         this.patch({ backgroundEnabled: true });
         if (this.resources) await this.resumeRadios(generation, this.resources);
       } catch {
-        if (this.live(generation)) this.patch({ backgroundEnabled: false, issue: 'background-unavailable' });
+        if (this.live(generation) && intent === this.backgroundIntent) this.patch({ backgroundEnabled: false, issue: 'background-unavailable' });
       } finally { if (this.live(generation) && intent === this.backgroundIntent) this.patch({ backgroundBusy: false }); }
     });
     this.backgroundWork = operation.catch(() => {});
@@ -347,8 +348,9 @@ export class AppRuntime {
       if (!this.live(generation)) return;
       this.onPlatformEvent(event);
     });
+    const batteryRevision = this.batteryRevision;
     void platform.getBatteryState().then(battery => {
-      if (this.live(generation)) this.onPlatformEvent({ type: 'battery', battery });
+      if (this.live(generation) && batteryRevision === this.batteryRevision) this.onPlatformEvent({ type: 'battery', battery });
     }).catch(() => { /* Unknown battery readings never disable SOS. */ });
     void this.checkAlertPermission(generation);
   }
@@ -363,10 +365,16 @@ export class AppRuntime {
   }
   private onPlatformEvent(event: NativeRuntimeEvent): void {
     if (event.type === 'battery') {
+      this.batteryRevision += 1;
       this.patch({ battery: event.battery });
       if (this.state.automaticPowerMode) this.applyPowerMode(this.batteryPowerMode(event.battery));
     } else if (!event.running) {
-      this.patch({ backgroundEnabled: false });
+      if (event.reason === 'user-stopped') {
+        // The notification action overrides an in-flight start request too.
+        // Its late promise must compensate with stop, never re-enable opt-in.
+        this.backgroundIntent += 1;
+        this.patch({ backgroundEnabled: false, backgroundBusy: false });
+      } else this.patch({ backgroundEnabled: false });
       if (!this.state.foreground && this.resources) this.pauseRadios(this.resources);
       // Stopping the native session also tears down owned radio controllers.
       else if (event.reason === 'user-stopped' && this.resources) void this.resumeRadios(this.generation, this.resources);

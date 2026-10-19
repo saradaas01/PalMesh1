@@ -28,14 +28,22 @@ integration and verification. Never force-push, reset, or replace remote work.
 
 ## Verified current code
 
-- `npm run check`: strict TypeScript, **355 core tests**, **58 UI tests**,
+- `npm run check`: strict TypeScript, **357 core tests**, **58 UI tests**,
   and module build passed.
 - Map tools: **30 Python tests**, real Lua profile checks and all 256 glyph
   pages passed. Release tools: **13 Python tests** and Boost cache verification.
 - Real SQLCipher source probe: encrypted file, correct-key reopen, wrong-key
   rejection and plain-SQLite rejection passed.
-- Updated ARM64 bundled Android debug build passed. Final packaging verification
-  and artifact refresh are recorded separately in the latest build handoff.
+- Updated ARM64 bundled Android debug build passed. APK signature, ZIP CRC,
+  launcher metadata, bundled Hermes bytecode, 256 glyph pages, SQLCipher native
+  marker and all 14 native libraries' 16 KiB LOAD alignment checks passed.
+  The development APK is available locally at
+  `dist/android/PalMesh-0.1.0-arm64-debug.apk` (81,987,979 bytes), SHA256
+  `f8aee0da623f1a94ea2347873f2d505bb52fe2b8954ffc68bf2ccc24ea344625`.
+  It is debug-signed, has no real map dataset, and has not run on a phone.
+- Regression checks cover delayed battery readings and notification stop during
+  background startup. Android service stop now awaits native teardown before
+  another session starts. CI uses the official `platforms;android-37.0` SDK ID.
 
 ## Remaining external requirements
 
