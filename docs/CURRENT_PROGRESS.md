@@ -29,14 +29,22 @@ integration and verification. Never force-push, reset, or replace remote work.
   acceptance procedure.
 - Map generation/validation/packaging tools and licensed offline glyphs.
 - CI, production signing configuration, artifact checks and device test guides.
+- Manual Android release provisioning accepts a reviewed map artifact from a
+  specified run in this repository, with operator-pinned map and manifest
+  SHA-256 values. Full provenance/coverage validation precedes signing-key
+  materialization; existing differing map files are preserved.
 
 ## Verified current code
 
 - `npm run check`: strict TypeScript, **370 core tests**, **71 UI tests**,
   and module build passed.
-- Map tools: **30 Python tests**, real Lua profile checks and all 256 glyph
+- Map tools: **47 Python tests**, real Lua profile checks and all 256 glyph
   pages passed. Android tooling: **26 Python tests**, including release and
   cold-launch runner checks, plus Boost cache verification.
+- The 17 new reviewed-artifact importer tests cover independent hash pins,
+  invalid maps, symlinks, bounds, existing-file preservation and publication
+  races. Workflow YAML and embedded Python parse checks passed. No real map
+  artifact or signed production build was produced by these tests.
 - Official pinned tilemaker 3.2.0 was compiled with verified source and signed
   Debian dependencies. Preserving installer replay passed. The actual app Lua
   generated 16 valid upstream Monaco fixture tiles across all nine layers;
@@ -85,14 +93,18 @@ integration and verification. Never force-push, reset, or replace remote work.
 1. Official Geofabrik Palestine source download still returns HTTP 403 for both
    HEAD and bounded GET checks on October 20, 2026.
    The `download.geofabrik.de` addition was saved to the environment draft;
-   actual access has not been restored. No real MBTiles asset or fabricated
-   checksum is included. See `mapdata/README.md` and `docs/maps.md`.
+   a recheck after environment publication still returned proxy CONNECT 403.
+   No real MBTiles asset or fabricated checksum is included. See
+   `mapdata/README.md` and `docs/maps.md`.
 2. No physical Android phones or iPhones are attached. The macOS compile gate
    passed; the physical three-phone matrix in `docs/device-acceptance.md` remains
    required. The passing KVM baseline verifies native UI and persistence; it
    does not establish physical Wi-Fi Direct/BLE, GPS or OS battery behavior.
 3. No operator release key or certificate is supplied. The production release
    script intentionally refuses missing maps/credentials; see `docs/releasing.md`.
+   iOS distribution additionally requires the operator's Apple team,
+   certificates and provisioning on macOS; simulator compilation does not
+   establish distribution signing.
 4. The cryptographic application protocol needs independent review. Static
    X25519 has no forward secrecy; identities identify keys, not people. Radio
    jamming/Sybil attacks and OS process death remain limitations.

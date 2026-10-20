@@ -11,7 +11,8 @@ that the map is unavailable and continues to show stored coordinates and SOS.
 No remote basemap or download is substituted. The included
 [Android application shell](android-app.md) mounts the feature modules and has
 built a development APK. Physical-device rendering and GPS behavior remain
-unverified; the [iOS host](ios-app.md) requires a macOS/Xcode build.
+unverified. The [iOS host](ios-app.md) passed its macOS Release simulator build;
+physical iPhone rendering and GPS remain separate acceptance checks.
 
 The verified 256-page Noto glyph atlas and Arabic presentation forms are bundled
 for local street/place labels. The real map-data download is currently blocked
@@ -188,7 +189,8 @@ The Android app has built a development APK. Physical-device map rendering,
 loopback policy, permissions and airplane-mode GPS/radio interruptions remain
 unverified. A real approved Palestine dataset is still required. The generator
 checks structural coverage at nine cities and retains the OSM source date;
-it cannot verify present-day conditions. iOS compilation and device rendering
-require macOS/Xcode. Application cryptography and encrypted persistence are
+it cannot verify present-day conditions. iOS Release simulator compilation has
+passed; physical-device rendering and distribution signing remain required.
+Application cryptography and encrypted persistence are
 implemented, with the limitations described in the security model; no field
 validation or independent security audit is claimed.

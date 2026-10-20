@@ -84,6 +84,58 @@ repository does not back up ignored map databases. Do not attach a generated
 map to a release until its license, date, coverage and resource hashes have
 been reviewed and actual offline rendering has been tested on both platforms.
 
+## Reviewed Actions artifact
+
+The signed Android workflow consumes an already reviewed artifact from an
+Actions run in **this repository**, named `palmesh-reviewed-palestine-map`.
+Preparing that artifact requires real licensed data; the release workflow never
+downloads map data or substitutes a fixture. First generate/obtain the genuine
+map pair, run the full checks above, review its license/source date/coverage, and
+record the SHA-256 of each file through an independent operator review. Do not
+derive the trusted release pins from a subsequently downloaded artifact or its
+included checksum file. Use an approved artifact store/offline medium to retain
+the source dataset as well as this time-limited Actions copy.
+
+Your trusted same-repository map preparation workflow must provision the two
+reviewed files into its workspace through your controlled data source. After
+validation, upload **only** these exact regular files, without a containing
+folder or any extra entries:
+
+```yaml
+- name: Validate the genuine reviewed map pair
+  run: python3 scripts/maps/package.py --check
+- uses: actions/upload-artifact@v4
+  with:
+    name: palmesh-reviewed-palestine-map
+    path: |
+      mapdata/palestine.mbtiles
+      mapdata/palestine.manifest.json
+    if-no-files-found: error
+    compression-level: 0
+    retention-days: 14
+```
+
+This is a step to add to your trusted preparation workflow after its controlled
+data provisioning, not a claim that an artifact or Palestine map currently
+exists. Never upload source PBFs, SQLite sidecars, signing material or extra
+checksum/readme files in this named artifact. Confirm both expected files are
+present; the release importer requires the exact pair. Record the producing run
+ID from its GitHub Actions run URL and preserve the separately reviewed file
+hashes. Artifact names alone do not establish trusted provenance, and GitHub
+artifact archive digests are different from the individual file hashes.
+
+Dispatch `release-android.yml` with the producing `map_artifact_run_id`,
+`map_sha256`, `map_manifest_sha256` and release version inputs. The workflow must
+first be reviewed onto the repository's default branch to support manual
+dispatch. It downloads from the same repository with the existing scoped
+`GITHUB_TOKEN`, checks pinned hashes before importing, and runs full map
+provenance/coverage validation. If a tracked `palestine.manifest.json` already
+exists it must match the reviewed artifact exactly; review a new manifest in
+Git instead of overwriting it during release. Rebuild/review/re-upload and use
+new pins when any approved map or manifest bytes change. Expired/deleted or
+mismatching artifacts fail closed; do not broaden download access or disable
+checks to proceed.
+
 ## Device validation
 
 Build the application after staging and check that both the MBTiles database

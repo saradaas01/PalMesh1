@@ -107,9 +107,37 @@ GitHub environment. Configure required reviewers in repository settings if that
 is your release policy. Configure the four signing secrets (using
 `PALMESH_RELEASE_KEYSTORE_BASE64` instead of a filesystem path) and the
 `PALMESH_RELEASE_CERT_SHA256` environment variable. Materialized keys are mode
-0600 in the runner's temporary directory and removed even after failure. Supply
-the reviewed map through your controlled artifact provisioning before running
-this workflow; it deliberately fails while no map exists in the checkout.
+0600 from creation in the runner's temporary directory and removed even after
+failure. Signing secrets are scoped to materialization/build steps after map
+validation; package installation and toolchain setup receive none of them.
+
+The workflow must exist on the repository's default branch before GitHub offers
+manual dispatch. Current implementation work lives on `work`, while `main`
+retains the initial repository commit. Review and merge the intended source
+through your normal repository process before dispatch; do not force-push,
+rewrite `main` or change the default branch merely to expose a workflow.
+
+Provision the reviewed map as the **same repository's** immutable Actions
+artifact named `palmesh-reviewed-palestine-map`; see the
+[artifact preparation procedure](../mapdata/README.md#reviewed-actions-artifact).
+Dispatch requires its producing run ID, plus the independently reviewed
+lowercase SHA-256 values of **both** `palestine.mbtiles` and
+`palestine.manifest.json`. Record those values through your review process
+before upload; neither the download nor a hash file inside the artifact is a
+trusted source for the pins. Do not use the Actions archive digest in place of
+either individual file digest.
+
+The release validates those inputs before downloading the fixed artifact name,
+using `actions: read` and the normal `GITHUB_TOKEN` restricted to
+`github.repository`. No cross-repository download, arbitrary source URL or map
+network request is accepted. The importer rejects extra/nested entries,
+symbolic links (including parent directories), SQLite sidecars, oversized files
+and mismatching operator hashes. It validates private copied bytes through the
+existing complete provenance/coverage validator before publishing either file
+into `mapdata/`. Existing files are accepted only when identical; a different
+tracked manifest or existing database fails without overwriting user work.
+Re-running an identical import preserves existing files. An interrupted pair
+still fails the normal release packager until a complete, verified pair exists.
 
 Workflow artifacts inherit repository and workflow access rules; public
 repositories can expose artifacts. The workflows upload build artifacts for
@@ -137,3 +165,13 @@ is provided.
 
 Record the Git commit, APK SHA-256, signing certificate, versions, map data date,
 map/font digests, test evidence and known device restrictions with each release.
+
+## iOS distribution
+
+The passing macOS Release simulator gate does not produce an installable signed
+iPhone distribution binary. Physical installation/distribution additionally
+requires the operator's Apple developer team, signing identity, provisioning
+profile and chosen distribution channel on macOS. Configure these through your
+approved Apple/Xcode signing procedure and keep private material out of Git and
+chat. Complete the physical iPhone/BLE/map acceptance matrix before distribution;
+the Android signing workflow cannot substitute for Apple provisioning.

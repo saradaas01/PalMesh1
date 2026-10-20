@@ -10,8 +10,21 @@ on:
         description: Monotonically increasing Android version code
         required: true
         type: string
+      map_artifact_run_id:
+        description: Same-repository run containing palmesh-reviewed-palestine-map
+        required: true
+        type: string
+      map_sha256:
+        description: Independently reviewed lowercase SHA-256 of palestine.mbtiles
+        required: true
+        type: string
+      map_manifest_sha256:
+        description: Independently reviewed lowercase SHA-256 of palestine.manifest.json
+        required: true
+        type: string
 permissions:
   contents: read
+  actions: read
 jobs:
   android-release:
     # Configure this GitHub environment with required reviewers and signing
@@ -19,15 +32,41 @@ jobs:
     # to a release page or application store by this workflow.
     environment: android-release
     runs-on: ubuntu-24.04
-    env:
-      PALMESH_VERSION_NAME: ${{ inputs.version_name }}
-      PALMESH_VERSION_CODE: ${{ inputs.version_code }}
-      PALMESH_RELEASE_STORE_PASSWORD: ${{ secrets.PALMESH_RELEASE_STORE_PASSWORD }}
-      PALMESH_RELEASE_KEY_ALIAS: ${{ secrets.PALMESH_RELEASE_KEY_ALIAS }}
-      PALMESH_RELEASE_KEY_PASSWORD: ${{ secrets.PALMESH_RELEASE_KEY_PASSWORD }}
-      PALMESH_RELEASE_CERT_SHA256: ${{ vars.PALMESH_RELEASE_CERT_SHA256 }}
     steps:
       - uses: actions/checkout@v5
+      - name: Validate operator-pinned artifact inputs
+        env:
+          MAP_RUN_ID: ${{ inputs.map_artifact_run_id }}
+          MAP_SHA256: ${{ inputs.map_sha256 }}
+          MAP_MANIFEST_SHA256: ${{ inputs.map_manifest_sha256 }}
+        shell: python
+        run: |
+          import os, re
+          if not re.fullmatch(r'[1-9][0-9]{0,19}', os.environ['MAP_RUN_ID']):
+              raise SystemExit('A positive same-repository Actions run ID is required')
+          for name in ('MAP_SHA256', 'MAP_MANIFEST_SHA256'):
+              if not re.fullmatch(r'[a-f0-9]{64}', os.environ[name]):
+                  raise SystemExit('Both independently reviewed lowercase SHA-256 digests are required')
+      - name: Download the same-repository reviewed map artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: palmesh-reviewed-palestine-map
+          path: ${{ runner.temp }}/palmesh-reviewed-map
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.map_artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify and stage the operator-pinned map pair
+        env:
+          MAP_ARTIFACT_DIRECTORY: ${{ runner.temp }}/palmesh-reviewed-map
+          MAP_SHA256: ${{ inputs.map_sha256 }}
+          MAP_MANIFEST_SHA256: ${{ inputs.map_manifest_sha256 }}
+        shell: python
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, 'scripts/maps/provision_artifact.py',
+              '--artifact-directory', os.environ['MAP_ARTIFACT_DIRECTORY'],
+              '--map-sha256', os.environ['MAP_SHA256'],
+              '--manifest-sha256', os.environ['MAP_MANIFEST_SHA256']], check=True)
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
@@ -43,14 +82,30 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.PALMESH_RELEASE_KEYSTORE_BASE64 }}
         shell: python
         run: |
-          import base64, os
+          import base64, os, tempfile
           from pathlib import Path
-          path = Path(os.environ['RUNNER_TEMP']) / 'palmesh-release.keystore'
-          path.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
-          path.chmod(0o600)
-          with open(os.environ['GITHUB_ENV'], 'a') as stream:
-              stream.write('PALMESH_RELEASE_STORE_FILE=' + str(path) + '\n')
-      - run: python3 scripts/android/release.py
+          key = base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True)
+          if not key:
+              raise SystemExit('An operator-owned signing identity is required')
+          descriptor, name = tempfile.mkstemp(prefix='palmesh-release-', suffix='.keystore', dir=os.environ['RUNNER_TEMP'])
+          path = Path(name)
+          try:
+              with os.fdopen(descriptor, 'wb') as output:
+                  output.write(key)
+              with open(os.environ['GITHUB_ENV'], 'a') as stream:
+                  stream.write('PALMESH_RELEASE_STORE_FILE=' + str(path) + '\n')
+          except BaseException:
+              path.unlink(missing_ok=True)
+              raise
+      - name: Build and verify the operator-signed release
+        env:
+          PALMESH_VERSION_NAME: ${{ inputs.version_name }}
+          PALMESH_VERSION_CODE: ${{ inputs.version_code }}
+          PALMESH_RELEASE_STORE_PASSWORD: ${{ secrets.PALMESH_RELEASE_STORE_PASSWORD }}
+          PALMESH_RELEASE_KEY_ALIAS: ${{ secrets.PALMESH_RELEASE_KEY_ALIAS }}
+          PALMESH_RELEASE_KEY_PASSWORD: ${{ secrets.PALMESH_RELEASE_KEY_PASSWORD }}
+          PALMESH_RELEASE_CERT_SHA256: ${{ vars.PALMESH_RELEASE_CERT_SHA256 }}
+        run: python3 scripts/android/release.py
       - uses: actions/upload-artifact@v4
         with:
           name: palmesh-signed-android
@@ -62,4 +117,5 @@ jobs:
         run: |
           import os
           from pathlib import Path
-          (Path(os.environ['RUNNER_TEMP']) / 'palmesh-release.keystore').unlink(missing_ok=True)
+          if path := os.environ.get('PALMESH_RELEASE_STORE_FILE'):
+              Path(path).unlink(missing_ok=True)
