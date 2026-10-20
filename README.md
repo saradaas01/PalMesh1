@@ -11,10 +11,11 @@ composition, Arabic/English UI and Android foreground-service integration.
 The domain layer has no external dependencies; application use cases depend on
 ports and are separate from native adapters and React Native components.
 
-This is a development project. The earlier Android development APK compiled and
-passed packaging/signature checks. New integrations require a fresh native build
-and device acceptance. No physical-phone interoperability result, iOS build,
-independent security audit or complete Palestine map dataset is claimed.
+Android builds and the iOS Release simulator compile passed native GitHub CI.
+The bundled Android development APK also passed packaging/signature checks.
+Physical-phone interoperability, independent security review and a real
+Palestine map dataset remain release requirements. See the
+[recorded progress](docs/CURRENT_PROGRESS.md) for exact source commits and checks.
 
 ## Develop and verify
 

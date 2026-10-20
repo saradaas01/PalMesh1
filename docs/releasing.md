@@ -89,13 +89,18 @@ uses it. Do not install or distribute the unsigned inspection artifact.
 
 `verify.yml` checks application code, map/release tooling and local fonts, builds
 the production JavaScript bundle, and builds a bundled development APK through
-the normal official AAR path. GitHub-hosted runners use their Android SDK; they
-do not depend on a retained cloud filesystem. An artifact-download outage is a
+the normal official AAR path. A shared action installs the pinned official
+Android CLI and SDK packages in the runner's temporary directory, verifying the
+Google archive size and checksum. It does not depend on an absent `sdkmanager`
+command or a retained cloud filesystem. An artifact-download outage is a
 build failure, not permission to use an untrusted mirror or skip native checks.
 
-`verify-ios.yml` is a manual macOS simulator compile gate with code signing
-disabled. It installs CocoaPods and compiles the actual iOS host; it does not
-validate iPhone BLE or produce a distribution IPA.
+`verify-ios.yml` runs the macOS simulator compile gate on relevant source
+changes in `work`/`main`, pull requests, and manual dispatch. It installs
+CocoaPods and compiles the actual iOS host with distribution signing disabled.
+It retains diagnostic logs and the Xcode result bundle; Bash pipeline failure
+checking preserves the actual compiler result. It does not validate iPhone BLE
+or produce a distribution IPA.
 
 `release-android.yml` is manually dispatched and uses the `android-release`
 GitHub environment. Configure required reviewers in repository settings if that
@@ -108,8 +113,9 @@ this workflow; it deliberately fails while no map exists in the checkout.
 
 Workflow artifacts inherit repository and workflow access rules; public
 repositories can expose artifacts. The workflows upload build artifacts for
-review and do not publish to stores or create release announcements. Triggering
-or configuring those workflows is an operator action. Regular source backups
+review and do not publish to stores or create release announcements. Dispatching
+the signed release workflow and configuring its credentials are operator
+actions. Regular source backups
 use ordinary non-force Git pushes; APKs, maps, caches, databases and credentials
 remain outside source commits.
 

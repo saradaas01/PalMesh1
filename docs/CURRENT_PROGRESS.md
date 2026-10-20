@@ -15,23 +15,32 @@ integration and verification. Never force-push, reset, or replace remote work.
 - SQLCipher databases, Android Keystore and iOS Keychain vaults. Missing/corrupt
   keys and legacy plaintext files fail closed; no automatic plaintext migration
   or destructive reset is performed.
+- Retryable first-install provisioning makes the identity durable before the
+  database key. Sanitized English/Arabic startup recovery guidance preserves
+  existing files and keys; SOS is enabled only after startup succeeds.
 - Opt-in Android foreground service, notification permissions, private bounded
   emergency alerts, battery monitoring and automatic/manual conservation.
 - Durable SOS inbox and responder statements. A response records human intent,
   never a guarantee of assistance.
 - English/Arabic interface and preferences, RTL, four routes, public contact
   identity import, fingerprint comparison and a global SOS action.
-- iOS host/native sources, portable tile-parser tests, and manual macOS compile
-  workflow. Apple compilation and actual iOS radio behavior remain unverified.
+- iOS host/native sources, portable tile-parser tests, and a passing real macOS
+  Release simulator compile. Physical iOS radio behavior has a separate
+  acceptance procedure.
 - Map generation/validation/packaging tools and licensed offline glyphs.
 - CI, production signing configuration, artifact checks and device test guides.
 
 ## Verified current code
 
-- `npm run check`: strict TypeScript, **357 core tests**, **58 UI tests**,
+- `npm run check`: strict TypeScript, **370 core tests**, **71 UI tests**,
   and module build passed.
 - Map tools: **30 Python tests**, real Lua profile checks and all 256 glyph
-  pages passed. Release tools: **13 Python tests** and Boost cache verification.
+  pages passed. Android tooling: **26 Python tests**, including release and
+  cold-launch runner checks, plus Boost cache verification.
+- Official pinned tilemaker 3.2.0 was compiled with verified source and signed
+  Debian dependencies. Preserving installer replay passed. The actual app Lua
+  generated 16 valid upstream Monaco fixture tiles across all nine layers;
+  temporary fixture output was deleted and never packaged as Palestine data.
 - Real SQLCipher source probe: encrypted file, correct-key reopen, wrong-key
   rejection and plain-SQLite rejection passed.
 - Updated ARM64 bundled Android debug build passed. APK signature, ZIP CRC,
@@ -39,27 +48,54 @@ integration and verification. Never force-push, reset, or replace remote work.
   marker and all 14 native libraries' 16 KiB LOAD alignment checks passed.
   The development APK is available locally at
   `dist/android/PalMesh-0.1.0-arm64-debug.apk` (81,987,979 bytes), SHA256
-  `f8aee0da623f1a94ea2347873f2d505bb52fe2b8954ffc68bf2ccc24ea344625`.
+  `5f5bb047e0da109034477721b946b893ba275cf8aec2e91a60f8b28c13a7ed54`.
   It is debug-signed, has no real map dataset, and has not run on a phone.
+- The nondebuggable, unsigned ARM64 Release variant also compiled and passed
+  explicit unsigned packaging inspection. It is **not installable or eligible
+  for distribution**. Its SHA256 is
+  `65d8ab472cfb3b3a715662aab65902a67f112a2fcc21d3f4fcd1c7f8bd5b7cdc`.
+  Both variants contain the new recovery UI and matching Hermes bytecode.
 - Regression checks cover delayed battery readings and notification stop during
   background startup. Android service stop now awaits native teardown before
   another session starts. CI uses the official `platforms;android-37.0` SDK ID.
+  A confirmed hosted-runner failure from the absent `sdkmanager` executable was
+  fixed with a verified official Android CLI bootstrap.
+- Actual hosted GitHub application and Android native jobs passed for source
+  commit `7c3f603621757986359fa42e95f4ad619e5c901e`, including APK verification
+  and artifact upload:
+  https://github.com/saradaas01/PalMesh1/actions/runs/39330234115.
+- The same source commit passed CocoaPods and the real iOS Release simulator
+  build: https://github.com/saradaas01/PalMesh1/actions/runs/39330240202.
+  `PalMeshApp` is the internal executable name, avoiding its case-insensitive
+  filesystem collision with the bundled `palmesh` resource directory.
+- UUID 11.1.1 includes the compatible bounds-checking security patch. The
+  remaining npm audit findings trace to one unpatched `braces` build-tooling
+  advisory; see `docs/security.md`. The Android bundle's source map contains
+  neither `braces` nor `micromatch`.
+- The KVM-backed Android smoke workflow checks enabled native UI, a local SOS,
+  retained emergency history and stable public identity across a cold restart.
+  Runner unit checks pass; actual device execution has a separate CI result.
 
 ## Remaining external requirements
 
-1. Official Geofabrik Palestine source download still returns CONNECT HTTP 403.
+1. Official Geofabrik Palestine source download still returns HTTP 403 for both
+   HEAD and bounded GET checks on October 20, 2026.
    The `download.geofabrik.de` addition was saved to the environment draft;
    actual access has not been restored. No real MBTiles asset or fabricated
    checksum is included. See `mapdata/README.md` and `docs/maps.md`.
-2. No Android phones or Mac/Xcode environment are attached. Run the physical
-   three-phone matrix in `docs/device-acceptance.md` and the macOS workflow.
+2. No physical Android phones or iPhones are attached. The macOS compile gate
+   passed; the physical three-phone matrix in `docs/device-acceptance.md` remains
+   required. The local software-only Android guest failed before PalMesh could
+   run, so it supplies no app-runtime pass.
 3. No operator release key or certificate is supplied. The production release
    script intentionally refuses missing maps/credentials; see `docs/releasing.md`.
 4. The cryptographic application protocol needs independent review. Static
    X25519 has no forward secrecy; identities identify keys, not people. Radio
    jamming/Sybil attacks and OS process death remain limitations.
-5. Legacy plaintext prototype databases need a separate migration/recovery
-   decision. Existing data/keys are never silently deleted.
+5. This first release targets new installations. Existing plaintext prototype
+   data is preserved, but in-place migration is unsupported. A prototype UUID
+   cannot become a self-certifying cryptographic address without a new identity;
+   unsigned historical records must not be re-signed or requeued as trusted data.
 
 Foreground service operation is best effort while JavaScript survives; there is
 no native DTN takeover after process death. GPS sharing remains explicit and

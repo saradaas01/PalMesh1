@@ -6,6 +6,24 @@ and coordinates; erase test material through your established device procedure.
 Record pass/fail evidence and unresolved behavior against the exact Git commit,
 APK SHA-256/signing certificate, OS build and hardware model.
 
+## Automated emulator baseline
+
+The `Android offline cold launch` workflow builds the bundled x86_64 development
+APK and runs `scripts/android/smoke.py` on an official API 35 AOSP image with KVM.
+It requires hardware acceleration, keeps normal ADB authentication, disables
+emulated internet and radios, and verifies enabled native UI controls without
+Metro. A synthetic SOS must appear in local history and survive a force-stop;
+the public identity fingerprint must also remain unchanged after restart.
+
+The test refuses physical-device serials and existing emulator state. It never
+reads private app files or decrypts databases. Diagnostic artifacts contain only
+fresh synthetic UI, bounded error logs and a result report; private emulator
+state and developer authentication keys are outside the uploaded directory.
+An enabled workflow or successful unit tests do not establish a completed
+emulator run: retain the actual passing job/report before recording this gate.
+This baseline does not replace the physical radio, GPS, battery, iOS or
+real-map acceptance checks below.
+
 ## Equipment and baseline
 
 Use at least three physical Android phones A, B and C, including a recent API
