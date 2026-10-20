@@ -13,6 +13,8 @@ ports and are separate from native adapters and React Native components.
 
 Android builds and the iOS Release simulator compile passed native GitHub CI.
 The bundled Android development APK also passed packaging/signature checks.
+The KVM emulator baseline passed offline startup, queued SOS persistence and
+stable identity across a cold restart.
 Physical-phone interoperability, independent security review and a real
 Palestine map dataset remain release requirements. See the
 [recorded progress](docs/CURRENT_PROGRESS.md) for exact source commits and checks.

@@ -24,6 +24,12 @@ emulator run: retain the actual passing job/report before recording this gate.
 This baseline does not replace the physical radio, GPS, battery, iOS or
 real-map acceptance checks below.
 
+Checkpoint `2040e8358b20bd6c38a87deeb430de7ceeaeb555` passed the real
+[KVM smoke job](https://github.com/saradaas01/PalMesh1/actions/runs/39386162427/job/118506946714),
+including native startup, a local queued SOS, retained emergency history and
+the same public identity after force-stop/relaunch. The test used the official
+API 35 AOSP x86_64 image. Later application changes need their own run.
+
 ## Equipment and baseline
 
 Use at least three physical Android phones A, B and C, including a recent API

@@ -72,9 +72,13 @@ integration and verification. Never force-push, reset, or replace remote work.
   remaining npm audit findings trace to one unpatched `braces` build-tooling
   advisory; see `docs/security.md`. The Android bundle's source map contains
   neither `braces` nor `micromatch`.
-- The KVM-backed Android smoke workflow checks enabled native UI, a local SOS,
-  retained emergency history and stable public identity across a cold restart.
-  Runner unit checks pass; actual device execution has a separate CI result.
+- Actual KVM-backed Android execution passed for source checkpoint
+  `2040e8358b20bd6c38a87deeb430de7ceeaeb555`:
+  https://github.com/saradaas01/PalMesh1/actions/runs/39386162427/job/118506946714.
+  The official API 35 AOSP x86_64 guest cold-launched the bundled app without
+  Metro or internet, queued a synthetic local SOS, retained its history after a
+  force-stop/relaunch and reused the same public identity. Normal ADB
+  authentication was retained; private app files were never read.
 
 ## Remaining external requirements
 
@@ -85,8 +89,8 @@ integration and verification. Never force-push, reset, or replace remote work.
    checksum is included. See `mapdata/README.md` and `docs/maps.md`.
 2. No physical Android phones or iPhones are attached. The macOS compile gate
    passed; the physical three-phone matrix in `docs/device-acceptance.md` remains
-   required. The local software-only Android guest failed before PalMesh could
-   run, so it supplies no app-runtime pass.
+   required. The passing KVM baseline verifies native UI and persistence; it
+   does not establish physical Wi-Fi Direct/BLE, GPS or OS battery behavior.
 3. No operator release key or certificate is supplied. The production release
    script intentionally refuses missing maps/credentials; see `docs/releasing.md`.
 4. The cryptographic application protocol needs independent review. Static
