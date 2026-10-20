@@ -1,0 +1,22 @@
+// React Native 0.88.0's environment override self-references its empty task input.
+// Bind the documented local Boost source explicitly through Gradle configuration.
+gradle.afterProject { project ->
+    if (project.path == ':packages:react-native:ReactAndroid') {
+        project.tasks.named('prepareBoost').configure { task ->
+            def sourceRoot = System.getenv('REACT_NATIVE_BOOST_PATH')
+            if (sourceRoot == null || sourceRoot.isEmpty()) {
+                throw new GradleException('REACT_NATIVE_BOOST_PATH must name the local Boost parent directory')
+            }
+            task.boostPath.setFrom(project.file(sourceRoot))
+        }
+        // Upstream records header source paths as @Input strings, so exporting
+        // headers can remain up-to-date after prepareBoost first populates them.
+        // Track the generated files explicitly; consumers then receive the usual
+        // filtered Boost prefab headers without adding compiler include flags.
+        project.tasks.named('preparePrefab').configure { task ->
+            task.inputs.dir(project.tasks.named('prepareBoost').flatMap { it.outputDir })
+                .withPropertyName('preparedBoostHeaders')
+                .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
+        }
+    }
+}

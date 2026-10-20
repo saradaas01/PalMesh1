@@ -1,0 +1,5 @@
+# Large, licensed map data is generated/imported with scripts/maps; manifests
+# are retained for review. Never commit transient/uncheckpointed SQLite files.
+*.mbtiles
+source/
+*.building.mbtiles*

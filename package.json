@@ -1,0 +1,58 @@
+{
+  "name": "palmesh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first PalMesh routing, mesh transport, chat and maps modules",
+  "scripts": {
+    "start": "react-native start --host 127.0.0.1",
+    "android": "react-native run-android",
+    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output dist/android/index.android.bundle --assets-dest dist/android --max-workers 2",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "npm run test:core && npm run test:ui",
+    "test:core": "tsx --test tests/*.test.ts",
+    "test:ui": "jest --runInBand",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-android": "20.2.0",
+    "@react-native-community/cli-platform-ios": "20.2.0",
+    "@react-native/babel-preset": "0.88.0",
+    "@react-native/jest-preset": "0.88.0",
+    "@react-native/metro-config": "0.88.0",
+    "@testing-library/react-native": "14.1.0",
+    "@types/geojson": "7946.0.16",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "babel-jest": "30.5.2",
+    "jest": "30.5.2",
+    "test-renderer": "1.3.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@maplibre/maplibre-react-native": "11.5.0",
+    "@noble/ciphers": "1.3.0",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
+    "@op-engineering/op-sqlite": "18.2.5",
+    "@palmesh/offline-maps": "file:native/palmesh-offline-maps",
+    "@palmesh/runtime": "file:native/palmesh-runtime",
+    "@palmesh/wifi-direct": "file:native/palmesh-wifi-direct",
+    "@react-native-community/geolocation": "3.4.0",
+    "react": "19.3.1",
+    "react-native": "0.88.0",
+    "react-native-ble-plx": "3.5.1",
+    "react-native-get-random-values": "2.0.0",
+    "react-native-safe-area-context": "5.10.1",
+    "uuid": "11.1.1"
+  },
+  "op-sqlite": {
+    "sqlcipher": true
+  }
+}

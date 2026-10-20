@@ -1,0 +1,13 @@
+Map data © OpenStreetMap contributors.
+OpenStreetMap data is available under the Open Database License (ODbL) 1.0.
+https://www.openstreetmap.org/copyright
+https://opendatacommons.org/licenses/odbl/1-0/
+
+This offline map is generated from an OpenStreetMap regional extract using
+tilemaker. The accompanying palestine.manifest.json records the exact source,
+source data timestamp, checksums, generator, and generation configuration.
+Source data is available through the sourceUrl recorded in that manifest.
+The generation scripts are in the PalMesh source repository, scripts/maps/.
+
+Map features describe the source database at its recorded data timestamp.
+They do not verify current road access, facility operation, damage or safety.

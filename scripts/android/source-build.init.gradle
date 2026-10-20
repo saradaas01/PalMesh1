@@ -1,0 +1,15 @@
+// React Native's supported source composite avoids depending on prebuilt AARs.
+// Include both Hermes coordinates so the compiler and runtime stay matched.
+gradle.settingsEvaluated { settings ->
+    def repository = System.getenv('PALMESH_REPOSITORY_ROOT')
+    if (repository != null && settings.rootDir.canonicalFile == new File(repository, 'android').canonicalFile) {
+        settings.includeBuild(new File(repository, 'node_modules/react-native')) {
+            dependencySubstitution {
+                substitute module('com.facebook.react:react-native') using project(':packages:react-native:ReactAndroid')
+                substitute module('com.facebook.react:react-android') using project(':packages:react-native:ReactAndroid')
+                substitute module('com.facebook.react:hermes-android') using project(':packages:react-native:ReactAndroid:hermes-engine')
+                substitute module('com.facebook.hermes:hermes-android') using project(':packages:react-native:ReactAndroid:hermes-engine')
+            }
+        }
+    }
+}
