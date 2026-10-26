@@ -40,7 +40,11 @@ removes just the scheduler hint; it never artificially forces the SDK offline.
 `scripts/android/map_smoke.py` creates a fresh official API 35 AOSP emulator
 with no snapshots or previous map cache. Before installation/first launch it
 disables Wi-Fi, mobile data and Bluetooth, verifies no active default network,
-and rejects all non-loopback IPv4/IPv6 guest egress. Root is used only in this
+disables non-loopback guest interfaces (including virtual Ethernet, which
+airplane mode does not disable), and rejects non-loopback IPv4/IPv6 egress.
+Absent-radio settings are accepted only when Android advertises no such
+hardware. Failed isolation retains connectivity/interface/radio diagnostics
+and never counts as an application test. Root is used only in this
 disposable emulator to install firewall rules, never in the app or on a phone.
 Normal ADB authentication is preserved.
 
@@ -61,7 +65,7 @@ and source date `2026-10-25T21:21:21Z`, then runs the full map/manifest
 validator. The genuine map bytes, provenance and licenses are preserved.
 
 Local checks on October 26, 2026 passed: TypeScript/build, 380 core tests,
-81 React Native tests, 41 Android-tool tests and 53 map-tool tests. The ARM64
+81 React Native tests, 43 Android-tool tests and 53 map-tool tests. The ARM64
 bundled debug build passed signature, JavaScript, genuine map/glyph packaging,
 native ABI, ZIP and ELF 16-KiB alignment verification. Local builds use the
 same genuine PBF but an independently generated local MBTiles hash; hosted

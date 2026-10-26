@@ -7,6 +7,17 @@ import map_smoke
 
 
 class MapSmokeTests(unittest.TestCase):
+    def test_virtual_ethernet_is_disabled_but_loopback_is_preserved(self):
+        self.assertEqual(map_smoke.interface_names('1: lo: <LOOPBACK>\n2: eth0@if9: <UP>\n3: wlan0: <UP>'), ['eth0','wlan0'])
+        with self.assertRaises(RuntimeError): map_smoke.interface_names('2: eth0: <UP>')
+
+    def test_missing_radio_setting_requires_actual_hardware_absence(self):
+        self.assertTrue(map_smoke.radio_is_off('null', False))
+        self.assertFalse(map_smoke.radio_is_off('null', True))
+        for present in (False, True):
+            self.assertTrue(map_smoke.radio_is_off('0', present))
+            self.assertFalse(map_smoke.radio_is_off('1', present))
+
     def good(self):
         return dict(androidInternetConnected=False, loopbackOnly=True, sdkConnected=True,
                     geometry=100, roads=20, labels=10, arabicLabels=5, tileHits=4, glyphHits=8)

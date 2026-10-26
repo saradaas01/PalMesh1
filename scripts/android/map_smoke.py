@@ -14,6 +14,17 @@ import time
 import smoke
 
 
+def interface_names(output: str) -> list[str]:
+    names = re.findall(r'^\d+: ([A-Za-z0-9_.-]+)(?:@[^:]+)?:', output, re.MULTILINE)
+    if 'lo' not in names: raise RuntimeError('Cannot identify emulator loopback interface')
+    return [name for name in names if name != 'lo']
+
+
+def radio_is_off(value: str, hardware_present: bool) -> bool:
+    # Absence is accepted only when Android does not advertise that radio.
+    return value == '0' or (value == 'null' and not hardware_present)
+
+
 def render_records(log: str) -> list[dict]:
     records = []
     for line in log.splitlines():
@@ -45,7 +56,6 @@ def map_pixels(image, bounds: tuple[int, int, int, int]) -> dict:
 
 class MapSmoke(smoke.Smoke):
     def isolate(self) -> None:
-        super().isolate()
         # Disposable official AOSP guest only; preserve normal ADB authentication.
         # No physical serial or existing AVD can reach this point in smoke.main.
         subprocess.run([str(self.adb), '-s', self.serial, 'root'], check=True, capture_output=True, timeout=30)
@@ -55,6 +65,31 @@ class MapSmoke(smoke.Smoke):
             rules = self.command('shell', tool, '-S', 'OUTPUT')
             if '! -o lo -j REJECT' not in rules: raise RuntimeError('External network block was not installed')
             self.output.joinpath(tool + '-output.txt').write_text(rules + '\n')
+        self.command('shell', 'cmd', 'connectivity', 'airplane-mode', 'enable')
+        for radio in ('wifi', 'data', 'bluetooth'):
+            self.command('shell', 'svc', radio, 'disable')
+        # New AOSP images may expose virtual Ethernet, which airplane mode does
+        # not turn off. Disable every non-loopback interface in this fresh guest.
+        interfaces = self.command('shell', 'ip', '-o', 'link', 'show')
+        self.output.joinpath('network-interfaces-before.txt').write_text(interfaces + '\n')
+        for interface in interface_names(interfaces):
+            self.command('shell', 'ip', 'link', 'set', 'dev', interface, 'down')
+        features = set(self.command('shell', 'pm', 'list', 'features').splitlines())
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            connectivity = self.command('shell', 'dumpsys', 'connectivity')
+            settings = {key: self.command('shell', 'settings', 'get', 'global', key)
+                        for key in ('wifi_on', 'bluetooth_on')}
+            self.output.joinpath('offline-connectivity.txt').write_text(connectivity + '\n')
+            self.output.joinpath('radio-settings.json').write_text(json.dumps({'settings': settings, 'features': sorted(features)}, indent=2) + '\n')
+            radios_off = all(radio_is_off(settings[key], feature in features)
+                             for key, feature in (('wifi_on', 'feature:android.hardware.wifi'),
+                                                  ('bluetooth_on', 'feature:android.hardware.bluetooth')))
+            if radios_off and re.search(r'Active default network:\s*none\b', connectivity, re.IGNORECASE):
+                self.output.joinpath('offline-network.txt').write_text('Active default network: none\nNon-loopback IPv4/IPv6 egress rejected\n')
+                return
+            time.sleep(2)
+        raise RuntimeError('Emulator offline isolation failed; inspect offline-connectivity.txt and radio-settings.json')
 
     def evidence(self) -> list[dict]:
         log = self.command('logcat', '-d', '-t', '2000', 'PalMeshOfflineMap:I', '*:S')

@@ -113,7 +113,7 @@ jobs:
           import os
           from pathlib import Path
           root = Path(os.environ['RUNNER_TEMP']) / 'map-render-results'
-          for name in ('smoke-report.json','map-network.txt','map-runtime-errors.txt'):
+          for name in ('smoke-report.json','offline-connectivity.txt','radio-settings.json','network-interfaces-before.txt','map-network.txt','map-runtime-errors.txt'):
               path = root / name
               if path.is_file(): print(name + ':\n' + path.read_text(errors='replace')[-10000:])
       - name: Retain fresh synthetic diagnostics, screenshots and request/render evidence

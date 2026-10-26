@@ -8,7 +8,7 @@ PRs #1 and #8 open. Android MapLibre's system reachability can suppress local
 HTTP tile/glyph requests; the renderer now enables its SDK scheduling hint
 after local-only style validation, before mounting. Blank rendering has an
 honest deadline/error and explicit retry reopens the local host. Local checks
-pass (380 core, 81 UI, 41 Android-tool, 53 map-tool tests and bundled ARM64 APK
+pass (380 core, 81 UI, 43 Android-tool, 53 map-tool tests and bundled ARM64 APK
 verification). [Diagnosis and hosted acceptance procedure](offline-map-cold-start.md)
 distinguish source/local evidence from actual hosted emulator results and the
 still-required physical-phone retest. Existing genuine map data is preserved.
