@@ -80,7 +80,7 @@ and source date `2026-10-25T21:21:21Z`, then runs the full map/manifest
 validator. The genuine map bytes, provenance and licenses are preserved.
 
 Local checks on October 26, 2026 passed: TypeScript/build, 380 core tests,
-84 React Native tests, 47 Android-tool tests and 53 map-tool tests. The ARM64
+85 React Native tests, 49 Android-tool tests and 53 map-tool tests. The ARM64
 bundled debug build passed signature, JavaScript, genuine map/glyph packaging,
 native ABI, ZIP and ELF 16-KiB alignment verification. Local builds use the
 same genuine PBF but an independently generated local MBTiles hash; hosted
@@ -153,6 +153,20 @@ This is an observed pan/lifecycle defect; it does not prove the separate phone
 blank-map root cause. The stronger test requires both a native camera-movement
 counter increase and changed pixels after the swipe. Only a count is exported;
 camera center coordinates remain inside the component and are never logged.
+
+Source `a503834` passed two complete primary-app cold starts, measured zoom
+6.5160958492 → 7.5160958492, four local tile hits/three glyph hits and actual
+camera movement with changed pixels. The isolated SwANGLE app passed its first
+render/zoom/pan but missed pan on restart. The follow-up keeps camera constraint
+props stable across report-clock updates and uses a fresh visible viewport and
+a substantial vertical swipe in the test, still requiring native movement.
+The old baseline classifier also wrongly accepted an initial zero-count sample
+after later successful rendering. Its success message in run `40405641252`
+**does not prove a connectivity-gate reproduction**. The classifier now records
+recognized baseline behavior separately, requires sustained final zero-count
+samples for a blank result, and never accepts infrastructure failures. Regression
+tests cover this false-positive case. The physical blank-map cause remains
+unconfirmed; no baseline observation is presented as a passing fixed-app test.
 
 Neither emulator rendering nor a successful build establishes physical-phone
 success. Retest

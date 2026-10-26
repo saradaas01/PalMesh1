@@ -7,6 +7,20 @@ import map_smoke
 
 
 class MapSmokeTests(unittest.TestCase):
+    def test_early_empty_frame_cannot_be_called_a_blocked_baseline_after_rendering(self):
+        empty = dict(androidInternetConnected=False, loopbackOnly=True, sdkConnected=False, geometry=0, tileHits=0, glyphHits=0)
+        rendered = self.good(); rendered['sdkConnected'] = False
+        result = map_smoke.baseline_observation('Swipe did not move the native map camera inside the surrounding list', [empty, rendered])
+        self.assertFalse(result['reproducedBlankMap'])
+        self.assertTrue(result['renderedLocalFeatures'])
+        result = map_smoke.baseline_observation('No actual offline street/Arabic/glyph render evidence', [empty, empty, rendered])
+        self.assertFalse(result['reproducedBlankMap'])
+
+    def test_baseline_requires_sustained_blank_evidence_and_never_accepts_infrastructure_errors(self):
+        empty = dict(androidInternetConnected=False, loopbackOnly=True, sdkConnected=False, geometry=0, tileHits=0, glyphHits=0)
+        self.assertTrue(map_smoke.baseline_observation('Offline map renderer reported unavailable', [empty]*3)['reproducedBlankMap'])
+        self.assertIsNone(map_smoke.baseline_observation('ADB failed', [empty]*3))
+        self.assertIsNone(map_smoke.baseline_observation('Offline map renderer reported unavailable', []))
     def test_virtual_ethernet_is_disabled_but_loopback_is_preserved(self):
         self.assertEqual(map_smoke.interface_names('1: lo: <LOOPBACK>\n2: eth0@if9: <UP>\n3: wlan0: <UP>'), ['eth0','wlan0'])
         with self.assertRaises(RuntimeError): map_smoke.interface_names('2: eth0: <UP>')

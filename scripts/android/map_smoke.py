@@ -41,6 +41,23 @@ def rendered_offline(value: dict) -> bool:
                     for key in ('geometry', 'roads', 'labels', 'arabicLabels', 'tileHits', 'glyphHits')))
 
 
+def baseline_observation(failure: str, records: list[dict]) -> dict | None:
+    expected = ('Offline map renderer reported unavailable', 'No actual offline street/Arabic/glyph render evidence',
+                'Zoom control did not produce a verified native zoom increase',
+                'Swipe did not move the native map camera inside the surrounding list',
+                'Map pixels did not change after pan/zoom')
+    if failure not in expected or not records: return None
+    last = records[-1]
+    if not (last.get('androidInternetConnected') is False and last.get('loopbackOnly') is True
+            and last.get('sdkConnected') is False): return None
+    blank_failure = failure in expected[:2]
+    stalled = blank_failure and len(records) >= 3 and all(
+        value.get('geometry') == 0 and value.get('tileHits') == 0 and value.get('glyphHits') == 0
+        for value in records[-3:])
+    return {'reproducedBlankMap': stalled, 'observedFailure': failure,
+            'renderedLocalFeatures': any(rendered_offline(value) for value in records), 'evidence': last}
+
+
 def map_pixels(image, bounds: tuple[int, int, int, int]) -> dict:
     left, top, right, bottom = bounds
     if not 0 <= left < right <= image.width or not 0 <= top < bottom <= image.height:
@@ -159,7 +176,13 @@ class MapSmoke(smoke.Smoke):
         else: raise RuntimeError('Zoom control did not produce a verified native zoom increase')
         zoomed = self.screenshot(name + '-map-zoomed')
         pan_baseline = next(value.get('cameraMoves', 0) for value in reversed(self.evidence()) if rendered_offline(value))
-        self.command('shell', 'input', 'swipe', str(x+50), str(y), str(x-50), str(y+30), '400')
+        # Re-read the visible viewport after zoom/focus/layout changes. A vertical
+        # drag also exercises interception by the surrounding vertical list.
+        frame = next(node for node in smoke.nodes(self.last_xml) if node.get('content-desc') == 'Offline map of bundled coverage')
+        left, top, right, bottom = map(int, smoke.BOUNDS.fullmatch(frame.get('bounds', '')).groups())
+        x, y = (left+right)//2, (top+bottom)//2
+        distance = min(80, (bottom-top)//4)
+        self.command('shell', 'input', 'swipe', str(x), str(y+distance), str(x), str(y-distance), '500')
         pan_deadline = time.monotonic() + 15
         while time.monotonic() < pan_deadline:
             pan_records = self.evidence()
@@ -194,17 +217,15 @@ def main():
     MapSmoke.system_baseline = baseline
     smoke.Smoke = MapSmoke
     try: smoke.main()
-    except Exception:
+    except Exception as error:
         if not baseline: raise
         output = Path(sys.argv[sys.argv.index('--output') + 1])
         records = render_records((output / 'map-network.txt').read_text()) if (output / 'map-network.txt').exists() else []
-        blocked = any(value.get('sdkConnected') is False and value.get('androidInternetConnected') is False
-                      and value.get('loopbackOnly') is True and value.get('tileHits') == 0
-                      and value.get('glyphHits') == 0 and value.get('geometry') == 0 for value in records)
-        if not blocked: raise RuntimeError('Baseline failed without reproducing the connectivity gate')
-        output.joinpath('baseline-reproduction.json').write_text(json.dumps({'reproduced': True, 'systemReachabilityBlocksLoopback': True, 'evidence': records[-1]}, indent=2) + '\n')
-        print('BASELINE_EVIDENCE ' + json.dumps(records[-1]), flush=True)
-        print('PASS: baseline reproduced system-reachability blocking local tiles/glyphs with internet disabled.')
+        observation = baseline_observation(str(error), records)
+        if observation is None: raise
+        output.joinpath('baseline-observation.json').write_text(json.dumps(observation, indent=2) + '\n')
+        print('BASELINE_OBSERVATION ' + json.dumps(observation), flush=True)
+        print('Baseline observation recorded; this is not a passing map-acceptance result or proof of the physical-phone cause.')
         return
     if baseline:
         print('BASELINE_OBSERVATION: Original system reachability rendered offline in this emulator. Physical-phone failure and exact cause are NOT reproduced.')
