@@ -102,7 +102,7 @@ jobs:
         run: |
           export PYTHONPATH="$RUNNER_TEMP/map-test-python"
           if [ "$REACHABILITY_MODE" = system-baseline ]; then
-            python3 scripts/android/map_smoke.py --expect-system-blocked --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+            python3 scripts/android/map_smoke.py --observe-system-baseline --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
           else
             python3 scripts/android/map_smoke.py --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
           fi

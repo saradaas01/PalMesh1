@@ -37,7 +37,6 @@ def render_records(log: str) -> list[dict]:
 
 def rendered_offline(value: dict) -> bool:
     return (value.get('androidInternetConnected') is False and value.get('loopbackOnly') is True
-            and value.get('sdkConnected') is True
             and all(type(value.get(key)) in (int, float) and value[key] > 0
                     for key in ('geometry', 'roads', 'labels', 'arabicLabels', 'tileHits', 'glyphHits')))
 
@@ -55,6 +54,7 @@ def map_pixels(image, bounds: tuple[int, int, int, int]) -> dict:
 
 
 class MapSmoke(smoke.Smoke):
+    system_baseline = False
     def isolate(self) -> None:
         # Disposable official AOSP guest only; preserve normal ADB authentication.
         # No physical serial or existing AVD can reach this point in smoke.main.
@@ -114,7 +114,7 @@ class MapSmoke(smoke.Smoke):
             if name.startswith('first-'):
                 # A bounded map-only thumbnail in logs permits independent review
                 # without exposing app identity text or relying on artifact APIs.
-                thumb = image.crop(area).convert('RGB'); thumb.thumbnail((400, 300))
+                thumb = image.crop(area).convert('RGB'); thumb.thumbnail((1024, 768))
                 stream = io.BytesIO(); thumb.save(stream, format='PNG')
                 encoded = base64.b64encode(stream.getvalue()).decode('ascii')
                 if len(encoded) > 350000: raise RuntimeError('Map evidence thumbnail exceeds bound')
@@ -130,7 +130,7 @@ class MapSmoke(smoke.Smoke):
         while time.monotonic() < deadline:
             self.dump(name + '-map.xml')
             records = self.evidence()
-            if any(rendered_offline(value) for value in records): break
+            if any(rendered_offline(value) and (self.system_baseline or value.get('sdkConnected') is True) for value in records): break
             if smoke.has_text(self.last_xml, 'Offline map could not render. Check the bundled tiles and native map setup. Stored locations and SOS remain available.'):
                 raise RuntimeError('Offline map renderer reported unavailable')
             time.sleep(2)
@@ -147,16 +147,24 @@ class MapSmoke(smoke.Smoke):
         if before['mapPixelsSha256'] == after['mapPixelsSha256']:
             raise RuntimeError('Map pixels did not change after pan/zoom')
         report = {'sourceCommit': os.environ.get('PALMESH_TEST_SOURCE_SHA'), 'passed': True, 'physicalDeviceTested': False, 'freshEmulatorExternalNetworkBlocked': True,
+                  'variant': 'system-baseline' if self.system_baseline else 'local-resources',
                   'rendered': next(value for value in reversed(self.evidence()) if rendered_offline(value)),
                   'before': before, 'afterPanZoom': after}
         print('MAP_RENDER_EVIDENCE ' + json.dumps(report), flush=True)
         self.output.joinpath(name + '-map-report.json').write_text(json.dumps(report, indent=2) + '\n')
+        errors = self.output.joinpath('map-runtime-errors.txt').read_text()
+        print('MAP_RUNTIME_LOG ' + json.dumps(errors[-6000:]), flush=True)
+        if self.system_baseline:
+            self.output.joinpath('baseline-reproduction.json').write_text(json.dumps({
+                'reproduced': False, 'reason': 'Original scheduler behavior rendered in this emulator; physical-phone failure not reproduced.',
+                'evidence': report['rendered']}, indent=2) + '\n')
         return xml
 
 
 def main():
-    baseline = '--expect-system-blocked' in sys.argv
-    if baseline: sys.argv.remove('--expect-system-blocked')
+    baseline = '--observe-system-baseline' in sys.argv
+    if baseline: sys.argv.remove('--observe-system-baseline')
+    MapSmoke.system_baseline = baseline
     smoke.Smoke = MapSmoke
     try: smoke.main()
     except Exception:
@@ -171,7 +179,9 @@ def main():
         print('BASELINE_EVIDENCE ' + json.dumps(records[-1]), flush=True)
         print('PASS: baseline reproduced system-reachability blocking local tiles/glyphs with internet disabled.')
         return
-    if baseline: raise RuntimeError('Baseline unexpectedly rendered; root-cause hypothesis not confirmed')
+    if baseline:
+        print('BASELINE_OBSERVATION: Original system reachability rendered offline in this emulator. Physical-phone failure and exact cause are NOT reproduced.')
+        return
     print('PASS: two offline cold starts rendered genuine streets/Arabic labels with local glyph requests and pan/zoom pixels; chat/SOS/identity persisted.')
 
 

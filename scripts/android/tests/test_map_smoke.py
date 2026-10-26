@@ -30,9 +30,13 @@ class MapSmokeTests(unittest.TestCase):
                 self.assertFalse(map_smoke.rendered_offline(record), field)
 
     def test_online_or_non_loopback_results_cannot_pass_offline(self):
-        for field, value in [('androidInternetConnected',True),('loopbackOnly',False),('sdkConnected',False)]:
+        for field, value in [('androidInternetConnected',True),('loopbackOnly',False)]:
             record=self.good(); record[field]=value
             self.assertFalse(map_smoke.rendered_offline(record))
+
+    def test_baseline_can_actually_render_despite_a_disconnected_sdk_hint(self):
+        record=self.good(); record['sdkConnected']=False
+        self.assertTrue(map_smoke.rendered_offline(record))
 
     def test_inert_attribution_or_open_app_is_not_render_evidence(self):
         self.assertFalse(map_smoke.rendered_offline({'text':'© OpenStreetMap contributors','appOpened':True}))

@@ -1,12 +1,16 @@
 # Android offline-map cold start
 
-## Failure and correction
+## Phone report, loading risk and correction
 
 MapLibre Android 13.6.1 obtains `ConnectivityReceiver.isConnected()` from
-Android's active network when no SDK override is set. Without an active
-network, its HTTP scheduler can suspend **loopback** requests too. An inline
-style can therefore load while streets and labels remain blank. Attribution is
-ordinary app text and never proves tiles were fetched or rendered.
+Android's active network when no SDK override is set. The documented SDK
+connectivity override controls resource scheduling, so relying on internet
+reachability is inappropriate for local HTTP resources. Attribution is ordinary
+app text and never proves tiles were fetched or rendered. However, the hosted
+baseline below also fetched local tiles while the SDK reported disconnected.
+Therefore this SDK hint is a hardening fix, **not conclusive proof of the exact
+root cause on the user's physical phone**. OEM-specific runtime evidence and a
+retest are still required before claiming that the reported phone defect is fixed.
 
 `OfflineMapView` now validates the local-only descriptor and calls MapLibre's
 `NetworkManager.setConnected(true)` on Android **before mounting the renderer**.
@@ -65,16 +69,56 @@ and source date `2026-10-25T21:21:21Z`, then runs the full map/manifest
 validator. The genuine map bytes, provenance and licenses are preserved.
 
 Local checks on October 26, 2026 passed: TypeScript/build, 380 core tests,
-81 React Native tests, 43 Android-tool tests and 53 map-tool tests. The ARM64
+81 React Native tests, 44 Android-tool tests and 53 map-tool tests. The ARM64
 bundled debug build passed signature, JavaScript, genuine map/glyph packaging,
 native ABI, ZIP and ELF 16-KiB alignment verification. Local builds use the
 same genuine PBF but an independently generated local MBTiles hash; hosted
 acceptance uses the immutable artifact above.
 
-Hosted runtime results must be read from the PR's exact-commit Actions run;
-this procedure is not itself a passing emulator result. Neither emulator
-rendering nor a successful build establishes physical-phone success. Retest
+### Observed hosted results, source c8a3471
+
+Run [40364852160](https://github.com/saradaas01/PalMesh1/actions/runs/40364852160),
+fixed x86_64 job `121719665990`, passed two cold starts with external guest
+traffic rejected. First render reported 8,337 geometry features, 7,781 roads,
+six Arabic-labelled symbols, two local tile hits and three local glyph hits;
+Android internet connectivity remained false. Screenshot road-pixel counts
+were 14,634 before and 14,706 after gestures, with distinct pixel hashes.
+The second launch also rendered and the public chat/SOS/identity checks passed.
+The initial run's isolation failed before launch; it provides no map result.
+
+The baseline job `121719666601` reported the same first-render feature counts
+and local hits with `sdkConnected=false`. Its original harness wrongly required
+`sdkConnected=true` even for the baseline, then failed its predicted zero-hit
+condition. That run's workflow conclusion is **failure**, not a passing baseline
+reproduction. The harness now accepts actual rendered evidence independently
+of that hint and explicitly records `reproduced=false` when the old behavior
+renders. It never substitutes a forced-disconnected variant for the original.
+
+Neither emulator rendering nor a successful build establishes physical-phone
+success. Retest
 the new APK with Wi-Fi and mobile data off **before** launching, then pan,
 zoom, inspect Arabic labels and force-stop/relaunch. Preserve app data and do
 not uninstall merely to test cold startup. Independent security review, real
 radio/GPS acceptance and release signing remain separate requirements.
+
+### Installation and runtime diagnostics
+
+CI debug signing keys are ephemeral: the old map candidate's certificate was
+`df407503dcd1626bcecb4a4670409719b03085f8b401506463f69f292e248f6a`.
+A newly signed CI APK may not update that installed app. Do not uninstall or
+clear storage to work around a signing mismatch; it would remove local identity
+and messages. An in-place update requires the original signing key. A separately
+identified test app can instead be built when needed; it would have its own data
+and identity and cannot prove preservation of the original installation.
+
+For a phone still showing a blank/error map, capture the debug APK's aggregate
+native evidence without clearing app data:
+
+```sh
+adb logcat -d -s PalMeshOfflineMap:I Mbgl-HttpRequest:V Mbgl-ConnectivityReceiver:V AndroidRuntime:E ReactNativeJS:E
+```
+
+Redact session tokens in any SDK URLs before sharing logs. Record phone model,
+Android version, APK SHA/certificate, whether Wi-Fi/data were off before launch,
+and whether tile/glyph hits or render features appear. These distinguish failed
+asset/server requests, SDK scheduling and GPU/style errors on the actual device.

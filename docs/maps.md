@@ -77,8 +77,8 @@ cleartext only for loopback using the native guide's network-security config;
 do not enable application-wide cleartext. The style has no remote TileJSON,
 glyph service, sprites or online fallback. Tiles and glyphs share the same
 random session token and loopback host. Android explicitly overrides MapLibre's
-SDK reachability hint before mounting, since system internet reachability can
-suppress localhost requests. This never enables a device network or adds online
+SDK reachability hint before mounting to make local scheduling independent of
+system internet reachability. This never enables a device network or adds online
 services. See [cold-start diagnosis and acceptance](offline-map-cold-start.md).
 The iOS bridge implements the same descriptor, bounded reads
 and token-protected local glyph contract; its host preserves the asset folder.
