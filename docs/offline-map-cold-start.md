@@ -39,7 +39,10 @@ remains independent of map initialization/retry.
 `.github/workflows/offline-map-render.yml` builds original system-reachability
 behavior on x86_64, the corrected x86_64 variant, and the corrected ARM64 test
 APK. Only the corrected ARM64 APK is published for installation. The baseline
-removes just the scheduler hint; it never artificially forces the SDK offline.
+removes the scheduler hint and preparation mount gate to retain original
+immediate mounting and system reachability. Aggregate tracing, status/error
+handling and geometry probes remain, so it is an instrumented comparison,
+not a byte-identical old APK. It never artificially forces the SDK offline.
 
 `scripts/android/map_smoke.py` creates a fresh official API 35 AOSP emulator
 with no snapshots or previous map cache. Before installation/first launch it
@@ -86,13 +89,15 @@ were 14,634 before and 14,706 after gestures, with distinct pixel hashes.
 The second launch also rendered and the public chat/SOS/identity checks passed.
 The initial run's isolation failed before launch; it provides no map result.
 
-The baseline job `121719666601` reported the same first-render feature counts
+The hint-only baseline job `121719666601` reported the same first-render feature counts
 and local hits with `sdkConnected=false`. Its original harness wrongly required
 `sdkConnected=true` even for the baseline, then failed its predicted zero-hit
 condition. That run's workflow conclusion is **failure**, not a passing baseline
 reproduction. The harness now accepts actual rendered evidence independently
 of that hint and explicitly records `reproduced=false` when the old behavior
-renders. It never substitutes a forced-disconnected variant for the original.
+renders. That first comparison still retained the new preparation mount gate;
+the final baseline also removes that gate to test original immediate mounting.
+It never substitutes a forced-disconnected variant for the original.
 
 Neither emulator rendering nor a successful build establishes physical-phone
 success. Retest

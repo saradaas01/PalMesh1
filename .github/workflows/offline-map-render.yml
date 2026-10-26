@@ -79,7 +79,13 @@ jobs:
           text = p.read_text()
           line = "if (Platform.OS === 'android') NetworkManager.setConnected(true);"
           assert text.count(line) == 1
-          p.write_text(text.replace(line, '// Baseline: leave the SDK on system reachability, matching the original bug.'))
+          text = text.replace(line, '// Baseline: retain original system reachability.')
+          guard = 'if (mapStyle === null || !prepared)'
+          assert text.count(guard) == 1
+          # The original component mounted immediately. Removing only the hint
+          # would retain the new preparation gate and would not isolate that risk.
+          text = text.replace(guard, 'if (mapStyle === null)')
+          p.write_text(text)
           PY
       - uses: ./.github/actions/setup-android
       - name: Install isolated emulator runtime and screenshot analysis dependency
