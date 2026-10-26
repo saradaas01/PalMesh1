@@ -428,3 +428,58 @@ test('a bounded hello retransmission recovers a fully lost initial handshake fra
   await alice.mesh.send('bob', packet(), new AbortController().signal);
   assert.equal(bob.received.length, 1);
 });
+
+test('inactive radio power recovery reconnects without resume and preserves the healthy BLE path', async t => {
+  const network = new Map<string, TestRadio>();
+  const alice = await fixture(t, 'alice', network, { config: { discoveryRetryBaseMs: 15, discoveryRetryMaxMs: 60, maintenanceIntervalMs: 5 } });
+  const bob = await fixture(t, 'bob', network, { config: { discoveryRetryBaseMs: 15, discoveryRetryMaxMs: 60, maintenanceIntervalMs: 5 } });
+  await connect(alice, bob);
+  const wifi = alice.radios.find(radio => radio.kind === 'wifi-direct')!;
+  const ble = alice.radios.find(radio => radio.kind === 'ble')!;
+  const start = wifi.start.bind(wifi); let starts = 0;
+  wifi.start = async signal => { starts++; await start(signal); };
+  wifi.available = { available: false, reason: 'powered-off' };
+  wifi.emit({ type: 'status', status: wifi.available });
+  await wifi.stop();
+  await alice.mesh.send('bob', packet(), new AbortController().signal);
+  assert.ok(ble.started);
+  assert.deepEqual(alice.mesh.connectedPeers(), ['bob']);
+  wifi.available = { available: true }; // No event: native teardown removed its listener.
+  await until(() => starts === 1 && wifi.started, 'automatic radio restart');
+  await until(() => alice.events.filter(event => event.type === 'peer-ready' && event.radio === 'wifi-direct').length >= 2, 'Wi-Fi handshake after recovery');
+  assert.deepEqual(alice.mesh.connectedPeers(), ['bob']);
+  const before = bob.received.length;
+  await alice.mesh.send('bob', packet(), new AbortController().signal);
+  assert.equal(bob.received.length, before + 1);
+});
+
+test('inactive radio polling backs off, coalesces slow starts and stops after shutdown', async t => {
+  const network = new Map<string, TestRadio>();
+  const database = new TestSqliteDatabase();
+  const radio = new TestRadio('wifi-direct', 'address-alice', network);
+  let checks = 0; let starts = 0;
+  radio.available = { available: false, reason: 'permission-denied' };
+  const getStatus = radio.getStatus.bind(radio);
+  radio.getStatus = async () => { checks++; return getStatus(); };
+  const mesh = new MeshCoordinator({ deviceId: 'alice', radios: [radio], registry: new SqlitePeerRegistry(database), ids: { next: randomUUID },
+    config: { ...fastConfig, discoveryRetryBaseMs: 20, discoveryRetryMaxMs: 80, maintenanceIntervalMs: 5 } });
+  mesh.bindReceiver({ async receive() { return { status: 'duplicate' }; }, setConnectedPeers() {} });
+  const gate = deferred();
+  radio.start = async signal => { starts++; await gate.promise; if (!signal.aborted) radio.started = true; };
+  t.after(async () => { gate.resolve(); await mesh.stop(); database.close(); });
+  await mesh.start();
+  await new Promise(resolve => setTimeout(resolve, 70));
+  assert.ok(checks >= 2 && checks <= 4, `bounded checks: ${checks}`);
+  radio.available = { available: true };
+  await until(() => starts === 1, 'delayed radio start');
+  const refresh = mesh.refreshRadios();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(starts, 1);
+  gate.resolve(); await refresh;
+  assert.equal(radio.started, true);
+  await mesh.stop();
+  const stoppedChecks = checks;
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(checks, stoppedChecks);
+  assert.equal(radio.started, false);
+});
