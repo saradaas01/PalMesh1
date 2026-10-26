@@ -5,6 +5,49 @@ branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed
 integration and verification. Never force-push, reset, or replace remote work.
 
+## Combined application development candidate — October 26, 2026
+
+The original repository and `work` remain the primary development source. PR #2
+was safely merged after all six checks passed. PR #1 remains open. The user's
+single-phone public Hello offline/reopen test succeeded (user-reported; exact
+phone/OS/APK digest not supplied). Multi-device physical tests are deferred.
+
+Five audited milestones are backed up: private-key send recovery (#3), bounded
+inactive-radio recovery (#4), saved contacts/setup/mobile layout (#5), genuine
+Palestine map generation/candidate workflow (#6), and mandatory ELF APK checks
+(#7). Their individual PR checks are reviewed before merge; the full combination
+is backed up on `integration/development-candidate` at app-source checkpoint
+`84464a5b19387b3f0d0e8bbf1bf425329236ecfd`.
+
+Combined verification passed: strict TypeScript, **379 core tests**, **75 UI
+tests**, module build, **37 Android Python tests**, **53 map Python tests**, all
+256 glyph pages and real map manifest/coverage validation. A fresh local bundled
+ARM64 debug APK with the candidate map built successfully (2m 3s) and passed
+signature/CRC/launcher/ABI, Hermes, SQLCipher marker, all 14 ELF LOAD alignments
+and ZIP 16 KiB alignment checks. Packaged map bytes match the validated digest.
+Local APK SHA256: `01b27c468c61413b9a80a7b984e2408dea84e52424a997d5d30a06bc1f838903`,
+136,446,477 bytes. It retains the earlier local debug certificate; compatibility
+with the user's installed APK is not inferred. Exact evidence is in
+[verification/development-candidate.json](verification/development-candidate.json).
+
+Geofabrik access is restored. A genuine provider-checksummed OSM source dated
+**2026-10-25T21:21:21Z** generated **4,958** validated candidate tiles with Arabic,
+streets/buildings and detailed coverage at all nine required cities. The pipeline
+now omits tilemaker's genuinely empty clipped tiles while retaining strict
+corrupt/nonempty validation and preserving existing output files. Source and
+candidate hashes are recorded in the committed manifest. Operator approval,
+physical rendering and map accuracy/conditions are still unverified.
+
+The genuine-map candidate workflow passed for #6, including candidate artifact
+and debug APK publication. A separate final combined-source candidate workflow
+is still running; no final artifact success is inferred. Generated platform map
+copies remain outside Git; manifests/source provenance and the Actions artifacts
+provide the review trail. See [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md),
+[RELEASE_READINESS.md](RELEASE_READINESS.md) and per-milestone records.
+
+The older checkpoint sections below are historical evidence, not statements that
+the restored source download or completed software milestones remain blocked.
+
 ## Completion development — October 26, 2026
 
 PR #2 merged with history preserved into `work` at

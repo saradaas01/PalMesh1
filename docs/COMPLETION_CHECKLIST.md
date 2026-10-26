@@ -32,29 +32,29 @@ specified evidence exists, not field acceptance or an independent audit.
 
 - [x] Private send errors must distinguish unknown recipient keys from temporary
   key-directory persistence failure, retain drafts and guide identity import.
-- [ ] Verify radio off/on and permission-return recovery while app stays open;
+- [x] Verify radio off/on and permission-return recovery while app stays open;
   unavailable-to-available events must not require an application restart or
   duplicate sessions. Existing reconnect/fallback logic should be retained.
-- [ ] Expose saved contact identities for reuse without retyping long addresses;
+- [x] Expose saved contact identities for reuse without retyping long addresses;
   imported keys must never be described as a verified person automatically.
-- [ ] Add inline setup guidance explaining public versus private messaging,
+- [x] Add inline setup guidance explaining public versus private messaging,
   offline queueing, key exchange, optional permissions and unconfirmed delivery.
-- [ ] Reduce small-screen header/navigation/composer pressure and make setup,
+- [x] Reduce small-screen header/navigation/composer pressure and make setup,
   identity import and large text practical without hiding SOS.
-- [ ] Maintain a committed automated native ELF alignment check instead of only
+- [x] Maintain a committed automated native ELF alignment check instead of only
   the additional local inspection previously recorded in a JSON report.
-- [ ] Refresh stale progress statements with complete passing PR #2 checks and
+- [x] Refresh stale progress statements with complete passing PR #2 checks and
   the user's explicitly reported single-phone result.
 
 ## C. Missing code/integration or test coverage
 
 - [x] Add security-to-chat-to-UI regressions for actionable private send failures
   and a disconnected encrypted send after importing a recipient identity.
-- [ ] Add specific multi-peer/radio recovery regressions for audit findings;
+- [x] Add specific multi-peer/radio recovery regressions for audit findings;
   do not replace existing broad mesh simulations with mock-only assertions.
-- [ ] Saved-contact selection and safe setup guidance are not yet integrated
+- [x] Saved-contact selection and safe setup guidance are not yet integrated
   into New message; current JSON import alone does not provide a contact picker.
-- [ ] Integrate ELF LOAD alignment verification into the committed APK verifier
+- [x] Integrate ELF LOAD alignment verification into the committed APK verifier
   used by CI; existing ZIP alignment alone cannot establish ELF suitability.
 - [ ] Produce a final candidate from the combined reviewed milestones, with
   current full tests, bundled APK verification and a confirmed Actions artifact.
@@ -66,7 +66,7 @@ specified evidence exists, not field acceptance or an independent audit.
 | One-phone public Hello | User reports installing the new APK and successfully queuing public Hello offline with persistence after close/reopen. This is user-reported physical evidence; device model, OS, exact APK hash and certificate were not supplied. Do not infer them. |
 | Multi-device radios | Deferred: user owns one Android phone. Later test Wi-Fi Direct/BLE exchange, relay A–B–C, ACK loss, reconnect, private confidentiality and SOS responses. Continue software work meanwhile. |
 | Physical lifecycle/accessibility | Phone/OEM screen-off, Doze, revoked permissions, font/keyboard/RTL, battery measurements and 16 KiB-device acceptance remain required. |
-| Authentic map data | No approved Palestine MBTiles/PBF exists locally. Recheck the official source; evaluate licensed alternate providers against full coverage/provenance. Never package fixtures or treat fonts as a map. |
+| Authentic map data | Source-access blocker resolved: genuine provider-checksummed Geofabrik PBF generated a candidate at source date 2026-10-25T21:21:21Z. 4,958 tiles passed full coverage/provenance checks and candidate packaging. Operator map approval and physical rendering remain open. |
 | Map review/rendering | Even if a genuine pack is generated, operator provenance/license/coverage approval and real offline rendering acceptance remain gates. |
 | Production signing | Operator Android keystore/certificate and Apple team/provisioning are absent. Preserve identities/data; debug APKs are controlled test artifacts. |
 | Independent security review | No independent cryptographic audit. Static identity encryption has no forward secrecy; signatures identify keys, not people; public metadata/SOS/location remain visible. |
@@ -90,3 +90,18 @@ recovery guidance and an integrated identity-screen action. No exception-string
 matching or encryption fallback. Real security/DTN/chat/SQLite regressions verify
 draft retention, safe re-import, offline encrypted retry and public/SOS independence.
 Strict TypeScript, 375 core tests, 72 UI tests and module build passed.
+
+## Combined development verification
+
+Five implementation milestones are committed on dedicated branches/PRs:
+private-key recovery (#3), inactive radio recovery (#4), saved contacts/setup/
+layout (#5), real map generation and candidate publication (#6), and ELF APK
+verification (#7). The software combination passed strict TypeScript, 379 core
+and 75 UI tests, module build, 37 Android and 53 map Python tests, all 256 glyphs,
+and real checked-manifest validation. A fresh map-bundled ARM64 APK built and
+passed signature, ZIP/ELF, Hermes, SQLCipher, glyph and exact packaged-map digest
+checks. See [readiness](RELEASE_READINESS.md) and
+[exact local evidence](verification/development-candidate.json).
+The final integration Actions artifact is tracked separately from the earlier
+map-workflow APK. Physical acceptance, operator map approval, release signing
+and independent review are not marked complete.
