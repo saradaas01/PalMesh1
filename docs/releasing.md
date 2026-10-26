@@ -51,10 +51,11 @@ Hermes compiler remains paired with the source-built VM.
 
 The script verifies application ID, launcher, requested ABI set, version,
 embedded JavaScript, bundled map digest/provenance, nondebuggable manifest,
-operator certificate fingerprint, APK signature and 16 KiB ZIP page alignment.
+operator certificate fingerprint, APK signature, 16 KiB ZIP page alignment and
+all packaged native libraries’ ELF LOAD segment alignment/bounds.
 It copies only a successfully verified signed artifact into `dist/android/`,
-with a JSON report and SHA-256 sidecar. ZIP page alignment does not replace ELF
-or real-device 16 KiB validation. The report explicitly records that it does not
+with a JSON report and SHA-256 sidecar. Both ZIP and ELF checks are automated;
+real-device 16 KiB runtime acceptance remains required. The report explicitly records that it does not
 establish device installation/testing.
 
 Without credentials, a plain Gradle `:app:assembleRelease` produces an unsigned
