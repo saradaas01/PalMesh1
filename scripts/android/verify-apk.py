@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import struct
 import subprocess
 import zipfile
 
@@ -27,6 +28,35 @@ def has_signing_material(apk: Path, archive: zipfile.ZipFile) -> bool:
             stream.seek(archive.start_dir - 16)
             if stream.read(16) == b'APK Sig Block 42': return True
     return False
+
+
+def elf_load_alignment(data: bytes) -> int:
+    """Require native LOAD segments usable with 16 KiB memory pages."""
+    if len(data) < 16 or data[:4] != b'\x7fELF' or data[4] not in (1, 2) or data[5] not in (1, 2):
+        raise ValueError('Invalid ELF identification')
+    endian = '<' if data[5] == 1 else '>'
+    is64 = data[4] == 2
+    header_size, program_size = (64, 56) if is64 else (52, 32)
+    if len(data) < header_size: raise ValueError('Truncated ELF header')
+    offset = struct.unpack_from(endian + ('Q' if is64 else 'I'), data, 32 if is64 else 28)[0]
+    size, count = struct.unpack_from(endian + 'HH', data, 54 if is64 else 42)
+    if size < program_size or not 1 <= count <= 1024 or offset < header_size or offset + size * count > len(data):
+        raise ValueError('Invalid ELF program table')
+    alignments = []
+    for index in range(count):
+        values = struct.unpack_from(endian + ('IIQQQQQQ' if is64 else 'IIIIIIII'), data, offset + index * size)
+        if values[0] != 1: continue
+        if is64:
+            _, _, file_offset, virtual, _, file_size, memory_size, alignment = values
+        else:
+            _, file_offset, virtual, _, file_size, memory_size, _, alignment = values
+        if alignment < 16384 or alignment & (alignment - 1) or file_offset % 16384 != virtual % 16384:
+            raise ValueError('ELF LOAD segment lacks 16 KiB alignment')
+        if file_size > memory_size or file_offset + file_size > len(data):
+            raise ValueError('Invalid ELF LOAD segment bounds')
+        alignments.append(alignment)
+    if not alignments: raise ValueError('ELF has no LOAD segments')
+    return min(alignments)
 
 
 def main() -> None:
@@ -64,6 +94,7 @@ def main() -> None:
         for architecture in architectures:
             runtimes = {f'lib/{architecture}/{name}' for name in ['libreactnative.so', 'libhermesvm.so', 'libmaplibre.so', 'libop-sqlite.so']}
             if not runtimes <= entries: raise ValueError('Missing native runtime libraries for ' + architecture)
+        native_alignment = {name: elf_load_alignment(archive.read(name)) for name in libraries}
         bundled = 'assets/index.android.bundle' in entries and archive.getinfo('assets/index.android.bundle').file_size > 0
         if (args.release or args.unsigned_preview or args.require_bundle) and not bundled: raise ValueError('Missing embedded JavaScript bundle')
         has_map = 'assets/palmesh/palestine.mbtiles' in entries
@@ -106,7 +137,7 @@ def main() -> None:
     report = {'apk': str(apk), 'bytes': apk.stat().st_size, 'sha256': digest, 'architectures': architectures,
               'applicationId': package_fields['name'], 'versionName': package_fields.get('versionName'), 'versionCode': package_fields.get('versionCode'),
               'embeddedJavaScriptBundle': bundled, 'bundledPalestineMap': has_map, 'debuggable': debuggable,
-              'signingCertificateSha256': fingerprints, 'zipAlignment16KiB': True, 'deviceInstallationTested': False,
+              'signingCertificateSha256': fingerprints, 'zipAlignment16KiB': True, 'elfAlignment16KiB': True, 'nativeLibraryLoadAlignment': native_alignment, 'deviceInstallationTested': False,
               'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'development',
               'signatureVerified': not args.unsigned_preview, 'installable': not args.unsigned_preview,
               'releaseEligible': args.release}
