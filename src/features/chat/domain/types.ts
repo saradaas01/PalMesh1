@@ -34,7 +34,7 @@ export interface Conversation {
   readonly unreadCount: number;
 }
 
-export type ChatIssue = 'history-unavailable' | 'queue-full' | 'send-unavailable' | 'invalid-input' | 'routing-error';
+export type ChatIssue = 'history-unavailable' | 'queue-full' | 'send-unavailable' | 'invalid-input' | 'routing-error' | 'recipient-unknown' | 'recipient-keys-unavailable';
 
 export interface ChatSnapshot {
   readonly status: 'idle' | 'loading' | 'ready' | 'error';

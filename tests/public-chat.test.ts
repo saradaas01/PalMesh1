@@ -136,3 +136,53 @@ test('real routing storage failure retains public draft, retry queues once, and 
     assert.equal((await node.history()).filter(record => record.message.kind === 'chat').length, 1);
   } finally { await chat.stop(); await node.stop(); routing.close(); archiveDb.close(); }
 });
+
+
+test('private unknown-key recovery keeps draft, imports a contact, and queues encrypted while offline', async () => {
+  const alice = await identity(); const bob = await identity();
+  const routing = createTestStore(); const archiveDb = new TestSqliteDatabase();
+  const node = engine(alice.security, routing.store);
+  const chat = new ChatService({ engine: node, repository: new SqliteChatRepository(archiveDb), clock: { now: () => now } });
+  try {
+    await node.start(); await chat.start(); await chat.openConversation(bob.security.deviceId);
+    chat.setDraft('Private offline Hello');
+    assert.equal((await chat.send()).status, 'rejected');
+    assert.equal(chat.getSnapshot().issue, 'recipient-unknown');
+    assert.equal(chat.getSnapshot().draft, 'Private offline Hello');
+    assert.equal((await node.history()).length, 0);
+    await alice.security.importPeer(bob.security.publicIdentity);
+    const result = await chat.send();
+    assert.equal(result.status, 'queued'); if (result.status !== 'queued') return;
+    const packet = (await routing.store.getMessage(result.messageId))!.message;
+    assert.ok(packet.security?.encryption);
+    assert.ok(!JSON.stringify(packet).includes('Private offline Hello'));
+    await bob.security.verify(packet);
+    assert.deepEqual((await bob.security.project(packet))?.payload, { text: 'Private offline Hello' });
+    assert.equal(chat.getSnapshot().draft, '');
+    assert.equal(chat.getSnapshot().issue, null);
+  } finally { await chat.stop(); await node.stop(); routing.close(); archiveDb.close(); }
+});
+
+test('private key persistence failure is actionable without blocking public chat or SOS', async () => {
+  const alice = await identity(); const bob = await identity();
+  const write = alice.vault.write.bind(alice.vault);
+  alice.vault.write = async (key, value) => { if (key === 'peer-directory-v1') throw new Error('native private details'); await write(key, value); };
+  await assert.rejects(alice.security.importPeer(bob.security.publicIdentity));
+  const routing = createTestStore(); const archiveDb = new TestSqliteDatabase(); const node = engine(alice.security, routing.store);
+  const chat = new ChatService({ engine: node, repository: new SqliteChatRepository(archiveDb), clock: { now: () => now } });
+  try {
+    await node.start(); await chat.start(); await chat.openConversation(bob.security.deviceId); chat.setDraft('Keep private');
+    assert.equal((await chat.send()).status, 'rejected');
+    assert.equal(chat.getSnapshot().issue, 'recipient-keys-unavailable');
+    assert.equal(chat.getSnapshot().draft, 'Keep private');
+    assert.equal((await node.history()).length, 0);
+    await chat.openConversation('*'); chat.setDraft('Public');
+    assert.equal((await chat.send()).status, 'queued');
+    assert.equal((await chat.sendSos()).status, 'queued');
+    alice.vault.write = write;
+    await alice.security.importPeer(bob.security.publicIdentity);
+    await chat.openConversation(bob.security.deviceId);
+    assert.equal(chat.getSnapshot().draft, 'Keep private');
+    assert.equal((await chat.send()).status, 'queued');
+  } finally { await chat.stop(); await node.stop(); routing.close(); archiveDb.close(); }
+});

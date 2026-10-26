@@ -1,3 +1,5 @@
+import { SecurityError, SecurityRecoveryError, RecipientKeyError } from '../domain/errors';
+export { SecurityError, SecurityRecoveryError, RecipientKeyError } from '../domain/errors';
 import { ed25519, x25519 } from '@noble/curves/ed25519';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { sha256 } from '@noble/hashes/sha256';
@@ -21,16 +23,6 @@ const FUTURE_SKEW_MS = 5 * 60 * 1000;
 const HEX_32 = /^[0-9a-f]{64}$(?![\s\S])/;
 const HEX_64 = /^[0-9a-f]{128}$(?![\s\S])/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$(?![\s\S])/;
-
-export class SecurityError extends Error {
-  constructor(message: string) { super(message); this.name = 'SecurityError'; }
-}
-
-/** Established key material is missing/corrupt. Keep this distinct from a
- * temporarily locked native vault so bootstrap can offer safe recovery steps. */
-export class SecurityRecoveryError extends SecurityError {
-  constructor(message: string) { super(message); this.name = 'SecurityRecoveryError'; }
-}
 
 function ownObject(input: unknown, names: readonly string[]): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || Array.isArray(input)
@@ -183,9 +175,9 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     if (message.kind === 'chat' && message.destination !== '*') {
       if (message.destination === this.deviceId) throw new SecurityError('Secure chat requires another device identity.');
       await this.directoryWork;
-      if (this.directoryFailed) throw new SecurityError('Peer-key persistence is unavailable.');
+      if (this.directoryFailed) throw new RecipientKeyError('unavailable');
       const recipient = this.peers.get(message.destination);
-      if (!recipient) throw new SecurityError('Recipient public keys are unknown. Connect to that device or import its verified identity first.');
+      if (!recipient) throw new RecipientKeyError('unknown');
       const nonce = await this.entropy(24);
       encryption = Object.freeze({ recipientKey: recipient.encryptionKey, nonce: bytesToHex(nonce) });
       const key = this.chatKey(this.encryptionSecret!, recipient.encryptionKey, message);
