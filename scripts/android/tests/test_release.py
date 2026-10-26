@@ -13,6 +13,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
+from test_elf_alignment import elf
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
@@ -38,13 +39,13 @@ class ApkVerificationTests(unittest.TestCase):
         self.fingerprint = 'ab' * 32
         self.badging = "package: name='org.palmesh' versionCode='1' versionName='0.1.0'\nlaunchable-activity: name='org.palmesh.MainActivity'\n"
 
-    def apk(self, *, bundle=True, map_data=False):
+    def apk(self, *, bundle=True, map_data=False, elf_alignment=16384):
         path = self.root / 'app.apk'
         with zipfile.ZipFile(path, 'w') as archive:
             for entry in ['AndroidManifest.xml', 'classes.dex', 'resources.arsc']:
                 archive.writestr(entry, b'fixture')
             for library in ['libreactnative.so', 'libhermesvm.so', 'libmaplibre.so', 'libop-sqlite.so']:
-                archive.writestr('lib/arm64-v8a/' + library, b'fixture')
+                archive.writestr('lib/arm64-v8a/' + library, elf(alignment=elf_alignment))
             if bundle: archive.writestr('assets/index.android.bundle', b'fixture-js')
             if map_data:
                 archive.writestr('assets/palmesh/palestine.mbtiles', b'fixture-map')
@@ -67,11 +68,17 @@ class ApkVerificationTests(unittest.TestCase):
         self.assertTrue(report['embeddedJavaScriptBundle'])
         self.assertFalse(report['bundledPalestineMap'])
         self.assertFalse(report['deviceInstallationTested'])
+        self.assertTrue(report['elfAlignment16KiB'])
+        self.assertEqual(len(report['nativeLibraryLoadAlignment']), 4)
 
     def test_release_checks_packaged_map_and_operator_certificate(self):
         report = self.verify(self.apk(map_data=True), '--release', '--version-code', '1', '--version-name', '0.1.0')
         self.assertTrue(report['bundledPalestineMap'])
         self.assertEqual(report['signingCertificateSha256'], [self.fingerprint])
+
+    def test_zip_alignment_cannot_hide_4k_elf_libraries(self):
+        with self.assertRaisesRegex(ValueError, 'ELF LOAD segment lacks 16 KiB'):
+            self.verify(self.apk(elf_alignment=4096), '--require-bundle')
 
     def test_missing_javascript_fails(self):
         with self.assertRaisesRegex(ValueError, 'JavaScript'):
