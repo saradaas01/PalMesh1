@@ -22,8 +22,11 @@ fresh synthetic UI, bounded error logs and a result report; private emulator
 state and developer authentication keys are outside the uploaded directory.
 An enabled workflow or successful unit tests do not establish a completed
 emulator run: retain the actual passing job/report before recording this gate.
-The public-chat smoke extension has runner tests; an actual passing hosted
-execution of that extension is still required. This baseline does not replace the physical radio, GPS, battery, iOS or
+The public-chat smoke extension's native test step passed for `59883c6` in
+[run 40342665960](https://github.com/saradaas01/PalMesh1/actions/runs/40342665960),
+including offline public chat/SOS persistence and identity reuse. Diagnostics
+upload succeeded. The overall job was cancelled as a newer PR revision
+superseded it; this is step-level evidence, not a fully passing workflow. This baseline does not replace the physical radio, GPS, battery, iOS or
 real-map acceptance checks below.
 
 Checkpoint `2040e8358b20bd6c38a87deeb430de7ceeaeb555` passed the real

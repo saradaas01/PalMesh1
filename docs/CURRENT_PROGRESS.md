@@ -57,8 +57,17 @@ integration and verification. Never force-push, reset, or replace remote work.
   Its report marks public chat persistence true only after all checks complete.
 - All 30 Android tooling tests pass, including failure checks for missing public
   warning, rejected send, missing retained history and false custody text.
-  This is runner verification, not a completed emulator or physical-phone run.
-- Next priorities: execute the extended KVM job, then physical Android public/
+  These runner tests do not establish physical-phone behavior.
+- Hosted KVM native test step subsequently passed for `59883c6` in run
+  https://github.com/saradaas01/PalMesh1/actions/runs/40342665960:
+  public chat/SOS queued offline, both histories survived restart and identity
+  remained stable. The exact PASS line and step conclusion were read back.
+  Diagnostics upload succeeded (artifact 12659684063). Overall job conclusion
+  is **cancelled**, superseded by a newer PR revision, so the whole workflow is
+  not recorded as passing. The artifact JSON could not be read locally because
+  its signed download URL was denied by executor network policy. No physical
+  radios/phones were tested.
+- Next priorities: retain a complete uncancelled KVM job, then physical Android public/
   private/SOS exchange and restart tests, Wi-Fi Direct/BLE reconnect/relay tests,
   and OEM screen-off/power testing. Existing contact import and private offline
   queueing remain implemented. Real map data, operator signing, iOS device

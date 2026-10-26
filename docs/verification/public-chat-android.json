@@ -106,5 +106,26 @@
     "apkArtifactId": 12659621810,
     "artifactExpiresOn": "2026-11-09",
     "note": "GitHub-built APK is a separate binary and can have a different development signing certificate."
+  },
+  "hostedEmulatorRegression": {
+    "sourceCommit": "59883c6def806655571bc9a84f7b70f5ea4d0089",
+    "runUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40342665960",
+    "jobId": 121642040502,
+    "overallJobConclusion": "cancelled",
+    "explanation": "A newer PR revision superseded the overall job; the actual native regression and artifact-upload steps completed successfully. Do not label the entire workflow successful.",
+    "nativeTestStep": {
+      "name": "Test real offline startup and local persistence",
+      "conclusion": "success",
+      "startedAt": "2026-10-26T14:54:03Z",
+      "completedAt": "2026-10-26T14:55:57Z"
+    },
+    "observedLogLine": "PASS: offline native cold launch, public chat/SOS persistence and stable identity after restart.",
+    "diagnosticsArtifactId": 12659684063,
+    "artifactUploadConclusion": "success",
+    "diagnosticsArtifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40342665960/artifacts/12659684063",
+    "physicalDeviceTested": false,
+    "physicalRadiosTested": false,
+    "reportJsonReadBack": false,
+    "reportReadbackLimitation": "Artifact metadata and job logs were read through the connector; downloading its ZIP into the executor was blocked by the network policy."
   }
 }
