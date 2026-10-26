@@ -76,7 +76,13 @@
   "finalIntegrationWorkflow": {
     "run": 40352843627,
     "sourceCommit": "84464a5b19387b3f0d0e8bbf1bf425329236ecfd",
-    "status": "in_progress",
-    "artifactVerified": false
-  }
+    "status": "completed",
+    "artifactVerified": true,
+    "conclusion": "success",
+    "apkArtifactId": 12663933473,
+    "artifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473",
+    "hostedReport": "docs/verification/hosted-development-apk.json"
+  },
+  "workImplementationMerge": "bb3426e06753ce361bff63915342f42614e5995d",
+  "sourceComparison": "git diff found no changes in src/native/android/ios/scripts/.github/package manifests between applicationSourceCommit and merged work"
 }

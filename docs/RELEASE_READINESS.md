@@ -23,8 +23,14 @@ The detailed A/B/C/D audit is [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md)
   verification, separate production signing and reviewed-map release gates.
 - [x] Combined local TypeScript/build, 379 core, 75 UI, 37 Android-tool and
   53 map-tool tests; fresh map-bundled ARM64 debug APK verification.
-- [ ] Final exact-source hosted checks/artifact recorded (updated after observed
-  completion, not inferred from enabled workflows).
+- [x] Final combined-source candidate-map/Android workflow passed:
+  [run 40352843627](https://github.com/saradaas01/PalMesh1/actions/runs/40352843627).
+  [APK artifact 12663933473](https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473)
+  exists and is unexpired; generation, signature/ELF verification and upload
+  succeeded. [Hosted report](verification/hosted-development-apk.json) was read
+  back from job logs. All implementation PRs #2–#7 were reviewed and merged only
+  after their exact-head checks passed; iOS simulator and offline native startup
+  passed on the combined application source in #5.
 
 ## Physical evidence and acceptance
 
@@ -48,6 +54,8 @@ Simulated/hosted emulator behavior must never be relabeled as physical results.
 - [ ] Operator Android signing identity/certificate and Apple team/provisioning.
   A different debug signer cannot update the currently installed application;
   preserve the old app/data if Android rejects an in-place update.
+- [ ] Resolve or explicitly assess the documented build-tool dependency advisory
+  in `docs/security.md`; a dependency audit is not a runtime protocol audit.
 - [ ] Independent cryptographic/security review. Static X25519 has no forward
   secrecy; key identities do not authenticate human qualifications.
 - [ ] Complete physical acceptance above, then review PR #1 (`work` to `main`).

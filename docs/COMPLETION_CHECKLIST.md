@@ -52,11 +52,11 @@ specified evidence exists, not field acceptance or an independent audit.
   and a disconnected encrypted send after importing a recipient identity.
 - [x] Add specific multi-peer/radio recovery regressions for audit findings;
   do not replace existing broad mesh simulations with mock-only assertions.
-- [x] Saved-contact selection and safe setup guidance are not yet integrated
-  into New message; current JSON import alone does not provide a contact picker.
+- [x] Saved-contact selection and safe setup guidance are integrated into
+  New message; imported addresses can be chosen without retyping fingerprints.
 - [x] Integrate ELF LOAD alignment verification into the committed APK verifier
   used by CI; existing ZIP alignment alone cannot establish ELF suitability.
-- [ ] Produce a final candidate from the combined reviewed milestones, with
+- [x] Produce a final candidate from the combined reviewed milestones, with
   current full tests, bundled APK verification and a confirmed Actions artifact.
 
 ## D. External acceptance/release gates
@@ -102,6 +102,7 @@ and real checked-manifest validation. A fresh map-bundled ARM64 APK built and
 passed signature, ZIP/ELF, Hermes, SQLCipher, glyph and exact packaged-map digest
 checks. See [readiness](RELEASE_READINESS.md) and
 [exact local evidence](verification/development-candidate.json).
-The final integration Actions artifact is tracked separately from the earlier
-map-workflow APK. Physical acceptance, operator map approval, release signing
+The final integration Actions run 40352843627 passed; APK artifact 12663933473
+was verified present/unexpired and its verification report was read from job logs.
+It is distinct from the earlier map-workflow APK. Physical acceptance, operator map approval, release signing
 and independent review are not marked complete.

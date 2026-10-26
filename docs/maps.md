@@ -6,18 +6,23 @@ SQLite location registry. The SOS control queues directly through the DTN
 engine with a timestamped cached fix when available, without waiting for GPS,
 map initialization or the location database.
 
-**No Palestine MBTiles file is included.** With no asset, the screen reports
-that the map is unavailable and continues to show stored coordinates and SOS.
-No remote basemap or download is substituted. The included
+Large generated MBTiles files are excluded from source Git. A genuine Palestine
+candidate was generated and validated on October 26, 2026 from the official
+Geofabrik extract, with OSM data timestamp 2026-10-25T21:21:21Z and detailed
+coverage at all nine configured cities. The candidate-map Actions workflow
+packages it in a debug test APK and publishes the dataset/manifest for review.
+This is not operator approval or physical rendering/field accuracy acceptance.
+Without an asset, the normal app still reports map unavailable and preserves
+stored coordinates/SOS; no online basemap is substituted. The included
 [Android application shell](android-app.md) mounts the feature modules and has
 built a development APK. Physical-device rendering and GPS behavior remain
 unverified. The [iOS host](ios-app.md) passed its macOS Release simulator build;
 physical iPhone rendering and GPS remain separate acceptance checks.
 
 The verified 256-page Noto glyph atlas and Arabic presentation forms are bundled
-for local street/place labels. The real map-data download is currently blocked
-by the cloud proxy. Follow [map generation and packaging](../mapdata/README.md)
-once official Geofabrik access or an authentic local extract is available.
+for local street/place labels. Official source access now succeeds. Follow [map generation and packaging](../mapdata/README.md)
+and the [genuine candidate milestone](milestones/real-map-candidate.md) for actual
+hashes, provenance, validation, candidate publication and remaining approval.
 
 ## Files and dependencies
 

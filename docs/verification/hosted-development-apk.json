@@ -1,0 +1,53 @@
+{
+  "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
+  "bytes": 134729667,
+  "sha256": "4609e755887fc977f37c62c206ad454e03c789d78ed938af16a0259528c2dea2",
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "applicationId": "org.palmesh",
+  "versionName": "0.1.0",
+  "versionCode": "1",
+  "embeddedJavaScriptBundle": true,
+  "bundledPalestineMap": true,
+  "debuggable": true,
+  "signingCertificateSha256": [
+    "df407503dcd1626bcecb4a4670409719b03085f8b401506463f69f292e248f6a"
+  ],
+  "zipAlignment16KiB": true,
+  "elfAlignment16KiB": true,
+  "nativeLibraryLoadAlignment": {
+    "lib/arm64-v8a/libappmodules.so": 16384,
+    "lib/arm64-v8a/libc++_shared.so": 16384,
+    "lib/arm64-v8a/libcrypto.so": 16384,
+    "lib/arm64-v8a/libfbjni.so": 16384,
+    "lib/arm64-v8a/libhermestooling.so": 16384,
+    "lib/arm64-v8a/libhermesvm.so": 16384,
+    "lib/arm64-v8a/libimagepipeline.so": 16384,
+    "lib/arm64-v8a/libjsi.so": 16384,
+    "lib/arm64-v8a/libmaplibre.so": 16384,
+    "lib/arm64-v8a/libnative-filters.so": 16384,
+    "lib/arm64-v8a/libnative-imagetranscoder.so": 16384,
+    "lib/arm64-v8a/libop-sqlite.so": 16384,
+    "lib/arm64-v8a/libreact_codegen_safeareacontext.so": 16384,
+    "lib/arm64-v8a/libreactnative.so": 16384
+  },
+  "deviceInstallationTested": false,
+  "verificationMode": "development",
+  "signatureVerified": true,
+  "installable": true,
+  "releaseEligible": false,
+  "applicationSourceCommit": "84464a5b19387b3f0d0e8bbf1bf425329236ecfd",
+  "workflowRun": 40352843627,
+  "workflowConclusion": "success",
+  "apkArtifactId": 12663933473,
+  "apkArtifactZipSha256": "2f9c96fb4489481891c7fcfdaf59c66611765cef3c5fdbf238bc5ad969e533ec",
+  "map": {
+    "timestamp": "2026-10-25T21:21:21Z",
+    "sha256": "16a88c49eb002bfc4729327bef4629e513f33069532b815c532316738aef06b8"
+  },
+  "artifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473",
+  "artifactExpiresOn": "2026-11-09",
+  "mapApproval": "Candidate; operator approval and physical rendering remain pending",
+  "evidence": "Verification report and successful generation/verification/upload steps read from hosted job logs; artifact metadata read back through GitHub."
+}

@@ -38,9 +38,27 @@ corrupt/nonempty validation and preserving existing output files. Source and
 candidate hashes are recorded in the committed manifest. Operator approval,
 physical rendering and map accuracy/conditions are still unverified.
 
-The genuine-map candidate workflow passed for #6, including candidate artifact
-and debug APK publication. A separate final combined-source candidate workflow
-is still running; no final artifact success is inferred. Generated platform map
+All implementation PRs #2–#7 are merged into `work`; current implementation
+merge is `bb3426e06753ce361bff63915342f42614e5995d`. Application/native/build
+sources were compared equal to verified application checkpoint `84464a5`.
+PR #5's exact combined-source head passed all six checks, including real macOS
+iOS simulator compilation and KVM offline startup. PR #1 remains open.
+
+The final combined-source candidate-map/Android workflow **passed**:
+https://github.com/saradaas01/PalMesh1/actions/runs/40352843627.
+The uploaded `android-candidate-map-debug-apk` artifact **12663933473** was read
+back as present/unexpired. Its hosted verification report confirms ARM64,
+embedded JS, map inclusion, signature, ZIP/ELF alignment for all 14 libraries,
+non-production debug mode and no device installation claim. Hosted APK SHA256:
+`4609e755887fc977f37c62c206ad454e03c789d78ed938af16a0259528c2dea2`.
+The hosted map hash is `16a88c49eb002bfc4729327bef4629e513f33069532b815c532316738aef06b8`;
+local/hosted generated binaries are distinct. Source time remains
+2026-10-25T21:21:21Z. Full evidence is in
+[hosted-development-apk.json](verification/hosted-development-apk.json).
+Download [the final APK ZIP](https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473)
+while signed into GitHub; artifacts expire November 9, 2026. Its signer can
+differ from the installed phone APK. Preserve the old app/data if Android refuses
+an update; never uninstall/clear storage to work around the mismatch. Generated platform map
 copies remain outside Git; manifests/source provenance and the Actions artifacts
 provide the review trail. See [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md),
 [RELEASE_READINESS.md](RELEASE_READINESS.md) and per-milestone records.
