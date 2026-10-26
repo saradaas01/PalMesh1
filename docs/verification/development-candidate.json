@@ -1,0 +1,88 @@
+{
+  "apk": "dist/android/PalMesh-development-candidate-with-map.apk",
+  "bytes": 136446477,
+  "sha256": "01b27c468c61413b9a80a7b984e2408dea84e52424a997d5d30a06bc1f838903",
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "applicationId": "org.palmesh",
+  "versionName": "0.1.0",
+  "versionCode": "1",
+  "embeddedJavaScriptBundle": true,
+  "bundledPalestineMap": true,
+  "debuggable": true,
+  "signingCertificateSha256": [
+    "2dfc74e0d8f5e218dec73a6ce2ace62a1af044dedffe95d9f1024c4bd0bb3bd7"
+  ],
+  "zipAlignment16KiB": true,
+  "elfAlignment16KiB": true,
+  "nativeLibraryLoadAlignment": {
+    "lib/arm64-v8a/libappmodules.so": 16384,
+    "lib/arm64-v8a/libc++_shared.so": 16384,
+    "lib/arm64-v8a/libcrypto.so": 16384,
+    "lib/arm64-v8a/libfbjni.so": 16384,
+    "lib/arm64-v8a/libhermestooling.so": 16384,
+    "lib/arm64-v8a/libhermesvm.so": 16384,
+    "lib/arm64-v8a/libimagepipeline.so": 16384,
+    "lib/arm64-v8a/libjsi.so": 16384,
+    "lib/arm64-v8a/libmaplibre.so": 16384,
+    "lib/arm64-v8a/libnative-filters.so": 16384,
+    "lib/arm64-v8a/libnative-imagetranscoder.so": 16384,
+    "lib/arm64-v8a/libop-sqlite.so": 16384,
+    "lib/arm64-v8a/libreact_codegen_safeareacontext.so": 16384,
+    "lib/arm64-v8a/libreactnative.so": 16384
+  },
+  "deviceInstallationTested": false,
+  "verificationMode": "development",
+  "signatureVerified": true,
+  "installable": true,
+  "releaseEligible": false,
+  "applicationSourceCommit": "84464a5b19387b3f0d0e8bbf1bf425329236ecfd",
+  "generatedMapConfiguration": true,
+  "mapSha256": "204d7e9b18c357acb9a3eb054c0c0331428f9990e7af8c0204b8cb558d439db3",
+  "mapDataTimestamp": "2026-10-25T21:21:21Z",
+  "mapTiles": 4958,
+  "hermesBytecodeVersion": 99,
+  "setupUiPresent": true,
+  "sqlcipherMarkerPresent": true,
+  "glyphPages": 256,
+  "mapApproval": "candidate-only; operator and physical rendering acceptance pending",
+  "automatedChecks": {
+    "strictTypeScript": true,
+    "coreTests": 379,
+    "uiTests": 75,
+    "moduleBuild": true,
+    "androidPythonTests": 37,
+    "mapPythonTests": 53,
+    "glyphPages": 256,
+    "genuineMapCheckedManifest": true
+  },
+  "userReportedPhysicalEvidence": {
+    "publicHelloQueuedOfflineAndRetainedAfterCloseReopen": true,
+    "attribution": "User report in this chat on October 26, 2026",
+    "deviceModel": null,
+    "osVersion": null,
+    "installedApkSha256": null,
+    "multiDeviceTested": false
+  },
+  "mapWorkflowBeforeFinalIntegration": {
+    "run": 40351773907,
+    "sourceCommit": "5224365c2076210eb24c993a4223776f4a409362",
+    "conclusion": "success",
+    "mapArtifact": 12662894562,
+    "apkArtifact": 12664322696,
+    "note": "This earlier APK does not include the later combined UI/recovery/verifier milestones. Use the final integration artifact when available."
+  },
+  "finalIntegrationWorkflow": {
+    "run": 40352843627,
+    "sourceCommit": "84464a5b19387b3f0d0e8bbf1bf425329236ecfd",
+    "status": "completed",
+    "artifactVerified": true,
+    "conclusion": "success",
+    "apkArtifactId": 12663933473,
+    "artifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473",
+    "hostedReport": "docs/verification/hosted-development-apk.json"
+  },
+  "workImplementationMerge": "bb3426e06753ce361bff63915342f42614e5995d",
+  "sourceComparison": "git diff found no changes in src/native/android/ios/scripts/.github/package manifests between applicationSourceCommit and merged work"
+}

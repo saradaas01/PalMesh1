@@ -5,6 +5,67 @@ branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed
 integration and verification. Never force-push, reset, or replace remote work.
 
+## Combined application development candidate — October 26, 2026
+
+The original repository and `work` remain the primary development source. PR #2
+was safely merged after all six checks passed. PR #1 remains open. The user's
+single-phone public Hello offline/reopen test succeeded (user-reported; exact
+phone/OS/APK digest not supplied). Multi-device physical tests are deferred.
+
+Five audited milestones are backed up: private-key send recovery (#3), bounded
+inactive-radio recovery (#4), saved contacts/setup/mobile layout (#5), genuine
+Palestine map generation/candidate workflow (#6), and mandatory ELF APK checks
+(#7). Their individual PR checks are reviewed before merge; the full combination
+is backed up on `integration/development-candidate` at app-source checkpoint
+`84464a5b19387b3f0d0e8bbf1bf425329236ecfd`.
+
+Combined verification passed: strict TypeScript, **379 core tests**, **75 UI
+tests**, module build, **37 Android Python tests**, **53 map Python tests**, all
+256 glyph pages and real map manifest/coverage validation. A fresh local bundled
+ARM64 debug APK with the candidate map built successfully (2m 3s) and passed
+signature/CRC/launcher/ABI, Hermes, SQLCipher marker, all 14 ELF LOAD alignments
+and ZIP 16 KiB alignment checks. Packaged map bytes match the validated digest.
+Local APK SHA256: `01b27c468c61413b9a80a7b984e2408dea84e52424a997d5d30a06bc1f838903`,
+136,446,477 bytes. It retains the earlier local debug certificate; compatibility
+with the user's installed APK is not inferred. Exact evidence is in
+[verification/development-candidate.json](verification/development-candidate.json).
+
+Geofabrik access is restored. A genuine provider-checksummed OSM source dated
+**2026-10-25T21:21:21Z** generated **4,958** validated candidate tiles with Arabic,
+streets/buildings and detailed coverage at all nine required cities. The pipeline
+now omits tilemaker's genuinely empty clipped tiles while retaining strict
+corrupt/nonempty validation and preserving existing output files. Source and
+candidate hashes are recorded in the committed manifest. Operator approval,
+physical rendering and map accuracy/conditions are still unverified.
+
+All implementation PRs #2–#7 are merged into `work`; current implementation
+merge is `bb3426e06753ce361bff63915342f42614e5995d`. Application/native/build
+sources were compared equal to verified application checkpoint `84464a5`.
+PR #5's exact combined-source head passed all six checks, including real macOS
+iOS simulator compilation and KVM offline startup. PR #1 remains open.
+
+The final combined-source candidate-map/Android workflow **passed**:
+https://github.com/saradaas01/PalMesh1/actions/runs/40352843627.
+The uploaded `android-candidate-map-debug-apk` artifact **12663933473** was read
+back as present/unexpired. Its hosted verification report confirms ARM64,
+embedded JS, map inclusion, signature, ZIP/ELF alignment for all 14 libraries,
+non-production debug mode and no device installation claim. Hosted APK SHA256:
+`4609e755887fc977f37c62c206ad454e03c789d78ed938af16a0259528c2dea2`.
+The hosted map hash is `16a88c49eb002bfc4729327bef4629e513f33069532b815c532316738aef06b8`;
+local/hosted generated binaries are distinct. Source time remains
+2026-10-25T21:21:21Z. Full evidence is in
+[hosted-development-apk.json](verification/hosted-development-apk.json).
+Download [the final APK ZIP](https://github.com/saradaas01/PalMesh1/actions/runs/40352843627/artifacts/12663933473)
+while signed into GitHub; artifacts expire November 9, 2026. Its signer can
+differ from the installed phone APK. Preserve the old app/data if Android refuses
+an update; never uninstall/clear storage to work around the mismatch. Generated platform map
+copies remain outside Git; manifests/source provenance and the Actions artifacts
+provide the review trail. See [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md),
+[RELEASE_READINESS.md](RELEASE_READINESS.md) and per-milestone records.
+
+The older checkpoint sections below are historical evidence, not statements that
+the restored source download or completed software milestones remain blocked.
+
 ## Completion development — October 26, 2026
 
 PR #2 merged with history preserved into `work` at

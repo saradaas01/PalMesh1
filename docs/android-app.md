@@ -131,8 +131,9 @@ is available.
 
 ## Local resources and validation limits
 
-The repository includes a complete licensed local glyph atlas. A real licensed
-Palestine MBTiles pack is still required. Missing tiles show a map-unavailable
+The repository includes a complete licensed local glyph atlas. A genuine,
+validated Palestine MBTiles candidate now exists through the candidate Actions
+workflow; operator review and actual rendering acceptance remain required. Missing tiles show a map-unavailable
 panel while chat, GPS coordinates and SOS remain usable. Package a reviewed map
 with the [map pipeline](maps.md); production release automation refuses a missing
 map or provenance manifest.
