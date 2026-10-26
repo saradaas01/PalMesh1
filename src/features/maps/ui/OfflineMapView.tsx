@@ -109,7 +109,10 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
     const stop = setTimeout(() => clearInterval(timer), diagnostics ? 60_000 : 30_000);
     return () => { clearInterval(timer); clearTimeout(stop); };
   }, [mapStyle]);
-  const bounds: [number, number, number, number] = [...descriptor.bounds];
+  // Stable props keep unrelated report-clock updates from reapplying native
+  // camera constraints while the user is interacting with the map.
+  const bounds = useMemo<[number, number, number, number]>(() => [...descriptor.bounds], [descriptor]);
+  const initialViewState = useMemo(() => ({ bounds, padding: { top: 24, right: 24, bottom: 24, left: 24 } }), [bounds]);
   const maxZoom = Math.min(22, descriptor.maxZoom + 4);
   const changeZoom = async (delta: number): Promise<void> => {
     const cycle = generation.current;
@@ -132,7 +135,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
       preferredFramesPerSecond={powerMode === 'conserve' ? 15 : 30}
       onDidFailLoadingMap={onUnavailable} onDidFinishRenderingMapFully={() => { void inspectRendering(); }}
       onRegionDidChange={() => { void inspectRendering(); }}>
-      <Camera ref={camera} initialViewState={{ bounds, padding: { top: 24, right: 24, bottom: 24, left: 24 } }} maxBounds={bounds}
+      <Camera ref={camera} initialViewState={initialViewState} maxBounds={bounds}
         minZoom={descriptor.minZoom} maxZoom={maxZoom} />
       <GeoJSONSource id="palmesh-location-reports" data={points}>
         <Layer id="palmesh-location-markers" type="circle" paint={{

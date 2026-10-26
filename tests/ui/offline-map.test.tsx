@@ -47,6 +47,15 @@ beforeEach(() => {
 afterEach(() => { Platform.OS = originalPlatform; NativeModules.PalMeshOfflineMaps = originalModule; jest.useRealTimers(); });
 const props = { descriptor, localLocation: null, peers: [], powerMode: 'normal' as const };
 
+test('unrelated updates preserve native camera constraint and initial-view identities', async () => {
+  const failed = jest.fn(); const view = await render(<OfflineMapView {...props} onUnavailable={failed} />);
+  const before = screen.getByTestId('native-map').props.children[0].props;
+  await view.rerender(<OfflineMapView {...props} powerMode="conserve" onUnavailable={failed} />);
+  const after = screen.getByTestId('native-map').props.children[0].props;
+  expect(after.maxBounds).toBe(before.maxBounds);
+  expect(after.initialViewState).toBe(before.initialViewState);
+});
+
 test('accessible zoom controls wait for geometry and clamp native zoom to map bounds', async () => {
   await render(<OfflineMapView {...props} onUnavailable={jest.fn()} />);
   expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled();
