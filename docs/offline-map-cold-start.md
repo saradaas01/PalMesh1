@@ -60,8 +60,10 @@ Normal ADB authentication is preserved.
 Acceptance requires local tile/glyph hits, actual rendered geometry, roads,
 labels and Arabic-labelled features, plus map-only screenshot pixel detail and
 changed detail after gestures. The latest harness additionally records native
-zoom and requires an increase of at least 0.5 after a double tap, then a separate
-pixel change after panning. Earlier runs only proved changed gesture pixels,
+zoom and requires an increase of at least 0.5 after pressing the accessible
+**Zoom in** button, then a separate pixel change after panning. These controls
+also make map zoom usable without multi-touch; double-tap/pinch interaction
+remains a separate physical gesture check. Earlier runs only proved changed gesture pixels,
 not an independently measured zoom change. Android must report no active internet.
 The app is then force-stopped and cold-launched again; the existing smoke flow
 also checks durable public chat/SOS and stable identity. Debug-only native
@@ -77,7 +79,7 @@ and source date `2026-10-25T21:21:21Z`, then runs the full map/manifest
 validator. The genuine map bytes, provenance and licenses are preserved.
 
 Local checks on October 26, 2026 passed: TypeScript/build, 380 core tests,
-81 React Native tests, 44 Android-tool tests and 53 map-tool tests. The ARM64
+83 React Native tests, 47 Android-tool tests and 53 map-tool tests. The ARM64
 bundled debug build passed signature, JavaScript, genuine map/glyph packaging,
 native ABI, ZIP and ELF 16-KiB alignment verification. Local builds use the
 same genuine PBF but an independently generated local MBTiles hash; hosted
@@ -124,6 +126,18 @@ successful font/Arabic visual acceptance test or as proof of phone behavior.
 The subsequent measured-zoom test retains full-resolution map-only images for
 further diagnosis. The real glyph assets/provenance are preserved.
 
+Source `217d07f`, SwANGLE job `121847663232` in
+[run 40401278080](https://github.com/saradaas01/PalMesh1/actions/runs/40401278080),
+produced a full-resolution offline image with legible Arabic names including
+القدس and غزة. This confirms that the preserved glyph pack can render Arabic
+offline under that emulator backend. Its overall job failed the new zoom check:
+debug sampling had stopped after initial readiness, leaving no fresh camera
+measurement. Another job failed an ADB-root startup request. Neither failure
+is reclassified as a passing end-to-end run. Later changes sample debug camera
+state for a bounded 60 seconds/on camera changes, verify actual guest UID 0
+with bounded root retries, and use accessible product zoom controls. SwiftShader
+image artifacts do not establish a physical-phone font defect.
+
 Neither emulator rendering nor a successful build establishes physical-phone
 success. Retest
 the new APK with Wi-Fi and mobile data off **before** launching, then pan,
@@ -138,8 +152,18 @@ CI debug signing keys are ephemeral: the old map candidate's certificate was
 A newly signed CI APK may not update that installed app. Do not uninstall or
 clear storage to work around a signing mismatch; it would remove local identity
 and messages. An in-place update requires the original signing key. A separately
-identified test app can instead be built when needed; it would have its own data
-and identity and cannot prove preservation of the original installation.
+identified test app is built with `-PpalmeshIsolatedMapTest=true`: its ID is
+`org.palmesh.maptest` and launcher label is **PalMesh Map Test**. It has its own
+data and identity and cannot prove migration of the original installation.
+The normal debug/release application remains `org.palmesh`. The verifier requires
+an explicit `--isolated-map-test` flag, that exact ID/label, debuggability,
+embedded JavaScript and a checksum-matching map. It rejects using this mode as
+a release. The SwANGLE x86_64 job runs the isolated identity; the ARM64 job
+publishes both the primary APK and `android-offline-map-isolated-test-apk`.
+Download/extract the latter ZIP and install `palmesh-map-test.apk` alongside
+the existing app. Do not uninstall or clear the existing PalMesh app. Disable
+Wi-Fi/mobile data before opening **PalMesh Map Test** for the cold-start retest.
+Its identity/history are separate; use the original app for existing conversations.
 
 For a phone still showing a blank/error map, capture the debug APK's aggregate
 native evidence without clearing app data:

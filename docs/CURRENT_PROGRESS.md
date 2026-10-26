@@ -7,11 +7,11 @@ The dedicated `fix/offline-map-cold-start` branch preserves `work` and leaves
 PRs #1 and #8 open. The renderer now enables MapLibre's SDK scheduling hint
 after local-only style validation, before mounting. Blank rendering has an
 honest deadline/error and explicit retry reopens the local host. Local checks
-pass (380 core, 81 UI, 44 Android-tool, 53 map-tool tests and bundled ARM64 APK
+pass (380 core, 83 UI, 47 Android-tool, 53 map-tool tests and bundled ARM64 APK
 verification). [Diagnosis and hosted acceptance procedure](offline-map-cold-start.md)
 distinguish source/local evidence from actual hosted emulator results and the
 still-required physical-phone retest. Hosted fixed-build offline rendering,
-pan/zoom and persistence passed on source `c8a3471`. The original behavior also
+gesture-image changes and persistence passed on source `c8a3471`. The original behavior also
 rendered there, so the physical-phone failure is not reproduced and its exact
 cause remains unconfirmed. Existing genuine map data is preserved.
 

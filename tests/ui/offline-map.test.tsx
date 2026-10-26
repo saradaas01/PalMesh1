@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, afterEach, expect, jest, test } from '@jest/globals';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { NativeModules, Platform } from 'react-native';
 import type { Feature } from 'geojson';
 import { NetworkManager } from '@maplibre/maplibre-react-native';
@@ -8,6 +8,8 @@ import { OfflineMapView } from '../../src/features/maps/ui/OfflineMapView';
 
 const mockOrder: string[] = [];
 const mockQuery = jest.fn<(options?: { layers?: string[] }) => Promise<Feature[]>>();
+const mockGetZoom = jest.fn<() => Promise<number>>().mockResolvedValue(8);
+const mockZoomTo = jest.fn();
 const mockEvidence = jest.fn<(...counts: number[]) => Promise<void>>().mockResolvedValue(undefined);
 jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react');
@@ -16,9 +18,11 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     NetworkManager: { setConnected: jest.fn(() => { mockOrder.push('local-scheduler'); }) },
     Map: React.forwardRef((props: object, ref: unknown) => {
       mockOrder.push('mount-map');
-      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery, getZoom: async () => 8 }));
+      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery, getZoom: mockGetZoom }));
       return React.createElement(View, { ...props, testID: 'native-map' });
-    }), Camera: () => null, Layer: () => null,
+    }), Camera: React.forwardRef((_props: object, ref: unknown) => {
+      React.useImperativeHandle(ref, () => ({ zoomTo: mockZoomTo })); return null;
+    }), Layer: () => null,
     GeoJSONSource: ({ children }: { children: React.ReactNode }) => children,
   };
 });
@@ -32,6 +36,7 @@ beforeEach(() => {
   jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
   Platform.OS = 'android';
   mockOrder.length = 0;
+  mockGetZoom.mockReset().mockResolvedValue(8); mockZoomTo.mockReset();
   jest.mocked(NetworkManager.setConnected).mockReset().mockImplementation(() => { mockOrder.push('local-scheduler'); });
   NativeModules.PalMeshOfflineMaps = { renderDiagnosticsEnabled: true, recordRenderEvidence: mockEvidence };
   mockQuery.mockReset().mockImplementation(async options => [{ type: 'Feature', geometry: { type: 'Point', coordinates: [35, 32] },
@@ -39,6 +44,28 @@ beforeEach(() => {
 });
 afterEach(() => { Platform.OS = originalPlatform; NativeModules.PalMeshOfflineMaps = originalModule; jest.useRealTimers(); });
 const props = { descriptor, localLocation: null, peers: [], powerMode: 'normal' as const };
+
+test('accessible zoom controls wait for geometry and clamp native zoom to map bounds', async () => {
+  await render(<OfflineMapView {...props} onUnavailable={jest.fn()} />);
+  expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled();
+  await act(async () => { jest.advanceTimersByTime(1_000); });
+  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Zoom in' })); });
+  expect(mockZoomTo).toHaveBeenLastCalledWith(9, { duration: 200 });
+  mockGetZoom.mockResolvedValue(18);
+  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Zoom in' })); });
+  expect(mockZoomTo).toHaveBeenLastCalledWith(18, { duration: 200 });
+  mockGetZoom.mockResolvedValue(6);
+  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Zoom out' })); });
+  expect(mockZoomTo).toHaveBeenLastCalledWith(6, { duration: 200 });
+});
+
+test('invalid native zoom fails honestly without sending invalid camera coordinates', async () => {
+  const failed = jest.fn(); await render(<OfflineMapView {...props} onUnavailable={failed} />);
+  await act(async () => { jest.advanceTimersByTime(1_000); });
+  mockGetZoom.mockResolvedValue(Number.NaN);
+  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Zoom in' })); });
+  expect(mockZoomTo).not.toHaveBeenCalled(); expect(failed).toHaveBeenCalled();
+});
 
 test('enables the SDK local HTTP scheduler before mounting; style and glyphs remain loopback only', async () => {
   const failed = jest.fn();

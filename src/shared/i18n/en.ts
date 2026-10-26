@@ -71,6 +71,8 @@ export const en = {
   "chat.openContacts": "Open identity and contacts",
   "chat.issue.routing-error": "The mesh reported a problem. Delivery may be delayed.",
   "maps.offlineReady": "Offline map ready",
+  "maps.zoomIn": "Zoom in",
+  "maps.zoomOut": "Zoom out",
   "maps.offlineLoading": "Loading offline map details…",
   "maps.title": "Offline map",
   "maps.subtitle": "PalMesh · Last-known locations",

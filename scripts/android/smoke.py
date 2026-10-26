@@ -171,7 +171,7 @@ class Smoke:
         self.command('logcat', '-c')
         self.command('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
         self.command('shell', 'wm', 'dismiss-keyguard')
-        result = self.command('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=60)
+        result = self.command('shell', 'am', 'start', '-W', '-n', PACKAGE + '/org.palmesh.MainActivity', timeout=60)
         self.output.joinpath(name + '-launch.txt').write_text(result + '\n')
         return self.wait_ui(lambda xml: find_control(xml, SOS) is not None
                             and find_control(xml, CONTACTS) is not None,
@@ -231,6 +231,7 @@ class Smoke:
 
 
 def main() -> None:
+    global PACKAGE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apk', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
@@ -239,7 +240,9 @@ def main() -> None:
     parser.add_argument('--ui-timeout', type=int, default=180)
     parser.add_argument('--gpu', choices=('swiftshader', 'swangle'), default='swiftshader',
                         help='Official emulator software graphics backend; no host GPU required')
+    parser.add_argument('--isolated-map-test', action='store_true', help='Launch only the separately identified PalMesh map-test app')
     args = parser.parse_args()
+    PACKAGE = 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')

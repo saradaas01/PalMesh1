@@ -58,8 +58,17 @@ class MapSmoke(smoke.Smoke):
     def isolate(self) -> None:
         # Disposable official AOSP guest only; preserve normal ADB authentication.
         # No physical serial or existing AVD can reach this point in smoke.main.
-        subprocess.run([str(self.adb), '-s', self.serial, 'root'], check=True, capture_output=True, timeout=30)
-        self.command('wait-for-device')
+        root_attempts = []
+        for _ in range(3):
+            result = subprocess.run([str(self.adb), '-s', self.serial, 'root'], check=False, capture_output=True, text=True, timeout=30)
+            root_attempts.append((result.stdout + result.stderr)[-1000:])
+            self.output.joinpath('emulator-root.txt').write_text('\n'.join(root_attempts))
+            try:
+                self.command('wait-for-device', timeout=20)
+                if self.command('shell', 'id', '-u') == '0': break
+            except (RuntimeError, subprocess.TimeoutExpired): pass
+            time.sleep(2)
+        else: raise RuntimeError('Disposable AOSP guest root unavailable; firewall isolation was not established')
         for tool in ('iptables', 'ip6tables'):
             self.command('shell', tool, '-I', 'OUTPUT', '1', '!', '-o', 'lo', '-j', 'REJECT')
             rules = self.command('shell', tool, '-S', 'OUTPUT')
@@ -140,15 +149,14 @@ class MapSmoke(smoke.Smoke):
         frame = next(node for node in smoke.nodes(self.last_xml) if node.get('content-desc') == 'Offline map of bundled coverage')
         left, top, right, bottom = map(int, smoke.BOUNDS.fullmatch(frame.get('bounds', '')).groups())
         x, y = (left+right)//2, (top+bottom)//2
-        # One authenticated ADB transport avoids host round trips stretching
-        # two taps beyond Android's double-tap interval. Coordinates are integers.
-        self.command('shell', f'input tap {x} {y}; input tap {x} {y}')
+        # The accessible product control avoids timing-sensitive ADB double taps.
+        self.tap('Zoom in')
         zoom_deadline = time.monotonic() + 20
         while time.monotonic() < zoom_deadline:
             zoom_records = self.evidence()
             if any(rendered_offline(value) and value.get('zoom', 0) > initial_zoom + 0.5 for value in zoom_records): break
             time.sleep(1)
-        else: raise RuntimeError('Double tap did not produce a verified zoom increase')
+        else: raise RuntimeError('Zoom control did not produce a verified native zoom increase')
         zoomed = self.screenshot(name + '-map-zoomed')
         self.command('shell', 'input', 'swipe', str(x+50), str(y), str(x-50), str(y+30), '400')
         time.sleep(3)
@@ -156,11 +164,12 @@ class MapSmoke(smoke.Smoke):
         if zoomed['mapPixelsSha256'] == after['mapPixelsSha256']:
             raise RuntimeError('Map pixels did not change after pan/zoom')
         report = {'sourceCommit': os.environ.get('PALMESH_TEST_SOURCE_SHA'), 'passed': True, 'physicalDeviceTested': False, 'freshEmulatorExternalNetworkBlocked': True,
+                  'applicationId': smoke.PACKAGE,
                   'emulatorGpu': sys.argv[sys.argv.index('--gpu') + 1] if '--gpu' in sys.argv else 'swiftshader',
                   'variant': 'system-baseline' if self.system_baseline else 'local-resources',
                   'rendered': next(value for value in reversed(self.evidence()) if rendered_offline(value)),
                   'before': before, 'afterZoom': zoomed, 'initialZoom': initial_zoom,
-                  'zoomAfterDoubleTap': next(value['zoom'] for value in reversed(zoom_records) if rendered_offline(value)), 'afterPanZoom': after}
+                  'zoomAfterControl': next(value['zoom'] for value in reversed(zoom_records) if rendered_offline(value)), 'afterPanZoom': after}
         print('MAP_RENDER_EVIDENCE ' + json.dumps(report), flush=True)
         self.output.joinpath(name + '-map-report.json').write_text(json.dumps(report, indent=2) + '\n')
         errors = self.output.joinpath('map-runtime-errors.txt').read_text()

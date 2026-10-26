@@ -73,6 +73,8 @@ export const ar = {
   "chat.openContacts": "افتح الهوية وجهات الاتصال",
   "chat.issue.routing-error": "حدثت مشكلة في الشبكة المحلية. قد يتأخر وصول الرسالة.",
   "maps.offlineReady": "الخريطة دون إنترنت جاهزة",
+  "maps.zoomIn": "تكبير الخريطة",
+  "maps.zoomOut": "تصغير الخريطة",
   "maps.offlineLoading": "جارٍ تحميل تفاصيل الخريطة المحلية…",
   "maps.title": "الخريطة دون إنترنت",
   "maps.subtitle": "PalMesh · آخر المواقع المعروفة",

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { NativeModules, Platform, StyleSheet, View } from 'react-native';
-import { Camera, GeoJSONSource, Layer, Map, NetworkManager, type MapRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
+import { NativeModules, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Camera, GeoJSONSource, Layer, Map, NetworkManager, type CameraRef, type MapRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { LocalizedText as Text, useI18n } from '../../../shared/i18n';
 import type { FeatureCollection, Point } from 'geojson';
 import type { LocationFix, PowerMode } from '../../dtn/domain/types';
@@ -20,6 +20,8 @@ export interface OfflineMapViewProps {
 export function OfflineMapView({ descriptor, localLocation, peers, powerMode, onUnavailable }: OfflineMapViewProps): React.JSX.Element {
   const { t } = useI18n();
   const map = useRef<MapRef>(null);
+  const camera = useRef<CameraRef>(null);
+  const zoomBusy = useRef<number | null>(null);
   const [prepared, setPrepared] = useState(false);
   const [rendered, setRendered] = useState(false);
   const ready = useRef(false);
@@ -93,20 +95,36 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
     finally { if (busy.current === cycle) busy.current = null; }
   };
   useEffect(() => {
-    const timer = setInterval(() => { if (!settled.current) void inspectRendering(); }, 1_000);
-    const stop = setTimeout(() => clearInterval(timer), 30_000);
+    const diagnostics = NativeModules.PalMeshOfflineMaps?.renderDiagnosticsEnabled === true;
+    const timer = setInterval(() => { if (!settled.current || diagnostics) void inspectRendering(); }, 1_000);
+    const stop = setTimeout(() => clearInterval(timer), diagnostics ? 60_000 : 30_000);
     return () => { clearInterval(timer); clearTimeout(stop); };
   }, [mapStyle]);
   const bounds: [number, number, number, number] = [...descriptor.bounds];
+  const maxZoom = Math.min(22, descriptor.maxZoom + 4);
+  const changeZoom = async (delta: number): Promise<void> => {
+    const cycle = generation.current;
+    if (!map.current || !camera.current || zoomBusy.current === cycle) return;
+    zoomBusy.current = cycle;
+    try {
+      const current = await map.current.getZoom();
+      if (!Number.isFinite(current)) throw new Error('Invalid native zoom');
+      if (alive.current && cycle === generation.current) {
+        camera.current?.zoomTo(Math.max(descriptor.minZoom, Math.min(maxZoom, current + delta)), { duration: 200 });
+      }
+    } catch { if (alive.current && cycle === generation.current) onUnavailable(); }
+    finally { if (zoomBusy.current === cycle) zoomBusy.current = null; }
+  };
   if (mapStyle === null || !prepared) return <View style={styles.map} />;
   return (
     <View style={styles.map}>
-    <Map ref={map} style={styles.map} mapStyle={mapStyle} attribution={false} logo={false}
+    <Map key={descriptor.tileUrlTemplate} ref={map} style={styles.map} mapStyle={mapStyle} attribution={false} logo={false}
       compass={false} touchRotate={false} touchPitch={false}
       preferredFramesPerSecond={powerMode === 'conserve' ? 15 : 30}
-      onDidFailLoadingMap={onUnavailable} onDidFinishRenderingMapFully={() => { void inspectRendering(); }}>
-      <Camera initialViewState={{ bounds, padding: { top: 24, right: 24, bottom: 24, left: 24 } }} maxBounds={bounds}
-        minZoom={descriptor.minZoom} maxZoom={Math.min(22, descriptor.maxZoom + 4)} />
+      onDidFailLoadingMap={onUnavailable} onDidFinishRenderingMapFully={() => { void inspectRendering(); }}
+      onRegionDidChange={() => { void inspectRendering(); }}>
+      <Camera ref={camera} initialViewState={{ bounds, padding: { top: 24, right: 24, bottom: 24, left: 24 } }} maxBounds={bounds}
+        minZoom={descriptor.minZoom} maxZoom={maxZoom} />
       <GeoJSONSource id="palmesh-location-reports" data={points}>
         <Layer id="palmesh-location-markers" type="circle" paint={{
           'circle-radius': 7,
@@ -117,9 +135,20 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
       </GeoJSONSource>
     </Map>
     <Text pointerEvents="none" style={styles.status}>{t(rendered ? 'maps.offlineReady' : 'maps.offlineLoading')}</Text>
+    <View style={styles.zoomControls} pointerEvents="box-none">
+      {([1, -1] as const).map(delta => <Pressable key={delta} accessibilityRole="button"
+        accessibilityLabel={t(delta === 1 ? 'maps.zoomIn' : 'maps.zoomOut')}
+        accessibilityState={{ disabled: !rendered }} disabled={!rendered}
+        onPress={() => { void changeZoom(delta); }} style={styles.zoomButton}>
+        <Text style={styles.zoomText}>{delta === 1 ? '+' : '−'}</Text>
+      </Pressable>)}
+    </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({ map: { flex: 1, backgroundColor: '#172430' },
-  status: { position: 'absolute', top: 4, left: 4, right: 4, color: '#ffffff', backgroundColor: '#172430', fontSize: 12 } });
+  status: { position: 'absolute', top: 4, left: 4, right: 4, color: '#ffffff', backgroundColor: '#172430', fontSize: 12 },
+  zoomControls: { position: 'absolute', right: 8, bottom: 8, gap: 4 },
+  zoomButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#164c74', borderWidth: 1, borderColor: '#ffffff' },
+  zoomText: { color: '#ffffff', fontSize: 24, fontWeight: '700' } });
