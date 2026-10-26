@@ -1,6 +1,10 @@
 package com.palmesh.offlinemaps;
 
 import android.content.res.AssetManager;
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.net.ConnectivityManager;
+import android.util.Log;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.CancellationSignal;
@@ -70,6 +74,11 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
     public PalMeshOfflineMapsModule(ReactApplicationContext context) { super(context); }
 
     @Override public String getName() { return "PalMeshOfflineMaps"; }
+    @Override public Map<String, Object> getConstants() {
+        Map<String, Object> constants = new HashMap<>();
+        constants.put("renderDiagnosticsEnabled", (getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+        return constants;
+    }
 
     @ReactMethod public synchronized void open(ReadableMap options, Promise promise) {
         final String assetName;
@@ -92,7 +101,8 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                     closeHost();
                     File file = prepareAsset(assetName, expected, operation);
                     checkCurrent(operation);
-                    candidate = new TileHost(file, cancellation, getReactApplicationContext().getAssets());
+                    candidate = new TileHost(file, cancellation, getReactApplicationContext().getAssets(),
+                        (getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
                     checkCurrent(operation);
                     pruneCopies(file);
                     host = candidate;
@@ -109,6 +119,35 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
             openingCancellation.compareAndSet(cancellation, null);
             promise.reject("E_MAP_CLOSED", "Offline maps module is closed", error);
         }
+    }
+
+    /** Debug-only aggregate evidence; no resource URLs, keys, feature text or coordinates. */
+    @ReactMethod public void recordRenderEvidence(double geometry, double roads, double labels, double arabic, Promise promise) {
+        if ((getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) { promise.resolve(null); return; }
+        for (double value : new double[] { geometry, roads, labels, arabic }) {
+            if (!Double.isFinite(value) || value < 0 || value > 1000000 || value != Math.floor(value)) {
+                promise.reject("E_MAP_EVIDENCE", "Invalid bounded render counts"); return;
+            }
+        }
+        try {
+            lifecycle.execute(() -> {
+                try {
+                    if (host == null) { promise.resolve(null); return; }
+                    JSONObject data = new JSONObject();
+                    data.put("geometry", (int) geometry); data.put("roads", (int) roads);
+                    data.put("labels", (int) labels); data.put("arabicLabels", (int) arabic);
+                    data.put("tileRequests", host.tileRequests.get()); data.put("tileHits", host.tileHits.get());
+                    data.put("glyphRequests", host.glyphRequests.get()); data.put("glyphHits", host.glyphHits.get());
+                    data.put("loopbackOnly", host.server.getInetAddress().isLoopbackAddress());
+                    ConnectivityManager connectivity = (ConnectivityManager) getReactApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                    android.net.NetworkInfo active = connectivity.getActiveNetworkInfo();
+                    data.put("androidInternetConnected", active != null && active.isConnected());
+                    data.put("sdkConnected", Class.forName("org.maplibre.android.MapLibre").getMethod("isConnected").invoke(null));
+                    Log.i("PalMeshOfflineMap", "render_evidence " + data.toString());
+                    promise.resolve(null);
+                } catch (Exception error) { promise.reject("E_MAP_EVIDENCE", "Cannot collect map evidence"); }
+            });
+        } catch (RejectedExecutionException error) { promise.resolve(null); }
     }
 
     @ReactMethod public synchronized void close(Promise promise) {
@@ -222,8 +261,13 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
         final List<String> layers;
         final String attribution;
         volatile boolean closed;
+        final boolean debug;
+        final AtomicLong tileRequests = new AtomicLong(), tileHits = new AtomicLong();
+        final AtomicLong glyphRequests = new AtomicLong(), glyphHits = new AtomicLong();
+        void trace(String message) { if (debug) Log.i("PalMeshOfflineMap", message); }
 
-        TileHost(File file, CancellationSignal opening, AssetManager assetManager) throws Exception {
+        TileHost(File file, CancellationSignal opening, AssetManager assetManager, boolean debugBuild) throws Exception {
+            debug = debugBuild;
             assets = assetManager;
             boolean foundFonts;
             try (InputStream probe = assets.open("palmesh/fonts/" + FONT_STACK + "/0-255.pbf")) { foundFonts = probe.read() >= 0; }
@@ -280,6 +324,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                 acceptThread = new Thread(this::accept, "PalMeshOfflineTiles");
                 acceptThread.setDaemon(true);
                 acceptThread.start();
+                trace("server_started loopback=true");
             } catch (Exception error) {
                 if (pendingServer != null) try { pendingServer.close(); } catch (IOException ignored) { }
                 database.close();
@@ -354,6 +399,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                 if (!validHost) { respond(output, 400, null); return; }
                 Matcher glyph = GLYPH.matcher(first[1]);
                 if (glyph.matches() && token.equals(glyph.group(1)) && bundledFonts) {
+                    glyphRequests.incrementAndGet();
                     String font = URLDecoder.decode(glyph.group(2), "UTF-8");
                     int start = Integer.parseInt(glyph.group(3)), end = Integer.parseInt(glyph.group(4));
                     if (!FONT_STACK.equals(font) || start % 256 != 0 || end != start + 255 || end > 65535) {
@@ -370,11 +416,13 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                             data.write(chunk, 0, count);
                         }
                         respond(output, 200, data.toByteArray());
+                        glyphHits.incrementAndGet(); trace("local_glyph status=200 bytes=" + data.size());
                     } catch (IOException missing) { respond(output, 404, null); }
                     return;
                 }
                 Matcher path = TILE.matcher(first[1]);
                 if (!path.matches() || !token.equals(path.group(1))) { respond(output, 404, null); return; }
+                tileRequests.incrementAndGet();
                 int zoom = Integer.parseInt(path.group(2));
                 long column = Long.parseLong(path.group(3)), row = Long.parseLong(path.group(4));
                 if (zoom < minZoom || zoom > maxZoom || zoom > 22 || column >= (1L << zoom) || row >= (1L << zoom)) { respond(output, 404, null); return; }
@@ -387,6 +435,8 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                 }
                 if (tile != null && !isVectorTile(tile)) tile = null;
                 respond(output, tile == null ? 404 : 200, tile);
+                if (tile != null) tileHits.incrementAndGet();
+                trace("local_tile status=" + (tile == null ? 404 : 200) + " bytes=" + (tile == null ? 0 : tile.length));
             } catch (Exception ignored) {
                 // Closing a session interrupts socket reads/SQLite queries; never retain failed clients.
             } finally { deadline.cancel(false); cancellations.remove(cancelled); clients.remove(client); }

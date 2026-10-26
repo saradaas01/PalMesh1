@@ -465,3 +465,31 @@ test('stopping cancels a pending map open and cannot install a late map descript
   await until(() => service.getSnapshot().mapStatus === 'unavailable');
   assert.equal(service.getSnapshot().map, null);
 });
+
+test('explicit renderer retry reopens a ready local server while SOS remains independent', async t => {
+  let opens = 0;
+  const gate = deferred<void>();
+  const mapSource: OfflineMapSource = {
+    async open() {
+      opens++;
+      if (opens === 2) await gate.promise;
+      return { tileUrlTemplate: `http://127.0.0.1:23001/${String(opens).repeat(32)}/{z}/{x}/{y}.pbf`,
+        bounds: [34.15,31.15,35.65,32.65], minZoom: 6, maxZoom: 14,
+        sourceLayers: ['transportation'], attribution: '© OpenStreetMap contributors' };
+    }, async close() {},
+  };
+  const { service } = fixture(t, { mapSource });
+  t.after(() => gate.resolve());
+  await service.start();
+  await until(() => service.getSnapshot().mapStatus === 'ready');
+  const first = service.getSnapshot().map;
+  await service.refresh();
+  assert.equal(opens, 1, 'ordinary history refresh retains the healthy server');
+  await service.refresh({ retryMap: true });
+  assert.equal(opens, 2);
+  assert.equal(service.getSnapshot().mapStatus, 'loading');
+  assert.equal((await service.sendSos()).status, 'queued');
+  gate.resolve();
+  await until(() => service.getSnapshot().mapStatus === 'ready');
+  assert.notEqual(service.getSnapshot().map, first);
+});

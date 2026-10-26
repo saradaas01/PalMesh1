@@ -1,5 +1,18 @@
 # Current progress checkpoint
 
+## Priority offline-map correction — October 26, 2026
+
+The user reports a real phone rendering maps only while internet is available.
+The dedicated `fix/offline-map-cold-start` branch preserves `work` and leaves
+PRs #1 and #8 open. Android MapLibre's system reachability can suppress local
+HTTP tile/glyph requests; the renderer now enables its SDK scheduling hint
+after local-only style validation, before mounting. Blank rendering has an
+honest deadline/error and explicit retry reopens the local host. Local checks
+pass (380 core, 81 UI, 41 Android-tool, 53 map-tool tests and bundled ARM64 APK
+verification). [Diagnosis and hosted acceptance procedure](offline-map-cold-start.md)
+distinguish source/local evidence from actual hosted emulator results and the
+still-required physical-phone retest. Existing genuine map data is preserved.
+
 All application source and configuration are backed up on the GitHub `work`
 branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed

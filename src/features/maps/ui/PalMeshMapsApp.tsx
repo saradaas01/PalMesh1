@@ -47,7 +47,7 @@ export function MapsScreen({ embedded = false, showSos = true }: MapsScreenProps
   const sosInFlight = useRef(false);
   const renderFailed = snapshot.map !== null && failedDescriptor === snapshot.map;
   const reportUnavailable = useCallback(() => setFailedDescriptor(snapshot.map), [snapshot.map]);
-  const retry = (): void => { setFailedDescriptor(null); void refresh(); };
+  const retry = (): void => { setFailedDescriptor(null); void refresh({ retryMap: true }); };
   const requestSos = (): void => {
     if (sosInFlight.current || snapshot.pendingSos) return;
     sosInFlight.current = true;
