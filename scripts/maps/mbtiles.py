@@ -94,7 +94,7 @@ def fields(data: bytes):
         yield number, wire, value
 
 
-def tile_layers(stored: bytes) -> dict[str, dict[str, object]]:
+def decoded_tile(stored: bytes) -> bytes:
     if not 0 < len(stored) <= MAX_TILE_BYTES:
         raise ValueError('Tile exceeds native tile size limit')
     if stored.startswith(b'\x1f\x8b'):
@@ -104,6 +104,11 @@ def tile_layers(stored: bytes) -> dict[str, dict[str, object]]:
         decoded = stored
     if len(decoded) > MAX_DECODED_BYTES:
         raise ValueError('Decompressed vector tile exceeds native limit')
+    return decoded
+
+
+def tile_layers(stored: bytes) -> dict[str, dict[str, object]]:
+    decoded = decoded_tile(stored)
     layers = {}
     for number, wire, value in fields(decoded):
         if number != 3 or wire != 2:
