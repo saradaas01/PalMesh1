@@ -12,7 +12,8 @@ The `Android offline cold launch` workflow builds the bundled x86_64 development
 APK and runs `scripts/android/smoke.py` on an official API 35 AOSP image with KVM.
 It requires hardware acceleration, keeps normal ADB authentication, disables
 emulated internet and radios, and verifies enabled native UI controls without
-Metro. A synthetic SOS must appear in local history and survive a force-stop;
+Metro. A signed synthetic public chat and a synthetic SOS must appear in local
+history and survive a force-stop;
 the public identity fingerprint must also remain unchanged after restart.
 
 The test refuses physical-device serials and existing emulator state. It never
@@ -21,7 +22,11 @@ fresh synthetic UI, bounded error logs and a result report; private emulator
 state and developer authentication keys are outside the uploaded directory.
 An enabled workflow or successful unit tests do not establish a completed
 emulator run: retain the actual passing job/report before recording this gate.
-This baseline does not replace the physical radio, GPS, battery, iOS or
+The public-chat smoke extension's native test step passed for `59883c6` in
+[run 40342665960](https://github.com/saradaas01/PalMesh1/actions/runs/40342665960),
+including offline public chat/SOS persistence and identity reuse. Diagnostics
+upload succeeded. The overall job was cancelled as a newer PR revision
+superseded it; this is step-level evidence, not a fully passing workflow. This baseline does not replace the physical radio, GPS, battery, iOS or
 real-map acceptance checks below.
 
 Checkpoint `2040e8358b20bd6c38a87deeb430de7ceeaeb555` passed the real
@@ -65,6 +70,24 @@ Use the engine's simulation tests for long hop chains; three phones alone cannot
 prove a physical 15-hop path. Record actual Wi-Fi Direct group roles and test
 moving the group owner out of range. Exercise BLE chunk boundaries, negotiated
 MTU, concurrent central/peripheral roles and notification backpressure.
+
+## Public chat regression on a physical phone
+
+Use the APK built from the public-chat feature branch and record its commit and hash.
+With no connected peers and no internet, open **Nearby broadcasts · Public**,
+confirm the public/not-encrypted warning, type a synthetic `Hello` and send.
+Expect **Queued locally**, an empty composer and no queue error. Force-stop and
+reopen: `Hello` must remain in that thread with the same identity. Enable nearby
+connections on a second updated phone and confirm receipt without duplicates.
+Repeat over Wi-Fi Direct and BLE, then relay through a third phone. Older builds
+reject signed public chat and must be updated for this scenario.
+
+Separately exchange private messages with known/imported recipient keys while
+disconnected, reconnect and confirm delivery. An unrelated relay must not show
+private message bodies. Unknown recipient keys must still fail and preserve the
+draft. Queue an SOS from the public thread and verify normal emergency priority
+and persistence. Repeat the public warning and send flow in Arabic/RTL.
+These are required physical checks, not claims of completed device testing.
 
 ## SOS, receipt meaning and controls
 

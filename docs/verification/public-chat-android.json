@@ -1,0 +1,131 @@
+{
+  "apk": "dist/android/PalMesh-public-chat-arm64-debug.apk",
+  "bytes": 66057326,
+  "sha256": "3063a8c2e2c9c8ce71effab54abb6b4346ef26cf6fb525e96630591da0ef4cb1",
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "applicationId": "org.palmesh",
+  "versionName": "0.1.0",
+  "versionCode": "1",
+  "embeddedJavaScriptBundle": true,
+  "bundledPalestineMap": false,
+  "debuggable": true,
+  "signingCertificateSha256": [
+    "2dfc74e0d8f5e218dec73a6ce2ace62a1af044dedffe95d9f1024c4bd0bb3bd7"
+  ],
+  "zipAlignment16KiB": true,
+  "deviceInstallationTested": false,
+  "verificationMode": "development",
+  "signatureVerified": true,
+  "installable": true,
+  "releaseEligible": false,
+  "applicationSourceCommit": "b7a20c5adbd8868f92c1ecaefd431f85be8e37fc",
+  "testedBranchCheckpoint": "59883c6def806655571bc9a84f7b70f5ea4d0089",
+  "sourceMapMatchesCurrentSecurityValidationUiTranslations": true,
+  "contentChecks": {
+    "apkSha256": "3063a8c2e2c9c8ce71effab54abb6b4346ef26cf6fb525e96630591da0ef4cb1",
+    "hermesBytecodeVersion": 99,
+    "hermesBytes": 1719596,
+    "publicChatUiPresent": true,
+    "sqlcipherMarkerPresent": true,
+    "glyphPages": 256,
+    "elfLibraries": [
+      {
+        "name": "lib/arm64-v8a/libappmodules.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libc++_shared.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libcrypto.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libfbjni.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libhermestooling.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libhermesvm.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libimagepipeline.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libjsi.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libmaplibre.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libnative-filters.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libnative-imagetranscoder.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libop-sqlite.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libreact_codegen_safeareacontext.so",
+        "minimumLoadAlignment": 16384
+      },
+      {
+        "name": "lib/arm64-v8a/libreactnative.so",
+        "minimumLoadAlignment": 16384
+      }
+    ],
+    "physicalDeviceTested": false
+  },
+  "automatedChecks": {
+    "typecheck": true,
+    "coreTestsPassed": 373,
+    "uiTestsPassed": 71,
+    "moduleBuild": true,
+    "androidToolTestsPassed": 30,
+    "initialUiTimeoutPassedOnUnchangedTimeoutRetry": true
+  },
+  "githubFixBuild": {
+    "sourceCommit": "b7a20c5adbd8868f92c1ecaefd431f85be8e37fc",
+    "url": "https://github.com/saradaas01/PalMesh1/actions/runs/40342380170",
+    "application": "success",
+    "android": "success",
+    "apkArtifactId": 12659621810,
+    "artifactExpiresOn": "2026-11-09",
+    "note": "GitHub-built APK is a separate binary and can have a different development signing certificate."
+  },
+  "hostedEmulatorRegression": {
+    "sourceCommit": "59883c6def806655571bc9a84f7b70f5ea4d0089",
+    "runUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40342665960",
+    "jobId": 121642040502,
+    "overallJobConclusion": "cancelled",
+    "explanation": "A newer PR revision superseded the overall job; the actual native regression and artifact-upload steps completed successfully. Do not label the entire workflow successful.",
+    "nativeTestStep": {
+      "name": "Test real offline startup and local persistence",
+      "conclusion": "success",
+      "startedAt": "2026-10-26T14:54:03Z",
+      "completedAt": "2026-10-26T14:55:57Z"
+    },
+    "observedLogLine": "PASS: offline native cold launch, public chat/SOS persistence and stable identity after restart.",
+    "diagnosticsArtifactId": 12659684063,
+    "artifactUploadConclusion": "success",
+    "diagnosticsArtifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/40342665960/artifacts/12659684063",
+    "physicalDeviceTested": false,
+    "physicalRadiosTested": false,
+    "reportJsonReadBack": false,
+    "reportReadbackLimitation": "Artifact metadata and job logs were read through the connector; downloading its ZIP into the executor was blocked by the network policy."
+  }
+}

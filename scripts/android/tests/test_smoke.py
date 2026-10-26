@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 spec = importlib.util.spec_from_file_location('palmesh_smoke', Path(__file__).resolve().parents[1] / 'smoke.py')
 smoke = importlib.util.module_from_spec(spec)
@@ -39,6 +40,52 @@ class SmokeRunnerTests(unittest.TestCase):
     def test_physical_serial_is_refused_before_any_adb_command(self):
         with self.assertRaisesRegex(ValueError, 'emulator serials only'):
             smoke.Smoke(Path('/sdk'), Path('/results'), 'a-physical-phone', 60)
+
+    def test_public_chat_requires_exact_body_and_queued_metadata(self):
+        xml = ('<hierarchy><node text="' + smoke.PUBLIC_TEXT + '"/>'
+               '<node text="02:31 PM · Queued locally"/></hierarchy>')
+        self.assertTrue(smoke.public_chat_visible(xml))
+        self.assertFalse(smoke.public_chat_visible(xml.replace(smoke.PUBLIC_TEXT, 'Other message')))
+        self.assertFalse(smoke.public_chat_visible(xml.replace('Queued locally', 'Stored by a peer')))
+        self.assertFalse(smoke.public_chat_visible(xml.replace('Queued locally', 'Not Queued locally')))
+
+    def test_public_warning_is_required_before_synthetic_chat_input(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.tap = Mock()
+        runner.command = Mock()
+        def wait(predicate, _description, _name):
+            # A composer without the explicit privacy warning is not accepted.
+            if not predicate('<hierarchy><node text="Message"/></hierarchy>'):
+                raise RuntimeError('missing public warning')
+        runner.wait_ui = wait
+        with self.assertRaisesRegex(RuntimeError, 'missing public warning'):
+            runner.queue_public_chat()
+        runner.command.assert_not_called()
+
+    def test_queue_error_never_counts_as_success_or_reaches_history(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.public_thread = Mock()
+        runner.tap = Mock()
+        runner.command = Mock()
+        def wait(predicate, _description, _name):
+            xml = '<hierarchy><node text="Could not queue this message. Your draft is kept. Please try again."/></hierarchy>'
+            if not predicate(xml):
+                raise RuntimeError('queue notice absent')
+        runner.wait_ui = wait
+        with self.assertRaisesRegex(RuntimeError, 'queue notice absent'):
+            runner.queue_public_chat()
+        runner.command.assert_any_call('shell', 'input', 'text', smoke.PUBLIC_TEXT)
+        self.assertNotIn(unittest.mock.call('Dismiss notice'), runner.tap.call_args_list)
+
+    def test_restart_check_requires_retained_body_and_custody(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.public_thread = Mock()
+        runner.wait_ui = Mock(side_effect=RuntimeError('retained chat missing'))
+        with self.assertRaisesRegex(RuntimeError, 'retained chat missing'):
+            runner.retained_public_chat()
+        predicate = runner.wait_ui.call_args.args[0]
+        self.assertFalse(predicate('<hierarchy><node text="No messages yet"/></hierarchy>'))
+        runner.public_thread.assert_called_once_with('second')
 
     def test_avd_requires_real_official_image_and_keeps_auth_defaults(self):
         with tempfile.TemporaryDirectory() as temporary:

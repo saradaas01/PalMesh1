@@ -54,7 +54,7 @@ keyboard/inset behavior still needs physical-device validation.
 
 An offline recipient can be entered manually using its stable peer ID. A direct
 conversation does not require a currently connected recipient or a known route.
-Nearby broadcasts (`*`) are shared with mesh participants and collect SOS history.
+Nearby broadcasts (`*`) are signed public messages shared with mesh participants and collect SOS history. The composer explicitly warns that they are not encrypted and may be relayed beyond nearby devices. They queue locally even with no peers or known recipient keys. Direct chat encryption is unchanged.
 Unicast packets carried for other devices and standalone GPS packets never appear
 as local chat conversations. In the integrated app direct messages are signed
 and end-to-end encrypted; recipient public keys must already be known from an

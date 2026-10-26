@@ -178,8 +178,10 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     for (let i = 0; i < message.ttl; i += 1) commitment = hopHash(commitment);
     let unsigned: MeshMessage = message;
     let encryption: MessageSecurity['encryption'];
-    if (message.kind === 'chat') {
-      if (message.destination === '*' || message.destination === this.deviceId) throw new SecurityError('Secure chat requires another device identity.');
+    // Public chat is signed below like other public packets. Only a direct
+    // chat may carry encryption metadata; its encryption requirement is never optional.
+    if (message.kind === 'chat' && message.destination !== '*') {
+      if (message.destination === this.deviceId) throw new SecurityError('Secure chat requires another device identity.');
       await this.directoryWork;
       if (this.directoryFailed) throw new SecurityError('Peer-key persistence is unavailable.');
       const recipient = this.peers.get(message.destination);
@@ -228,7 +230,8 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     if (identityFingerprint({ signingKey: security.signingKey, encryptionKey: security.encryptionKey }) !== message.source) {
       throw new SecurityError('Packet source does not match its signing keys.');
     }
-    if ((message.kind === 'chat') !== Boolean(security.encryption) || (message.kind === 'chat' && message.destination === '*')) {
+    const directChat = message.kind === 'chat' && message.destination !== '*';
+    if (directChat !== Boolean(security.encryption)) {
       throw new SecurityError('Direct chats require end-to-end encryption.');
     }
     let proof = hexToBytes(security.hopProof);
@@ -251,7 +254,7 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     // data. Local history is bounded by SQLite and does not spend the network
     // verification budget; already retained history need not be freshly sent.
     this.verifyPacket(message, false, false);
-    if (message.kind !== 'chat') return message;
+    if (message.kind !== 'chat' || message.destination === '*') return message;
     if (message.source !== this.deviceId && message.destination !== this.deviceId) return null;
     // Decryption authenticates the ciphertext again on every endpoint read.
     return this.decrypt(message);

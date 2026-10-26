@@ -5,6 +5,74 @@ branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed
 integration and verification. Never force-push, reset, or replace remote work.
 
+## Public Nearby chat fix — October 26, 2026
+
+- Base: backed-up remote `work` checkpoint `ae68612c11b7eaa6d9ecfe2bede10208267a3068`.
+  Local checkout initially fetched only `main`; explicit fetch of remote `work`
+  recovered the completed application. Local `work` fast-forwarded without reset.
+- Feature branch: `fix/secure-nearby-broadcasts`, original `saradaas01/PalMesh1`.
+- Root cause: ChatService/UI allowed chat destination `*`, but SecurityService
+  rejected it before DTN persistence. Nearby public chat now signs its plaintext,
+  destination and envelope, enforces authenticated hop budgets and projects at all
+  recipients. Unknown keys/connections are not required for public local queuing.
+  Direct chat remains end-to-end encrypted and fails closed without known keys.
+  Encrypted broadcast packets are rejected; signatures prevent destination/kind
+  substitution. Existing SOS/location/responder security and routing are unchanged.
+- English/Arabic public labels, visible composer privacy warning and accessible
+  hint explain that messages are readable and relayable beyond nearby devices.
+- Strict TypeScript, 373 core tests, 71 UI tests and module build passed locally.
+  One first-pass UI test timed out during concurrent native compilation; all 71
+  passed on unchanged-timeout retry. New integrated regressions use real security,
+  DTN, ChatService and SQLite: no-peer Hello queuing, key/database reopen, remote
+  admission/dedup/archive, tamper/downgrade rejection, draft retention/retry after
+  storage failure, and SOS queuing with its original 15-hop budget.
+- Fresh ARM64 bundled Android debug build passed using the existing normal
+  Gradle helper (10 minutes). Signature, ZIP CRC, application/launcher metadata,
+  Hermes 99 bytecode/public UI, SQLCipher marker, 256 glyph pages, ZIP alignment
+  and all 14 ELF LOAD alignments >=16 KiB passed. Source-map contents match the
+  committed security, validation, UI and translation files.
+- Local APK: `dist/android/PalMesh-public-chat-arm64-debug.apk`, 66,057,326 bytes,
+  SHA256 `3063a8c2e2c9c8ce71effab54abb6b4346ef26cf6fb525e96630591da0ef4cb1`.
+  Certificate SHA256 `2dfc74e0d8f5e218dec73a6ce2ace62a1af044dedffe95d9f1024c4bd0bb3bd7`
+  matches the recorded earlier local build. It is development-signed and has no
+  reviewed Palestine map. No new physical-phone result is claimed.
+- GitHub application and native Android jobs both passed for fix `b7a20c5`:
+  https://github.com/saradaas01/PalMesh1/actions/runs/40342380170.
+  Downloadable `android-development-apk` artifact 12659621810 was verified present
+  and unexpired; its separately built APK can use another development key.
+  Local verification evidence: `docs/verification/public-chat-android.json`.
+  Download/install instructions: `docs/android-public-chat-test.md`.
+- See the public chat procedure in `docs/device-acceptance.md`. Older peers reject
+  public chat and need an updated build for interoperability.
+
+## Next Android stability increment — October 26, 2026
+
+- Messaging fix is backed up at `b7a20c5adbd8868f92c1ecaefd431f85be8e37fc`;
+  remote branch SHA and the GitHub committed tree/regression blob were read back.
+  PR https://github.com/saradaas01/PalMesh1/pull/2 targets `work`.
+- The isolated native offline smoke runner now requires the public warning,
+  queues a fixed synthetic public message without internet/radios, checks its
+  local queue notice/history, and checks retained history after force-stop.
+  SOS persistence and stable identity remain required for overall success.
+  Its report marks public chat persistence true only after all checks complete.
+- All 30 Android tooling tests pass, including failure checks for missing public
+  warning, rejected send, missing retained history and false custody text.
+  These runner tests do not establish physical-phone behavior.
+- Hosted KVM native test step subsequently passed for `59883c6` in run
+  https://github.com/saradaas01/PalMesh1/actions/runs/40342665960:
+  public chat/SOS queued offline, both histories survived restart and identity
+  remained stable. The exact PASS line and step conclusion were read back.
+  Diagnostics upload succeeded (artifact 12659684063). Overall job conclusion
+  is **cancelled**, superseded by a newer PR revision, so the whole workflow is
+  not recorded as passing. The artifact JSON could not be read locally because
+  its signed download URL was denied by executor network policy. No physical
+  radios/phones were tested.
+- Next priorities: retain a complete uncancelled KVM job, then physical Android public/
+  private/SOS exchange and restart tests, Wi-Fi Direct/BLE reconnect/relay tests,
+  and OEM screen-off/power testing. Existing contact import and private offline
+  queueing remain implemented. Real map data, operator signing, iOS device
+  acceptance and independent protocol review remain external release gates.
+
 ## Implemented and integrated
 
 - DTN routing, persistent queues, deduplication, emergency priority and retries.

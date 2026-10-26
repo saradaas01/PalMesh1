@@ -223,9 +223,10 @@ export function ChatScreen({ embedded = false, showSos = true }: ChatScreenProps
             </>}
             ListEmptyComponent={<Text style={styles.empty}>{t(isBroadcast ? 'chat.emptyBroadcasts' : 'chat.emptyMessages')}</Text>} />
           <View style={styles.composer}>
+            {isBroadcast && <Text style={styles.explanation}>{t('chat.broadcastPrivacy')}</Text>}
             <Text accessibilityLabel={t('chat.length')} style={styles.composerCount}>{snapshot.draft.length}/4096</Text>
             <View style={styles.row}>
-              <TextInput accessibilityLabel={t('chat.message')} accessibilityHint={t('chat.composeHint')}
+              <TextInput accessibilityLabel={t('chat.message')} accessibilityHint={t(isBroadcast ? 'chat.broadcastPrivacy' : 'chat.composeHint')}
                 placeholder={t(isBroadcast ? 'chat.broadcastPlaceholder' : 'chat.directPlaceholder')} placeholderTextColor="#b9c5cf" multiline maxLength={4096}
                 value={snapshot.draft} onChangeText={setDraft} editable={!snapshot.pendingSend}
                 style={[styles.input, textStyle, styles.messageInput]} />

@@ -90,7 +90,7 @@ describe('PalMesh chat UI', () => {
     expect(service.start).toHaveBeenCalledTimes(1);
     expect(screen.getByText('1 unread')).toBeOnTheScreen();
     expect(screen.getByText('Your peer ID: local-device')).toBeOnTheScreen();
-    expect(screen.getByText('Direct chats are encrypted. SOS and locations are public.')).toBeOnTheScreen();
+    expect(screen.getByText('Direct chats are encrypted. Nearby broadcasts, SOS and locations are public.')).toBeOnTheScreen();
     await view.unmount();
     expect(service.stop).toHaveBeenCalledTimes(1);
   });
@@ -206,12 +206,13 @@ describe('PalMesh chat UI', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  test('nearby broadcast thread has a normal composer and paginates local history', async () => {
+  test('public broadcast thread warns before composing and paginates local history', async () => {
     const service = new ReactiveChatService();
     await render(<PalMeshChatApp service={service} />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Nearby broadcasts' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Nearby broadcasts · Public' }));
     expect(service.openConversation).toHaveBeenLastCalledWith('*');
-    expect(screen.getByPlaceholderText('Message nearby devices')).toBeOnTheScreen();
+    expect(screen.getByText('Public and not encrypted: mesh participants can read and relay these messages beyond nearby devices. Do not share private information.')).toBeOnTheScreen();
+    expect(screen.getByPlaceholderText('Public message to the mesh')).toBeOnTheScreen();
     await act(async () => { service.patch({ hasOlderMessages: true }); });
     await fireEvent.press(screen.getByRole('button', { name: 'Load older messages' }));
     expect(service.loadOlder).toHaveBeenCalledTimes(1);
