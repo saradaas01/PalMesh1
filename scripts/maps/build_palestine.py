@@ -10,6 +10,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -20,7 +21,7 @@ import sys
 import tempfile
 import urllib.request
 import zlib
-from mbtiles import data_timestamp, fields, provenance_url, sha256, validate, PALESTINE_BOUNDS
+from mbtiles import decoded_tile, data_timestamp, fields, provenance_url, sha256, validate, PALESTINE_BOUNDS
 
 ROOT = Path(__file__).resolve().parents[2]
 GEOFABRIK = 'https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf'
@@ -91,6 +92,35 @@ def osm_timestamp(path: Path) -> str:
         return timestamp
 
 
+def remove_empty_generated_tiles(path: Path) -> int:
+    """Only for this tool's private output: omit MVTs with zero decoded bytes.
+
+    Upstream tilemaker can emit gzip(empty) at clipped edges. Invalid protobuf,
+    invalid gzip, bombs and feature-bearing tiles are never repaired or hidden;
+    all retained tiles still pass the unchanged full-pack validator below.
+    """
+    with sqlite3.connect(path) as db:
+        empty = [(z, x, y) for z, x, y, blob in db.execute(
+            'SELECT zoom_level,tile_column,tile_row,tile_data FROM tiles')
+            if decoded_tile(blob) == b'']
+        db.executemany('DELETE FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?', empty)
+    return len(empty)
+
+
+def publish_generated_pair(temporary: Path, output: Path, manifest: dict) -> None:
+    """Publish without replacing an existing/racing operator file."""
+    manifest_temp = temporary.with_suffix('.manifest.json')
+    manifest_temp.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    os.link(temporary, output)
+    try:
+        os.link(manifest_temp, output.with_suffix('.manifest.json'))
+    except BaseException:
+        # Remove only our own new link, never another writer's replacement.
+        if output.exists() and os.path.samestat(output.stat(), temporary.stat()):
+            output.unlink()
+        raise
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--download', action='store_true')
@@ -100,6 +130,8 @@ def main() -> None:
     parser.add_argument('--tilemaker', default='tilemaker', help='Path to upstream tilemaker 3.2.x binary')
     parser.add_argument('--output', type=Path, default=ROOT / 'mapdata/palestine.mbtiles')
     args = parser.parse_args()
+    if args.output.exists() or args.output.is_symlink() or args.output.with_suffix('.manifest.json').exists():
+        parser.error('Refusing to replace an existing map or manifest; choose a new output path')
     provenance_url(args.source_url)
     if args.download:
         download(args.source)
@@ -134,19 +166,20 @@ def main() -> None:
                 db.execute('DELETE FROM metadata WHERE name=?', (name,))
                 db.execute('INSERT INTO metadata(name,value) VALUES(?,?)', (name, value))
             db.commit()
+        empty_removed = remove_empty_generated_tiles(temporary)
         digest = sha256(temporary)
         report = validate(temporary, digest)
         manifest = {'schemaVersion': 1, 'file': 'palestine.mbtiles', **report,
+                    'emptyGeneratedTilesRemoved': empty_removed,
                     'dataTimestamp': timestamp, 'sourceUrl': args.source_url, 'sourceSha256': source_digest,
                     'license': 'ODbL-1.0', 'licenseUrl': 'https://opendatacommons.org/licenses/odbl/1-0/',
                     'generator': 'tilemaker ' + version[1], 'generatorSha256': tool_hash,
                     'configurationSha256': sha256(ROOT / 'scripts/maps/tilemaker.json'),
                     'profileSha256': sha256(ROOT / 'scripts/maps/tilemaker.lua'),
                     'limitations': 'OSM historic features, not verified current conditions. No hazard, damage or safe-route information.'}
-        temporary.replace(args.output)
-        manifest_path = args.output.with_suffix('.manifest.json')
-        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+        publish_generated_pair(temporary, args.output, manifest)
         print('Generated validated OSM map: ' + str(args.output))
+        print('Empty generated tiles omitted: ' + str(empty_removed))
         print('Data timestamp: ' + timestamp + '; SHA-256: ' + digest)
     finally:
         workspace.cleanup()

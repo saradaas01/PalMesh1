@@ -4,11 +4,14 @@
 unavailable state until a real, validated map is bundled. The source glyph atlas
 under `assets/map-fonts` is included; fonts alone do not supply a map.
 
-The cloud proxy currently rejects the official `download.geofabrik.de` source
-with HTTP CONNECT 403. Publishing network settings that permit that domain, or
-providing an authentic extract plus its independently trusted SHA-256, is
-required before generating the map. Do not substitute test fixtures or scraped
-public map tiles.
+On October 26, 2026, direct official Geofabrik access succeeded and a genuine
+candidate was generated and fully validated. Its OSM source date is
+2026-10-25T21:21:21Z. See [candidate provenance](../docs/verification/palestine-candidate.manifest.json)
+and the [candidate milestone](../docs/milestones/real-map-candidate.md).
+Operator approval and real offline rendering acceptance are still required.
+The candidate workflow publishes `palmesh-candidate-palestine-map` and a bundled
+debug test APK; it deliberately does not use the reviewed release artifact name.
+No fixture, scraped public tiles or invented checksum is substituted.
 
 ## Generate from OpenStreetMap
 

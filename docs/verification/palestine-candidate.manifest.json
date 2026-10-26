@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "file": "palestine.mbtiles",
+  "sha256": "204d7e9b18c357acb9a3eb054c0c0331428f9990e7af8c0204b8cb558d439db3",
+  "bytes": 80084992,
+  "bounds": [
+    34.15,
+    31.15,
+    35.65,
+    32.65
+  ],
+  "minZoom": 6,
+  "maxZoom": 14,
+  "sourceLayers": [
+    "landuse",
+    "water",
+    "waterway",
+    "coastline",
+    "building",
+    "transportation",
+    "transportation_name",
+    "place",
+    "poi"
+  ],
+  "tilesByZoom": {
+    "6": 2,
+    "7": 2,
+    "8": 4,
+    "9": 10,
+    "10": 24,
+    "11": 75,
+    "12": 259,
+    "13": 956,
+    "14": 3626
+  },
+  "layerFeatureOccurrences": {
+    "water": 23745,
+    "coastline": 1049,
+    "transportation": 1214938,
+    "place": 8882,
+    "waterway": 105400,
+    "landuse": 210566,
+    "building": 1654016,
+    "transportation_name": 198323,
+    "poi": 3560
+  },
+  "hasArabicNames": true,
+  "attribution": "\u00a9 OpenStreetMap contributors. Open Database License (ODbL) 1.0. https://www.openstreetmap.org/copyright",
+  "dataTimestamp": "2026-10-25T21:21:21Z",
+  "emptyGeneratedTilesRemoved": 206,
+  "sourceUrl": "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf",
+  "sourceSha256": "bb28f83176b77d1b58701b8e2ebe4b241d37c7871e51f2739a9a684b47c5d44f",
+  "license": "ODbL-1.0",
+  "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "generator": "tilemaker v3.2.0",
+  "generatorSha256": "b46a219f0be9207d7ad4f25b0999b0ae2ea1bff87ad51e41e201215e95f4bb5b",
+  "configurationSha256": "96ec31cc3a0d3bd6ade372939dcaea116d13473a4ff9eb0fc3faa37a80e86363",
+  "profileSha256": "182dba677b07e7f8df2247017b9414415e55d96ee391e0ee90546e09944b9792",
+  "limitations": "OSM historic features, not verified current conditions. No hazard, damage or safe-route information."
+}
