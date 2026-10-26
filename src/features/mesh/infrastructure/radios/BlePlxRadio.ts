@@ -139,7 +139,12 @@ export class BlePlxRadio implements RadioAdapter {
       if (!this.isCurrent(generation) || signal.aborted) throw abortError();
       await this.operations.run(signal, () => this.manager!.startDeviceScan([PALMESH_BLE_SERVICE], { allowDuplicates: false }, (error, device) => {
         if (!this.isCurrent(generation)) return;
-        if (error) { this.events.emit({ type: 'error', error }); ignoreFailure(() => this.stop()); return; }
+        if (error) {
+          this.events.emit({ type: 'status', status: { available: false, reason: 'unavailable' } });
+          this.events.emit({ type: 'error', error });
+          ignoreFailure(() => this.stop());
+          return;
+        }
         if (!device || !isRadioId(device.id)) return;
         const rssi = device.rssi;
         this.events.emit({ type: 'discovered', endpoint: { endpointId: device.id,

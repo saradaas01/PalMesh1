@@ -109,7 +109,8 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
         {ready && snapshot.resources !== null && mapsService !== null ? snapshot.route === 'chat' ?
           <ChatProvider service={snapshot.resources.chat} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>
-            <ChatScreen embedded showSos={false} savedRecipients={snapshot.resources.security?.savedPeerIds() ?? []} />
+            <ChatScreen embedded showSos={false} savedRecipients={snapshot.resources.security?.savedPeerIds() ?? []}
+              onOpenContacts={() => selectRoute('contacts')} />
           </ChatProvider> : snapshot.route === 'maps' ?
           <MapsProvider service={mapsService} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>

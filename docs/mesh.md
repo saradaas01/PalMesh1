@@ -104,7 +104,15 @@ slots. The body limit is 20 KiB, the embedded DTN packet limit is 16 KiB, and ra
 native chunks are at most 8 KiB (BLE additionally uses MTU-3, capped at 512 bytes).
 Malformed/oversized inputs fail before unbounded allocation.
 
-Connections use bounded exponential retry and discovery expiry. A live endpoint's
+Connections use bounded exponential retry and discovery expiry. Inactive radios
+also receive read-only availability checks on the maintenance timer, with the
+same bounded exponential backoff (default 1–30 seconds). This recovers adapters
+whose power-off teardown removed native listeners, without waiting for an app
+resume or requesting permissions. A radio reported unsupported is not polled;
+explicit refresh can still inspect it. At most one startup attempt per radio is
+in flight; healthy radios and their sessions are retained. Fatal BLE scanner
+errors publish unavailable status before teardown, making recovery eligible.
+Mesh stop cancels ongoing attempts and prevents further checks. A live endpoint's
 age is refreshed at disconnect so a scan that reported it only once can still
 reconnect. Generation guards ignore old events and late storage completions after
 stop/restart. Native cancellation that interrupts a frame closes its stream;

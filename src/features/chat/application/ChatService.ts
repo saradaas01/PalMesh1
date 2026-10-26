@@ -1,3 +1,4 @@
+import { RecipientKeyError } from '../../security/domain/errors';
 import type { Clock } from '../../dtn/domain/ports';
 import type { DtnEvent, PeerId } from '../../dtn/domain/types';
 import { isPeerId } from '../../dtn/domain/validation';
@@ -185,8 +186,10 @@ export class ChatService {
         this.archive(result.record, generation);
       }
       return { status: 'queued', messageId: result.record.message.id };
-    } catch {
-      if (this.live(generation)) this.patch({ issue: 'send-unavailable' });
+    } catch (error) {
+      if (this.live(generation)) this.patch({ issue: error instanceof RecipientKeyError
+        ? error.reason === 'unknown' ? 'recipient-unknown' : 'recipient-keys-unavailable'
+        : 'send-unavailable' });
       return { status: 'rejected', reason: 'unavailable' };
     } finally {
       if (this.live(generation)) this.patch({ pendingSend: false });

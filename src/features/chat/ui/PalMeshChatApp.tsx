@@ -24,6 +24,8 @@ const issueLabels: Readonly<Record<ChatIssue, TranslationKey>> = {
   'send-unavailable': 'chat.issue.send-unavailable',
   'invalid-input': 'chat.issue.invalid-input',
   'routing-error': 'chat.issue.routing-error',
+  'recipient-unknown': 'chat.issue.recipient-unknown',
+  'recipient-keys-unavailable': 'chat.issue.recipient-keys-unavailable',
 };
 
 function Button({ label, onPress, disabled = false, primary = false }: {
@@ -124,9 +126,10 @@ export interface ChatScreenProps {
   readonly embedded?: boolean;
   readonly showSos?: boolean;
   readonly savedRecipients?: readonly string[];
+  readonly onOpenContacts?: () => void;
 }
 
-export function ChatScreen({ embedded = false, showSos = true, savedRecipients = [] }: ChatScreenProps): React.JSX.Element {
+export function ChatScreen({ embedded = false, showSos = true, savedRecipients = [], onOpenContacts }: ChatScreenProps): React.JSX.Element {
   const { t, direction, textStyle } = useI18n();
   const {
     snapshot, deviceId, openConversation, closeConversation, setDraft, send, sendSos,
@@ -166,6 +169,8 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
       <View style={[styles.row, styles.wrap]}>
         {(snapshot.issue === 'history-unavailable' || snapshot.status === 'error') &&
           <Button label={t('chat.retry')} onPress={() => { void refresh(); }} />}
+        {(snapshot.issue === 'recipient-unknown' || snapshot.issue === 'recipient-keys-unavailable') && onOpenContacts &&
+          <Button label={t('chat.openContacts')} onPress={onOpenContacts} />}
         <Button label={t('chat.dismissError')} onPress={dismissIssue} />
       </View>
     </View>}

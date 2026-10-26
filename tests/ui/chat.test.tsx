@@ -206,6 +206,19 @@ describe('PalMesh chat UI', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  test('private key errors show recovery guidance and keep the draft and SOS available', async () => {
+    const service = new ReactiveChatService();
+    await render(<PalMeshChatApp service={service} />);
+    await openAlice();
+    await fireEvent.changeText(screen.getByLabelText('Message'), 'Keep this private');
+    await act(async () => { service.patch({ issue: 'recipient-unknown' }); });
+    expect(screen.getByRole('alert')).toHaveTextContent(/Recipient keys are not saved\./);
+    expect(screen.getByLabelText('Message')).toHaveDisplayValue('Keep this private');
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+    await act(async () => { service.patch({ issue: 'recipient-keys-unavailable' }); });
+    expect(screen.getByRole('alert')).toHaveTextContent(/private encryption remains required/);
+  });
+
   test('public broadcast thread warns before composing and paginates local history', async () => {
     const service = new ReactiveChatService();
     await render(<PalMeshChatApp service={service} />);

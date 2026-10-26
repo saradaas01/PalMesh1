@@ -481,3 +481,17 @@ test('BLE concurrent startup caller can abort its wait without stopping discover
   assert.equal(manager.stopCalls, 0); assert.equal(calls, 1);
   ready.resolve(); await first; await radio.stop();
 });
+
+test('fatal BLE scan errors publish inactive status so the coordinator can retry', async () => {
+  const manager = new BleManager();
+  const radio = new BlePlxRadio(manager, { permissionsGranted: granted });
+  const events: RadioEvent[] = []; radio.subscribe(event => events.push(event));
+  await radio.start(signal());
+  manager.scanCallbacks[0]!(new Error('scanner stopped'), null);
+  await tick();
+  assert.ok(events.some(event => event.type === 'status' && !event.status.available && event.status.reason === 'unavailable'));
+  assert.ok(events.some(event => event.type === 'error'));
+  await radio.start(signal());
+  assert.equal(manager.scanCallbacks.length, 2);
+  await radio.stop();
+});

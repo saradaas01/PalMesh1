@@ -426,6 +426,19 @@ describe('integrated emergency, identity and offline settings', () => {
     expect(runtime.sendSos).toHaveBeenCalledTimes(1);
   });
 
+  test('private recovery opens contacts and returns without erasing the draft', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Open conversation with peer-alice, 1 unread' }));
+    await fireEvent.changeText(screen.getByLabelText('Message'), 'Keep my private draft');
+    await act(async () => { runtime.chat.patch({ issue: 'recipient-unknown' }); });
+    await fireEvent.press(screen.getByRole('button', { name: 'Open identity and contacts' }));
+    expect(runtime.getSnapshot().route).toBe('contacts');
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Messages' }));
+    expect(screen.getByLabelText('Message')).toHaveDisplayValue('Keep my private draft');
+  });
+
   test('offers setup guidance without requesting permissions and keeps SOS reachable', async () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);

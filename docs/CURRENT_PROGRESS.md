@@ -5,6 +5,19 @@ branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed
 integration and verification. Never force-push, reset, or replace remote work.
 
+## Completion development — October 26, 2026
+
+PR #2 merged with history preserved into `work` at
+`7cf854e7cff93a7cdf322fcc1e3b05b99ca1db46`, after all six exact-head checks passed.
+PR #1 (`work` to `main`) remains open. The user reports physical single-phone
+public Hello queueing and persistence after closing/reopening. Device model,
+OS and installed APK digest are unspecified; multi-device testing is deferred.
+The full categorized audit is [COMPLETION_CHECKLIST.md](COMPLETION_CHECKLIST.md).
+
+Milestone 1: actionable private-recipient key recovery, preserved drafts and
+English/Arabic guidance. Private encryption remains mandatory. TypeScript,
+375 core tests, 72 UI tests and module build passed; native checks run in PR CI.
+
 ## Public Nearby chat fix — October 26, 2026
 
 - Base: backed-up remote `work` checkpoint `ae68612c11b7eaa6d9ecfe2bede10208267a3068`.

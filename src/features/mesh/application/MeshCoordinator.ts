@@ -122,6 +122,8 @@ export class MeshCoordinator implements MeshTransport {
   private readonly endpoints = new Map<string, EndpointState>();
   private readonly statuses = new Map<RadioKind, RadioStatus>();
   private readonly activeRadios = new Set<RadioKind>();
+  private readonly radioStarts = new Map<RadioKind, { generation: number; promise: Promise<void> }>();
+  private readonly radioRetries = new Map<RadioKind, { attempts: number; nextAt: number }>();
   private receiver: MeshReceiver | undefined;
   private running = false;
   private generation = 0;
@@ -217,6 +219,7 @@ export class MeshCoordinator implements MeshTransport {
       for (const session of [...this.sessions.values()]) this.closeSession(session, abortError());
       this.endpoints.clear();
       this.activeRadios.clear();
+      this.radioRetries.clear();
       this.updatePeers();
       await Promise.all(this.radios.map(async radio => {
         try {
@@ -266,7 +269,25 @@ export class MeshCoordinator implements MeshTransport {
     throw lastError;
   }
 
-  private async startRadio(radio: RadioAdapter, generation: number): Promise<void> {
+  private startRadio(radio: RadioAdapter, generation: number): Promise<void> {
+    const pending = this.radioStarts.get(radio.kind);
+    if (pending?.generation === generation) return pending.promise;
+    const promise = this.startRadioOnce(radio, generation).finally(() => {
+      if (this.radioStarts.get(radio.kind)?.promise === promise) this.radioStarts.delete(radio.kind);
+      if (this.running && generation === this.generation) {
+        if (this.activeRadios.has(radio.kind)) this.radioRetries.delete(radio.kind);
+        else {
+          const attempts = Math.min(30, (this.radioRetries.get(radio.kind)?.attempts ?? 0) + 1);
+          this.radioRetries.set(radio.kind, { attempts, nextAt: this.now() + Math.min(
+            this.config.discoveryRetryMaxMs, this.config.discoveryRetryBaseMs * 2 ** (attempts - 1)) });
+        }
+      }
+    });
+    this.radioStarts.set(radio.kind, { generation, promise });
+    return promise;
+  }
+
+  private async startRadioOnce(radio: RadioAdapter, generation: number): Promise<void> {
     try {
       const status = await runBounded(() => radio.getStatus(), [this.controller.signal], this.config.connectTimeoutMs);
       if (!this.running || generation !== this.generation) return;
@@ -306,6 +327,7 @@ export class MeshCoordinator implements MeshTransport {
         this.setStatus(radio.kind, event.status);
         if (!event.status.available) {
           this.activeRadios.delete(radio.kind);
+          this.radioRetries.set(radio.kind, { attempts: 0, nextAt: this.now() + this.config.discoveryRetryBaseMs });
           for (const session of [...this.sessions.values()]) {
             if (session.radio === radio) this.closeSession(session, new Error('Radio unavailable'));
           }
@@ -655,6 +677,18 @@ export class MeshCoordinator implements MeshTransport {
       if (!state.connecting && !this.hasEndpointLink(state) && now - state.lastSeenAt >= this.config.endpointExpiryMs) {
         this.endpoints.delete(key);
       }
+    }
+    // Adapters may remove power listeners during teardown. Read-only polling
+    // recovers them without foreground/resume events or permission prompts.
+    // One bounded attempt per radio and exponential backoff prevent floods.
+    for (const radio of this.radios) {
+      if (this.activeRadios.has(radio.kind) || this.radioStarts.has(radio.kind)
+        || this.statuses.get(radio.kind)?.reason === 'unsupported'
+        || (this.radioRetries.get(radio.kind)?.nextAt ?? 0) > now) continue;
+      const generation = this.generation;
+      void this.startRadio(radio, generation).then(() => {
+        if (this.running && generation === this.generation) this.connectDiscovered();
+      });
     }
     this.connectDiscovered();
     if (!this.maintenanceBusy) {
