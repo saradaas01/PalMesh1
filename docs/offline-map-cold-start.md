@@ -37,8 +37,10 @@ remains independent of map initialization/retry.
 ## Reproduction and acceptance evidence
 
 `.github/workflows/offline-map-render.yml` builds original system-reachability
-behavior on x86_64, the corrected x86_64 variant, and the corrected ARM64 test
-APK. Only the corrected ARM64 APK is published for installation. The baseline
+behavior on x86_64, corrected x86_64 variants with SwiftShader and SwANGLE, and
+the corrected ARM64 test APK. The two official software backends help diagnose
+symbol artifacts; neither establishes physical GPU behavior. Only the corrected
+ARM64 APK is published for installation. The baseline
 removes the scheduler hint and preparation mount gate to retain original
 immediate mounting and system reachability. Aggregate tracing, status/error
 handling and geometry probes remain, so it is an instrumented comparison,
@@ -57,7 +59,10 @@ Normal ADB authentication is preserved.
 
 Acceptance requires local tile/glyph hits, actual rendered geometry, roads,
 labels and Arabic-labelled features, plus map-only screenshot pixel detail and
-changed detail after pan/zoom. Android must still report no active internet.
+changed detail after gestures. The latest harness additionally records native
+zoom and requires an increase of at least 0.5 after a double tap, then a separate
+pixel change after panning. Earlier runs only proved changed gesture pixels,
+not an independently measured zoom change. Android must report no active internet.
 The app is then force-stopped and cold-launched again; the existing smoke flow
 also checks durable public chat/SOS and stable identity. Debug-only native
 diagnostics log aggregate counts, not URLs, tokens, coordinates or identities.
@@ -98,6 +103,26 @@ of that hint and explicitly records `reproduced=false` when the old behavior
 renders. That first comparison still retained the new preparation mount gate;
 the final baseline also removes that gate to test original immediate mounting.
 It never substitutes a forced-disconnected variant for the original.
+
+### Improved comparison, source 860cdb0
+
+[Run 40397944813](https://github.com/saradaas01/PalMesh1/actions/runs/40397944813)
+passed all three map jobs. Fixed x86_64 job `121836302268` again rendered on two
+cold starts and retained chat/SOS/identity. Baseline job `121836302680` restored
+both original immediate mounting and system reachability; it also rendered and
+explicitly recorded that the physical failure was not reproduced. The fixed
+first-render counts were 8,337 geometry, 7,781 roads, six Arabic-labelled symbols,
+two tile hits and three glyph hits. No SDK/render/EGL errors were captured; the
+second launch logged the explicit SDK connectivity hint while Android remained
+offline. Images show actual street detail and pan movement.
+
+**Label-query counts do not prove readable text pixels.** At this checkpoint,
+the SwiftShader map images contain blue/white symbol patches rather than clearly
+legible Arabic. Glyph requests and Arabic feature queries passed, but visual
+Arabic-label acceptance remains unverified. Do not describe that result as a
+successful font/Arabic visual acceptance test or as proof of phone behavior.
+The subsequent measured-zoom test retains full-resolution map-only images for
+further diagnosis. The real glyph assets/provenance are preserved.
 
 Neither emulator rendering nor a successful build establishes physical-phone
 success. Retest

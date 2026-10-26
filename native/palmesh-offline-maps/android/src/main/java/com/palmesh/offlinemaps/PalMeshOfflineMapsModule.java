@@ -122,13 +122,14 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
     }
 
     /** Debug-only aggregate evidence; no resource URLs, keys, feature text or coordinates. */
-    @ReactMethod public void recordRenderEvidence(double geometry, double roads, double labels, double arabic, Promise promise) {
+    @ReactMethod public void recordRenderEvidence(double geometry, double roads, double labels, double arabic, double zoom, Promise promise) {
         if ((getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) { promise.resolve(null); return; }
         for (double value : new double[] { geometry, roads, labels, arabic }) {
             if (!Double.isFinite(value) || value < 0 || value > 1000000 || value != Math.floor(value)) {
                 promise.reject("E_MAP_EVIDENCE", "Invalid bounded render counts"); return;
             }
         }
+        if (!Double.isFinite(zoom) || zoom < 0 || zoom > 24) { promise.reject("E_MAP_EVIDENCE", "Invalid zoom"); return; }
         try {
             lifecycle.execute(() -> {
                 try {
@@ -136,6 +137,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                     JSONObject data = new JSONObject();
                     data.put("geometry", (int) geometry); data.put("roads", (int) roads);
                     data.put("labels", (int) labels); data.put("arabicLabels", (int) arabic);
+                    data.put("zoom", zoom);
                     data.put("tileRequests", host.tileRequests.get()); data.put("tileHits", host.tileHits.get());
                     data.put("glyphRequests", host.glyphRequests.get()); data.put("glyphHits", host.glyphHits.get());
                     data.put("loopbackOnly", host.server.getInetAddress().isLoopbackAddress());

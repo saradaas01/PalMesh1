@@ -136,20 +136,31 @@ class MapSmoke(smoke.Smoke):
             time.sleep(2)
         else: raise RuntimeError('No actual offline street/Arabic/glyph render evidence')
         before = self.screenshot(name + '-map-rendered')
+        initial_zoom = next(value['zoom'] for value in reversed(records) if rendered_offline(value))
         frame = next(node for node in smoke.nodes(self.last_xml) if node.get('content-desc') == 'Offline map of bundled coverage')
         left, top, right, bottom = map(int, smoke.BOUNDS.fullmatch(frame.get('bounds', '')).groups())
         x, y = (left+right)//2, (top+bottom)//2
-        self.command('shell', 'input', 'tap', str(x), str(y))
-        self.command('shell', 'input', 'tap', str(x), str(y))
+        # One authenticated ADB transport avoids host round trips stretching
+        # two taps beyond Android's double-tap interval. Coordinates are integers.
+        self.command('shell', f'input tap {x} {y}; input tap {x} {y}')
+        zoom_deadline = time.monotonic() + 20
+        while time.monotonic() < zoom_deadline:
+            zoom_records = self.evidence()
+            if any(rendered_offline(value) and value.get('zoom', 0) > initial_zoom + 0.5 for value in zoom_records): break
+            time.sleep(1)
+        else: raise RuntimeError('Double tap did not produce a verified zoom increase')
+        zoomed = self.screenshot(name + '-map-zoomed')
         self.command('shell', 'input', 'swipe', str(x+50), str(y), str(x-50), str(y+30), '400')
         time.sleep(3)
         after = self.screenshot(name + '-map-pan-zoom')
-        if before['mapPixelsSha256'] == after['mapPixelsSha256']:
+        if zoomed['mapPixelsSha256'] == after['mapPixelsSha256']:
             raise RuntimeError('Map pixels did not change after pan/zoom')
         report = {'sourceCommit': os.environ.get('PALMESH_TEST_SOURCE_SHA'), 'passed': True, 'physicalDeviceTested': False, 'freshEmulatorExternalNetworkBlocked': True,
+                  'emulatorGpu': sys.argv[sys.argv.index('--gpu') + 1] if '--gpu' in sys.argv else 'swiftshader',
                   'variant': 'system-baseline' if self.system_baseline else 'local-resources',
                   'rendered': next(value for value in reversed(self.evidence()) if rendered_offline(value)),
-                  'before': before, 'afterPanZoom': after}
+                  'before': before, 'afterZoom': zoomed, 'initialZoom': initial_zoom,
+                  'zoomAfterDoubleTap': next(value['zoom'] for value in reversed(zoom_records) if rendered_offline(value)), 'afterPanZoom': after}
         print('MAP_RENDER_EVIDENCE ' + json.dumps(report), flush=True)
         self.output.joinpath(name + '-map-report.json').write_text(json.dumps(report, indent=2) + '\n')
         errors = self.output.joinpath('map-runtime-errors.txt').read_text()
@@ -182,7 +193,7 @@ def main():
     if baseline:
         print('BASELINE_OBSERVATION: Original system reachability rendered offline in this emulator. Physical-phone failure and exact cause are NOT reproduced.')
         return
-    print('PASS: two offline cold starts rendered genuine streets/Arabic labels with local glyph requests and pan/zoom pixels; chat/SOS/identity persisted.')
+    print('PASS: two offline cold starts rendered streets and Arabic-labelled features with local glyph hits, measured zoom and pan pixels; chat/SOS/identity persisted. Text legibility requires image review.')
 
 
 if __name__ == '__main__': main()

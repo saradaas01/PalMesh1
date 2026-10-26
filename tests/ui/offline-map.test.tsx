@@ -16,7 +16,7 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     NetworkManager: { setConnected: jest.fn(() => { mockOrder.push('local-scheduler'); }) },
     Map: React.forwardRef((props: object, ref: unknown) => {
       mockOrder.push('mount-map');
-      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery }));
+      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery, getZoom: async () => 8 }));
       return React.createElement(View, { ...props, testID: 'native-map' });
     }), Camera: () => null, Layer: () => null,
     GeoJSONSource: ({ children }: { children: React.ReactNode }) => children,
@@ -50,7 +50,7 @@ test('enables the SDK local HTTP scheduler before mounting; style and glyphs rem
   expect(style.sources.offline.tiles).toEqual([descriptor.tileUrlTemplate]);
   await act(async () => { jest.advanceTimersByTime(1_000); });
   expect(screen.getByText('Offline map ready')).toBeOnTheScreen();
-  expect(mockEvidence).toHaveBeenCalledWith(1, 1, 1, 1);
+  expect(mockEvidence).toHaveBeenCalledWith(1, 1, 1, 1, 8);
   expect(failed).not.toHaveBeenCalled();
 });
 

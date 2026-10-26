@@ -80,6 +80,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
       const geometry = await map.current.queryRenderedFeatures({ layers: geometryLayers });
       const roads = diagnostics && roadLayers.length ? await map.current.queryRenderedFeatures({ layers: roadLayers }) : [];
       const labels = diagnostics && labelLayers.length ? await map.current.queryRenderedFeatures({ layers: labelLayers }) : [];
+      const zoom = diagnostics ? await map.current.getZoom() : 0;
       if (!alive.current || cycle !== generation.current) return;
       if (geometry.length > 0) { ready.current = true; setRendered(true); }
       settled.current = ready.current && (!diagnostics || labelLayers.length === 0 || labels.length > 0);
@@ -87,7 +88,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
         && /[\u0600-\u06ff]/.test(feature.properties['name:ar'])).length;
       // Native debug builds emit bounded counts, never URLs/tokens, coordinates,
       // feature text or contact identifiers. Release builds make this a no-op.
-      if (diagnostics) await NativeModules.PalMeshOfflineMaps?.recordRenderEvidence?.(geometry.length, roads.length, labels.length, arabic);
+      if (diagnostics) await NativeModules.PalMeshOfflineMaps?.recordRenderEvidence?.(geometry.length, roads.length, labels.length, arabic, zoom);
     } catch { /* Startup races may precede a style; the deadline still fails honestly. */ }
     finally { if (busy.current === cycle) busy.current = null; }
   };

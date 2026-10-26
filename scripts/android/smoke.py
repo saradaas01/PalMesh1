@@ -237,6 +237,8 @@ def main() -> None:
     parser.add_argument('--state', type=Path, required=True, help='New private emulator state directory, outside uploaded diagnostics')
     parser.add_argument('--boot-timeout', type=int, default=480)
     parser.add_argument('--ui-timeout', type=int, default=180)
+    parser.add_argument('--gpu', choices=('swiftshader', 'swangle'), default='swiftshader',
+                        help='Official emulator software graphics backend; no host GPU required')
     args = parser.parse_args()
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
@@ -274,7 +276,7 @@ def main() -> None:
         try:
             process = subprocess.Popen([
                 str(sdk / 'emulator/emulator'), '-avd', 'PalMeshSmoke', '-accel', 'on',
-                '-no-window', '-no-audio', '-gpu', 'swiftshader', '-no-snapshot',
+                '-no-window', '-no-audio', '-gpu', args.gpu, '-no-snapshot',
                 '-cores', '2', '-memory', '4096', '-port', '5554',
             ], env=environment, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             smoke.wait_boot(args.boot_timeout, process)

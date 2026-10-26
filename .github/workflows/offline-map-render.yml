@@ -24,10 +24,16 @@ jobs:
         include:
           - reachability: system-baseline
             architecture: x86_64
+            gpu: swiftshader
           - reachability: local-resources
             architecture: x86_64
+            gpu: swiftshader
+          - reachability: local-resources
+            architecture: x86_64
+            gpu: swangle
           - reachability: local-resources
             architecture: arm64-v8a
+            gpu: swiftshader
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -92,6 +98,8 @@ jobs:
         if: matrix.architecture == 'x86_64'
         run: |
           android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
           python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
@@ -104,13 +112,14 @@ jobs:
         if: matrix.architecture == 'x86_64'
         env:
           REACHABILITY_MODE: ${{ matrix.reachability }}
+          MAP_GPU: ${{ matrix.gpu }}
           PALMESH_TEST_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           export PYTHONPATH="$RUNNER_TEMP/map-test-python"
           if [ "$REACHABILITY_MODE" = system-baseline ]; then
-            python3 scripts/android/map_smoke.py --observe-system-baseline --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+            python3 scripts/android/map_smoke.py --gpu "$MAP_GPU" --observe-system-baseline --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
           else
-            python3 scripts/android/map_smoke.py --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+            python3 scripts/android/map_smoke.py --gpu "$MAP_GPU" --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
           fi
       - name: Surface bounded render failure evidence
         if: failure() && matrix.architecture == 'x86_64'
@@ -126,7 +135,7 @@ jobs:
         if: always() && matrix.architecture == 'x86_64'
         uses: actions/upload-artifact@v4
         with:
-          name: offline-map-render-${{ matrix.reachability }}-${{ matrix.architecture }}
+          name: offline-map-render-${{ matrix.reachability }}-${{ matrix.architecture }}-${{ matrix.gpu }}
           path: ${{ runner.temp }}/map-render-results/
           if-no-files-found: ignore
           retention-days: 14
