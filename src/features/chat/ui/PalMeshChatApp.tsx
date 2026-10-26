@@ -73,8 +73,9 @@ function MessageBubble({ message, deviceId, now }: {
   );
 }
 
-function NewConversation({ visible, onClose }: {
+function NewConversation({ visible, onClose, savedRecipients }: {
   readonly visible: boolean; readonly onClose: () => void;
+  readonly savedRecipients: readonly string[];
 }): React.JSX.Element {
   const { t, direction } = useI18n();
   const { openConversation } = useChat();
@@ -97,6 +98,13 @@ function NewConversation({ visible, onClose }: {
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.dialog}>
           <Text accessibilityRole="header" style={styles.title}>{t('chat.new')}</Text>
           <Text style={styles.secondary}>{t('chat.recipientHelp')}</Text>
+          <Text style={styles.secondary}>{t('chat.privateSetup')}</Text>
+          {savedRecipients.length > 0 && <>
+            <Text accessibilityRole="header" style={styles.label}>{t('chat.savedContacts')}</Text>
+            <Text style={styles.secondary}>{t('chat.contactTrust')}</Text>
+            {savedRecipients.map(id => <Button key={id} label={t('chat.chooseContact', { id })}
+              onPress={() => { setPeerId(id); setInvalid(false); }} />)}
+          </>}
           <Text style={styles.label}>{t('chat.peerIdLabel')}</Text>
           <TextInput accessibilityLabel={t('chat.recipientId')} autoCapitalize="none" autoCorrect={false}
             maxLength={128} value={peerId} onChangeText={(value) => { setPeerId(value); setInvalid(false); }}
@@ -115,9 +123,10 @@ function NewConversation({ visible, onClose }: {
 export interface ChatScreenProps {
   readonly embedded?: boolean;
   readonly showSos?: boolean;
+  readonly savedRecipients?: readonly string[];
 }
 
-export function ChatScreen({ embedded = false, showSos = true }: ChatScreenProps): React.JSX.Element {
+export function ChatScreen({ embedded = false, showSos = true, savedRecipients = [] }: ChatScreenProps): React.JSX.Element {
   const { t, direction, textStyle } = useI18n();
   const {
     snapshot, deviceId, openConversation, closeConversation, setDraft, send, sendSos,
@@ -225,7 +234,7 @@ export function ChatScreen({ embedded = false, showSos = true }: ChatScreenProps
           <View style={styles.composer}>
             {isBroadcast && <Text style={styles.explanation}>{t('chat.broadcastPrivacy')}</Text>}
             <Text accessibilityLabel={t('chat.length')} style={styles.composerCount}>{snapshot.draft.length}/4096</Text>
-            <View style={styles.row}>
+            <View style={[styles.row, styles.wrap]}>
               <TextInput accessibilityLabel={t('chat.message')} accessibilityHint={t(isBroadcast ? 'chat.broadcastPrivacy' : 'chat.composeHint')}
                 placeholder={t(isBroadcast ? 'chat.broadcastPlaceholder' : 'chat.directPlaceholder')} placeholderTextColor="#b9c5cf" multiline maxLength={4096}
                 value={snapshot.draft} onChangeText={setDraft} editable={!snapshot.pendingSend}
@@ -249,7 +258,7 @@ export function ChatScreen({ embedded = false, showSos = true }: ChatScreenProps
           <Text style={styles.sosHint}>{t('common.sosDisclaimer')}</Text>
         </View>}
       </KeyboardAvoidingView>
-      <NewConversation visible={newConversation} onClose={() => setNewConversation(false)} />
+      <NewConversation savedRecipients={savedRecipients} visible={newConversation} onClose={() => setNewConversation(false)} />
     </Container>
   );
 }
@@ -302,7 +311,7 @@ const styles = StyleSheet.create({
   composer: { borderTopWidth: 1, borderTopColor: '#405264', paddingVertical: 8 },
   composerCount: { color: '#b9c5cf', fontSize: 12, textAlign: 'right', marginBottom: 4 },
   input: { minHeight: 48, color: '#ffffff', backgroundColor: '#172430', borderWidth: 1, borderColor: '#8b9eaf', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 17, writingDirection: 'auto' },
-  messageInput: { flex: 1, maxHeight: 144 },
+  messageInput: { flexGrow: 1, flexShrink: 1, flexBasis: 180, minWidth: 100, maxHeight: 144 },
   peerInput: { writingDirection: 'ltr', textAlign: 'left' },
   feedback: { flexGrow: 0, flexShrink: 1, maxHeight: 160 },
   issue: { backgroundColor: '#4a201a', paddingHorizontal: 16, paddingVertical: 8 },

@@ -13,6 +13,7 @@ export function SecurityScreen({ runtime, snapshot }: {
   readonly snapshot: AppSnapshot;
 }): React.JSX.Element {
   const { t, language, setLanguage, storageError, restartRequired, rowStyle, textStyle } = useI18n();
+  const [showGuide, setShowGuide] = useState(false);
   const [contactText, setContactText] = useState('');
   const [importing, setImporting] = useState(false);
   const [importedId, setImportedId] = useState<string | null>(null);
@@ -35,6 +36,17 @@ export function SecurityScreen({ runtime, snapshot }: {
   };
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text accessibilityRole="header" style={styles.title}>{t('app.security')}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('app.setupGuide')}
+      accessibilityState={{ expanded: showGuide }} onPress={() => setShowGuide(!showGuide)} style={styles.button}>
+      <Text style={styles.buttonText}>{t('app.setupGuide')}</Text>
+    </Pressable>
+    {showGuide && <View style={styles.section}>
+      <Text style={styles.body}>{t('app.setupOffline')}</Text>
+      <Text style={styles.body}>{t('app.setupPrivate')}</Text>
+      <Text style={styles.body}>{t('app.setupPublic')}</Text>
+      <Text style={styles.body}>{t('app.setupRadios')}</Text>
+      <Text style={styles.warning}>{t('common.sosDisclaimer')}</Text>
+    </View>}
     <Text style={styles.warning}>{t('app.securityLimitations')}</Text>
     <Text style={styles.body}>{t('app.verifyFingerprint')}</Text>
     {security !== undefined && <>

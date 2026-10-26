@@ -268,6 +268,13 @@ export class SecurityService implements PacketSecurity, HandshakeSecurity {
     });
   }
 
+  /** Imported public addresses only, never secrets or a claim of human trust.
+   * Hide a failed uncommitted import until the directory is safely saved again. */
+  savedPeerIds(): readonly PeerId[] {
+    if (this.directoryFailed) return Object.freeze([]);
+    return Object.freeze([...this.pinnedPeers].sort());
+  }
+
   /** Share the full self-certifying record offline (for example via a QR code).
    * Calling this establishes a cryptographic address, not human verification. */
   async importPeer(identity: unknown): Promise<PeerId> {

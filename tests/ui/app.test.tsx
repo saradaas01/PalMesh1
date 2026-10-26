@@ -1,6 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as ReactNative from 'react-native';
 import { AppState } from 'react-native';
 import type { AppRoute, AppSnapshot, RuntimeResources } from '../../src/app/domain/types';
 import type { BootstrapErrorCode } from '../../src/app/domain/BootstrapError';
@@ -412,8 +413,40 @@ describe('integrated emergency, identity and offline settings', () => {
     expect(screen.getByText('Contact identity saved.')).toBeOnTheScreen();
     expect(screen.getByText(peer.deviceId)).toBeOnTheScreen();
     expect(screen.getByLabelText('Contact public identity JSON')).toHaveDisplayValue('');
+    await fireEvent.press(screen.getByRole('tab', { name: 'Messages' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
+    expect(screen.getByText('Saved contact identities')).toBeOnTheScreen();
+    expect(screen.getByText(/Saved keys identify a device/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: `Use contact ${peer.deviceId}` }));
+    expect(screen.getByLabelText('Recipient peer ID')).toHaveDisplayValue(peer.deviceId);
+    await fireEvent.press(screen.getByRole('button', { name: 'Open conversation' }));
+    expect(runtime.chat.openConversation).toHaveBeenLastCalledWith(peer.deviceId);
+
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(runtime.sendSos).toHaveBeenCalledTimes(1);
+  });
+
+  test('offers setup guidance without requesting permissions and keeps SOS reachable', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    const guide = screen.getByRole('button', { name: 'Offline messaging setup guide' });
+    expect(guide.props.accessibilityState).toEqual({ expanded: false });
+    await fireEvent.press(guide);
+    expect(screen.getByText(/Messages queue on this phone without internet/)).toBeOnTheScreen();
+    expect(screen.getByText(/Never share private keys/)).toBeOnTheScreen();
+    expect(runtime.requestPermissions).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+  });
+
+  test('narrow large-font screens use two-column tabs without truncating labels or disabling SOS', async () => {
+    jest.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 320, height: 640, scale: 2, fontScale: 1.8 });
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    for (const tab of screen.getAllByRole('tab')) expect(tab).toHaveStyle({ flexBasis: '50%' });
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    expect(screen.getByRole('button', { name: 'Offline messaging setup guide' })).toBeEnabled();
   });
 
   test('renders all app routes in Arabic with one reachable localized SOS and translated SOS payload', async () => {

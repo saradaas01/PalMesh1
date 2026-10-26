@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { ChatProvider, ChatScreen } from '../../features/chat/ui';
 import { MapsProvider, MapsScreen, type MapsUiService } from '../../features/maps/ui';
@@ -53,6 +53,8 @@ function useMapsService(resources: RuntimeResources | null, runtime: AppUiRuntim
 
 export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   const { t, rowStyle } = useI18n();
+  const { width, fontScale } = useWindowDimensions();
+  const compactTabs = width < 380 || fontScale > 1.3;
   const subscribe = useCallback((listener: () => void) => runtime.subscribe(listener), [runtime]);
   const getSnapshot = useCallback(() => runtime.getSnapshot(), [runtime]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -86,7 +88,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
         {(['chat', 'maps', 'emergencies', 'contacts'] as const).map(route => <Pressable key={route} accessibilityRole="tab"
           accessibilityLabel={t(route === 'chat' ? 'app.messages' : route === 'maps' ? 'app.map' : route === 'emergencies' ? 'app.emergencies' : 'app.security')}
           accessibilityState={{ selected: snapshot.route === route, disabled: !ready }} disabled={!ready}
-          onPress={() => selectRoute(route)} style={({ pressed }) => [styles.tab, snapshot.route === route && styles.selectedTab, pressed && styles.pressed]}>
+          onPress={() => selectRoute(route)} style={({ pressed }) => [styles.tab, compactTabs && styles.tabCompact, snapshot.route === route && styles.selectedTab, pressed && styles.pressed]}>
           <Text style={styles.tabText}>{t(route === 'chat' ? 'app.messages' : route === 'maps' ? 'app.map' : route === 'emergencies' ? 'app.emergencies' : 'app.security')}</Text>
         </Pressable>)}
       </View>
@@ -107,7 +109,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
         {ready && snapshot.resources !== null && mapsService !== null ? snapshot.route === 'chat' ?
           <ChatProvider service={snapshot.resources.chat} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>
-            <ChatScreen embedded showSos={false} />
+            <ChatScreen embedded showSos={false} savedRecipients={snapshot.resources.security?.savedPeerIds() ?? []} />
           </ChatProvider> : snapshot.route === 'maps' ?
           <MapsProvider service={mapsService} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>
@@ -163,8 +165,9 @@ const styles = StyleSheet.create({
   body: { color: '#ffffff', fontSize: 16, lineHeight: 24, writingDirection: 'auto' },
   secondary: { color: '#d2dde8', fontSize: 15, lineHeight: 23, writingDirection: 'auto' },
   caption: { color: '#c2d1df', fontSize: 12, lineHeight: 18, writingDirection: 'auto' },
-  tabs: { flexDirection: 'row', paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#405264' },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#405264' },
   tab: { flex: 1, minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  tabCompact: { flexBasis: '50%', flexGrow: 0, flexShrink: 0 },
   tabText: { color: '#ffffff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   selectedTab: { borderBottomColor: '#6bceff', backgroundColor: '#15364b' },
   connections: { paddingHorizontal: 16, paddingVertical: 6, flexShrink: 0 },
