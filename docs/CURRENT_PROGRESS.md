@@ -26,10 +26,24 @@ integration and verification. Never force-push, reset, or replace remote work.
   DTN, ChatService and SQLite: no-peer Hello queuing, key/database reopen, remote
   admission/dedup/archive, tamper/downgrade rejection, draft retention/retry after
   storage failure, and SOS queuing with its original 15-hop budget.
-- Fresh ARM64 bundled Android build is in progress; no new APK success or
-  physical-device result is claimed at this checkpoint. See the public chat
-  procedure in `docs/device-acceptance.md`. Older peers reject public chat and
-  need an updated build for interoperability.
+- Fresh ARM64 bundled Android debug build passed using the existing normal
+  Gradle helper (10 minutes). Signature, ZIP CRC, application/launcher metadata,
+  Hermes 99 bytecode/public UI, SQLCipher marker, 256 glyph pages, ZIP alignment
+  and all 14 ELF LOAD alignments >=16 KiB passed. Source-map contents match the
+  committed security, validation, UI and translation files.
+- Local APK: `dist/android/PalMesh-public-chat-arm64-debug.apk`, 66,057,326 bytes,
+  SHA256 `3063a8c2e2c9c8ce71effab54abb6b4346ef26cf6fb525e96630591da0ef4cb1`.
+  Certificate SHA256 `2dfc74e0d8f5e218dec73a6ce2ace62a1af044dedffe95d9f1024c4bd0bb3bd7`
+  matches the recorded earlier local build. It is development-signed and has no
+  reviewed Palestine map. No new physical-phone result is claimed.
+- GitHub application and native Android jobs both passed for fix `b7a20c5`:
+  https://github.com/saradaas01/PalMesh1/actions/runs/40342380170.
+  Downloadable `android-development-apk` artifact 12659621810 was verified present
+  and unexpired; its separately built APK can use another development key.
+  Local verification evidence: `docs/verification/public-chat-android.json`.
+  Download/install instructions: `docs/android-public-chat-test.md`.
+- See the public chat procedure in `docs/device-acceptance.md`. Older peers reject
+  public chat and need an updated build for interoperability.
 
 ## Next Android stability increment — October 26, 2026
 
