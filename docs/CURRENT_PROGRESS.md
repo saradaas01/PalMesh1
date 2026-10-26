@@ -31,6 +31,25 @@ integration and verification. Never force-push, reset, or replace remote work.
   procedure in `docs/device-acceptance.md`. Older peers reject public chat and
   need an updated build for interoperability.
 
+## Next Android stability increment — October 26, 2026
+
+- Messaging fix is backed up at `b7a20c5adbd8868f92c1ecaefd431f85be8e37fc`;
+  remote branch SHA and the GitHub committed tree/regression blob were read back.
+  PR https://github.com/saradaas01/PalMesh1/pull/2 targets `work`.
+- The isolated native offline smoke runner now requires the public warning,
+  queues a fixed synthetic public message without internet/radios, checks its
+  local queue notice/history, and checks retained history after force-stop.
+  SOS persistence and stable identity remain required for overall success.
+  Its report marks public chat persistence true only after all checks complete.
+- All 30 Android tooling tests pass, including failure checks for missing public
+  warning, rejected send, missing retained history and false custody text.
+  This is runner verification, not a completed emulator or physical-phone run.
+- Next priorities: execute the extended KVM job, then physical Android public/
+  private/SOS exchange and restart tests, Wi-Fi Direct/BLE reconnect/relay tests,
+  and OEM screen-off/power testing. Existing contact import and private offline
+  queueing remain implemented. Real map data, operator signing, iOS device
+  acceptance and independent protocol review remain external release gates.
+
 ## Implemented and integrated
 
 - DTN routing, persistent queues, deduplication, emergency priority and retries.

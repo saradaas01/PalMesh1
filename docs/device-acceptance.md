@@ -12,7 +12,8 @@ The `Android offline cold launch` workflow builds the bundled x86_64 development
 APK and runs `scripts/android/smoke.py` on an official API 35 AOSP image with KVM.
 It requires hardware acceleration, keeps normal ADB authentication, disables
 emulated internet and radios, and verifies enabled native UI controls without
-Metro. A synthetic SOS must appear in local history and survive a force-stop;
+Metro. A signed synthetic public chat and a synthetic SOS must appear in local
+history and survive a force-stop;
 the public identity fingerprint must also remain unchanged after restart.
 
 The test refuses physical-device serials and existing emulator state. It never
@@ -21,7 +22,8 @@ fresh synthetic UI, bounded error logs and a result report; private emulator
 state and developer authentication keys are outside the uploaded directory.
 An enabled workflow or successful unit tests do not establish a completed
 emulator run: retain the actual passing job/report before recording this gate.
-This baseline does not replace the physical radio, GPS, battery, iOS or
+The public-chat smoke extension has runner tests; an actual passing hosted
+execution of that extension is still required. This baseline does not replace the physical radio, GPS, battery, iOS or
 real-map acceptance checks below.
 
 Checkpoint `2040e8358b20bd6c38a87deeb430de7ceeaeb555` passed the real

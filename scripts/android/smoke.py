@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cold-launch a bundled APK on an isolated, KVM-backed Android emulator.
 
-This checks actual native startup, local SOS persistence and identity reuse.
+This checks native startup, public chat/SOS persistence and identity reuse.
 It never reads private app files and does not establish physical radio behavior.
 """
 from __future__ import annotations
@@ -23,6 +23,11 @@ SOS = 'I Need Help · SOS'
 CONTACTS = 'Identity and contacts'
 INBOX = 'SOS inbox'
 QUEUED = 'SOS queued on this device. Receipt or assistance is not confirmed.'
+PUBLIC_CHAT = 'Nearby broadcasts · Public'
+PUBLIC_WARNING = ('Public and not encrypted: mesh participants can read and relay these messages '
+                  'beyond nearby devices. Do not share private information.')
+PUBLIC_TEXT = 'PalMesh-public-smoke-Hello'
+CHAT_QUEUED = 'Message queued on this device. Delivery is not confirmed.'
 FINGERPRINT = re.compile(r'pm1:[0-9a-f]{64}(?![0-9a-f])')
 BOUNDS = re.compile(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
 
@@ -61,6 +66,14 @@ def fingerprint(xml: str) -> str | None:
 
 def has_text(xml: str, text: str) -> bool:
     return any(text in (node.get('text'), node.get('content-desc')) for node in nodes(xml))
+
+
+def public_chat_visible(xml: str) -> bool:
+    # The native metadata Text combines a locale-rendered time and custody.
+    # Require the exact synthetic body and explicit local queue suffix.
+    return has_text(xml, PUBLIC_TEXT) and any(
+        node.get(field, '').endswith(' · Queued locally')
+        for node in nodes(xml) for field in ('text', 'content-desc'))
 
 
 def avd_configuration(sdk: Path) -> str:
@@ -171,6 +184,30 @@ class Smoke:
         x, y = center(control)
         self.command('shell', 'input', 'tap', str(x), str(y))
 
+    def public_thread(self, name: str) -> None:
+        self.tap('Messages')
+        self.tap(PUBLIC_CHAT)
+        self.wait_ui(lambda xml: has_text(xml, PUBLIC_WARNING),
+                     'the public chat privacy warning', name + '-public-warning.xml')
+
+    def queue_public_chat(self) -> None:
+        self.public_thread('first')
+        self.tap('Message')
+        # Fixed ASCII synthetic text only; never interpolate user input into ADB.
+        self.command('shell', 'input', 'text', PUBLIC_TEXT)
+        self.command('shell', 'input', 'keyevent', 'KEYCODE_BACK')
+        self.tap('Send message')
+        self.wait_ui(lambda xml: has_text(xml, CHAT_QUEUED),
+                     'the durable local public chat queue notice', 'chat-queued.xml')
+        self.tap('Dismiss notice')
+        self.wait_ui(public_chat_visible,
+                     'the outgoing public message with local custody status', 'chat-history.xml')
+
+    def retained_public_chat(self) -> None:
+        self.public_thread('second')
+        self.wait_ui(public_chat_visible,
+                     'retained public chat after restart', 'retained-chat.xml')
+
     def identity(self, name: str) -> str:
         self.tap(CONTACTS)
         for attempt in range(8):
@@ -230,7 +267,7 @@ def main() -> None:
     environment = dict(os.environ, ANDROID_AVD_HOME=str(avd_home), ANDROID_EMULATOR_HOME=str(state / 'home'))
     Path(environment['ANDROID_EMULATOR_HOME']).mkdir()
     report = {'passed': False, 'physicalDeviceTested': False, 'radiosTested': False,
-              'apkSha256': hashlib.sha256(apk.read_bytes()).hexdigest(), 'syntheticSos': True}
+              'apkSha256': hashlib.sha256(apk.read_bytes()).hexdigest(), 'syntheticSos': True, 'syntheticPublicChat': True}
     smoke = Smoke(sdk, output, 'emulator-5554', args.ui_timeout)
     process = None
     with output.joinpath('emulator.log').open('w') as log:
@@ -247,6 +284,7 @@ def main() -> None:
                 raise RuntimeError('Android did not confirm installation of the selected APK.')
             smoke.launch('first')
             before = smoke.identity('first-identity.xml')
+            smoke.queue_public_chat()
             smoke.tap(SOS)
             smoke.wait_ui(lambda xml: has_text(xml, QUEUED), 'the durable local SOS queue notice', 'sos-queued.xml')
             smoke.tap('Dismiss SOS notice')
@@ -256,13 +294,14 @@ def main() -> None:
             after = smoke.identity('second-identity.xml')
             if before != after:
                 raise RuntimeError('The established identity changed after a cold restart.')
+            smoke.retained_public_chat()
             smoke.tap(INBOX)
             smoke.wait_ui(lambda xml: has_text(xml, 'Your SOS'), 'retained SOS history after restart', 'retained-sos.xml')
-            report.update(passed=True, offlineColdLaunch=True, localSosPersisted=True,
+            report.update(passed=True, offlineColdLaunch=True, localSosPersisted=True, localPublicChatPersisted=True,
                           identityStable=True, publicIdentitySha256=hashlib.sha256(before.encode()).hexdigest(),
                           api=smoke.command('shell', 'getprop', 'ro.build.version.sdk'),
                           abi=smoke.command('shell', 'getprop', 'ro.product.cpu.abi'))
-            print('PASS: offline native cold launch, local SOS persistence and stable identity after restart.')
+            print('PASS: offline native cold launch, public chat/SOS persistence and stable identity after restart.')
         except Exception as error:
             report['failure'] = str(error)[:500]
             raise
