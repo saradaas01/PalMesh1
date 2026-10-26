@@ -171,7 +171,7 @@ function validatePacket(input: unknown, maxPacketBytes: number): MeshMessage {
     throw new ValidationError('Message destination must be a valid peer id or broadcast.');
   }
   const security = Object.hasOwn(fields, 'security') ? securityMetadata(fields.security) : undefined;
-  if (security?.encryption && fields.kind !== 'chat') throw new ValidationError('Encryption is only supported for direct chat.');
+  if (security?.encryption && (fields.kind !== 'chat' || fields.destination === BROADCAST)) throw new ValidationError('Encryption is only supported for direct chat.');
   const parsedContent = content(fields.kind, fields.payload, Boolean(security?.encryption));
   if (parsedContent.kind === 'sos-response' && fields.destination === BROADCAST) {
     throw new ValidationError('SOS responses require a direct destination.');

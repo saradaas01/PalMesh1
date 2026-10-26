@@ -10,7 +10,7 @@ export const ar = {
   "common.connectedPeer": "جهاز متصل بالشبكة: {count}",
   "common.connectedPeers": "أجهزة متصلة بالشبكة: {count}",
   "common.peerId": "معرّف جهازك: {id}",
-  "common.securityNotice": "المحادثات المباشرة مشفّرة. نداءات الاستغاثة والمواقع عامة.",
+  "common.securityNotice": "المحادثات المباشرة مشفّرة. رسائل البث القريبة ونداءات الاستغاثة والمواقع عامة.",
   "common.language": "اللغة",
   "common.english": "English",
   "common.arabic": "العربية",
@@ -18,7 +18,7 @@ export const ar = {
   "common.languageError": "تعذّر حفظ اللغة. حاول مرة أخرى.",
   "chat.messages": "الرسائل",
   "chat.new": "رسالة جديدة",
-  "chat.broadcasts": "رسائل البث القريبة",
+  "chat.broadcasts": "رسائل البث القريبة · عامة",
   "chat.unread": "غير مقروءة: {count}",
   "chat.openConversation": "افتح المحادثة مع {title}",
   "chat.you": "أنت",
@@ -44,8 +44,9 @@ export const ar = {
   "chat.emptyMessages": "لا توجد رسائل بعد. تُحفظ الرسائل محليًا عندما تكون الأجهزة غير متصلة.",
   "chat.length": "طول الرسالة",
   "chat.message": "الرسالة",
+  "chat.broadcastPrivacy": "رسائل عامة غير مشفّرة: يمكن للمشاركين في الشبكة قراءتها وتمريرها إلى أجهزة أبعد. لا تشارك معلومات خاصة.",
   "chat.composeHint": "اكتب رسالة لحفظها وإرسالها عند توفر اتصال محلي",
-  "chat.broadcastPlaceholder": "رسالة إلى الأجهزة القريبة",
+  "chat.broadcastPlaceholder": "رسالة عامة إلى الشبكة",
   "chat.directPlaceholder": "رسالة إلى هذا الجهاز",
   "chat.queueing": "جارٍ حفظ الرسالة",
   "chat.send": "إرسال الرسالة",
@@ -185,5 +186,5 @@ export const ar = {
   "app.verifyFingerprint": "قارن البصمات شخصيًا أو عبر قناة موثوقة قبل الوثوق بجهة الاتصال. مفتاح الجهاز لا يثبت هوية من يحمله.",
   "app.myFingerprint": "بصمة هويتك",
   "app.publicIdentity": "بيانات هويتك العامة بصيغة JSON",
-  "app.securityLimitations": "المحادثات المباشرة مشفّرة وموقّعة. نداءات الاستغاثة والمواقع والردود بث عام موقّع. التشفير لا يوفر السرّية المستقبلية. لم يخضع هذا البروتوكول لتدقيق أمني مستقل."
+  "app.securityLimitations": "المحادثات المباشرة مشفّرة وموقّعة. رسائل البث القريبة ونداءات الاستغاثة والمواقع والردود بث عام موقّع. التشفير لا يوفر السرّية المستقبلية. لم يخضع هذا البروتوكول لتدقيق أمني مستقل."
 } satisfies Readonly<Record<TranslationKey, string>>;

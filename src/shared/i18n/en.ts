@@ -8,7 +8,7 @@ export const en = {
   "common.connectedPeer": "{count} connected mesh peer",
   "common.connectedPeers": "{count} connected mesh peers",
   "common.peerId": "Your peer ID: {id}",
-  "common.securityNotice": "Direct chats are encrypted. SOS and locations are public.",
+  "common.securityNotice": "Direct chats are encrypted. Nearby broadcasts, SOS and locations are public.",
   "common.language": "Language",
   "common.english": "English",
   "common.arabic": "العربية",
@@ -16,7 +16,7 @@ export const en = {
   "common.languageError": "Language could not be saved. Please try again.",
   "chat.messages": "Messages",
   "chat.new": "New message",
-  "chat.broadcasts": "Nearby broadcasts",
+  "chat.broadcasts": "Nearby broadcasts · Public",
   "chat.unread": "{count} unread",
   "chat.openConversation": "Open conversation with {title}",
   "chat.you": "You",
@@ -42,8 +42,9 @@ export const en = {
   "chat.emptyMessages": "No messages yet. Messages queue locally while peers are disconnected.",
   "chat.length": "Message length",
   "chat.message": "Message",
+  "chat.broadcastPrivacy": "Public and not encrypted: mesh participants can read and relay these messages beyond nearby devices. Do not share private information.",
   "chat.composeHint": "Write a message to queue for offline delivery",
-  "chat.broadcastPlaceholder": "Message nearby devices",
+  "chat.broadcastPlaceholder": "Public message to the mesh",
   "chat.directPlaceholder": "Message this device",
   "chat.queueing": "Queueing message",
   "chat.send": "Send message",
@@ -183,7 +184,7 @@ export const en = {
   "app.verifyFingerprint": "Compare fingerprints in person or through a trusted channel before trusting a contact. A device key does not prove who holds it.",
   "app.myFingerprint": "Your identity fingerprint",
   "app.publicIdentity": "Your public identity JSON",
-  "app.securityLimitations": "Direct chats are encrypted and signed. SOS, locations and responses are signed public broadcasts. Encryption has no forward secrecy. This protocol has not had an independent security audit."
+  "app.securityLimitations": "Direct chats are encrypted and signed. Nearby chat broadcasts, SOS, locations and responses are signed and public. Encryption has no forward secrecy. This protocol has not had an independent security audit."
 } as const;
 
 export type TranslationKey = keyof typeof en;

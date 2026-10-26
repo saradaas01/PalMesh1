@@ -5,6 +5,32 @@ branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed
 integration and verification. Never force-push, reset, or replace remote work.
 
+## Public Nearby chat fix — October 26, 2026
+
+- Base: backed-up remote `work` checkpoint `ae68612c11b7eaa6d9ecfe2bede10208267a3068`.
+  Local checkout initially fetched only `main`; explicit fetch of remote `work`
+  recovered the completed application. Local `work` fast-forwarded without reset.
+- Feature branch: `fix/secure-nearby-broadcasts`, original `saradaas01/PalMesh1`.
+- Root cause: ChatService/UI allowed chat destination `*`, but SecurityService
+  rejected it before DTN persistence. Nearby public chat now signs its plaintext,
+  destination and envelope, enforces authenticated hop budgets and projects at all
+  recipients. Unknown keys/connections are not required for public local queuing.
+  Direct chat remains end-to-end encrypted and fails closed without known keys.
+  Encrypted broadcast packets are rejected; signatures prevent destination/kind
+  substitution. Existing SOS/location/responder security and routing are unchanged.
+- English/Arabic public labels, visible composer privacy warning and accessible
+  hint explain that messages are readable and relayable beyond nearby devices.
+- Strict TypeScript, 373 core tests, 71 UI tests and module build passed locally.
+  One first-pass UI test timed out during concurrent native compilation; all 71
+  passed on unchanged-timeout retry. New integrated regressions use real security,
+  DTN, ChatService and SQLite: no-peer Hello queuing, key/database reopen, remote
+  admission/dedup/archive, tamper/downgrade rejection, draft retention/retry after
+  storage failure, and SOS queuing with its original 15-hop budget.
+- Fresh ARM64 bundled Android build is in progress; no new APK success or
+  physical-device result is claimed at this checkpoint. See the public chat
+  procedure in `docs/device-acceptance.md`. Older peers reject public chat and
+  need an updated build for interoperability.
+
 ## Implemented and integrated
 
 - DTN routing, persistent queues, deduplication, emergency priority and retries.

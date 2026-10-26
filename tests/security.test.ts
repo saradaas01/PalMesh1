@@ -128,10 +128,10 @@ test('signed one-way hop proofs allow decrementing while preventing downstream T
   assert.equal(relay.security.forNextHop(wire), null);
 });
 
-test('unsigned plaintext, broadcast chat, expired and future-dated packets fail closed', async () => {
+test('unsigned plaintext, unknown private recipients, expired and future-dated packets fail closed', async () => {
   const alice = await identity(); const bob = await identity();
   await assert.rejects(bob.security.verify(chat(alice.security.deviceId, bob.security.deviceId)), /Unsigned/);
-  await assert.rejects(alice.security.seal(chat(alice.security.deviceId, '*')), /another device/);
+  await assert.rejects(alice.security.seal(chat(alice.security.deviceId, alice.security.deviceId)), /another device/);
   await assert.rejects(alice.security.seal(chat(alice.security.deviceId, bob.security.deviceId)), /unknown/);
   const expired = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'Help' } }, randomUUID(), alice.security.deviceId, 0));
   const future = await alice.security.seal(createMessage({ kind: 'sos', payload: { text: 'Help' } }, randomUUID(), alice.security.deviceId, now + 300_001));
