@@ -94,7 +94,7 @@ class MapSmoke(smoke.Smoke):
     def evidence(self) -> list[dict]:
         log = self.command('logcat', '-d', '-t', '2000', 'PalMeshOfflineMap:I', '*:S')
         self.output.joinpath('map-network.txt').write_text(log + '\n')
-        errors = self.command('logcat', '-d', '-t', '1000', 'Mbgl-HttpRequest:V', 'Mbgl-ConnectivityReceiver:V', 'Mbgl-Map:E', 'MLRNMapView:E', 'AndroidRuntime:E', 'ReactNativeJS:E', '*:S')
+        errors = self.command('logcat', '-d', '-t', '1000', 'Mbgl-HttpRequest:V', 'Mbgl-ConnectivityReceiver:V', 'Mbgl:W', 'Mbgl-Map:E', 'MapLibre:E', 'MLRNMapView:E', 'EGL_emulation:E', 'libEGL:E', 'AndroidRuntime:E', 'ReactNativeJS:E', '*:S')
         errors = re.sub(r'/[a-f0-9]{32,64}/', '/[session]/', errors)
         self.output.joinpath('map-runtime-errors.txt').write_text(errors[-65536:] + '\n')
         return render_records(log)
