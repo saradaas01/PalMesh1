@@ -9,6 +9,7 @@ import { OfflineMapView } from '../../src/features/maps/ui/OfflineMapView';
 const mockOrder: string[] = [];
 const mockQuery = jest.fn<(options?: { layers?: string[] }) => Promise<Feature[]>>();
 const mockGetZoom = jest.fn<() => Promise<number>>().mockResolvedValue(8);
+const mockGetCenter = jest.fn<() => Promise<[number, number]>>().mockResolvedValue([35,32]);
 const mockZoomTo = jest.fn();
 const mockEvidence = jest.fn<(...counts: number[]) => Promise<void>>().mockResolvedValue(undefined);
 jest.mock('@maplibre/maplibre-react-native', () => {
@@ -18,7 +19,7 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     NetworkManager: { setConnected: jest.fn(() => { mockOrder.push('local-scheduler'); }) },
     Map: React.forwardRef((props: object, ref: unknown) => {
       mockOrder.push('mount-map');
-      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery, getZoom: mockGetZoom }));
+      React.useImperativeHandle(ref, () => ({ queryRenderedFeatures: mockQuery, getZoom: mockGetZoom, getCenter: mockGetCenter }));
       return React.createElement(View, { ...props, testID: 'native-map' });
     }), Camera: React.forwardRef((_props: object, ref: unknown) => {
       React.useImperativeHandle(ref, () => ({ zoomTo: mockZoomTo })); return null;
@@ -37,6 +38,7 @@ beforeEach(() => {
   Platform.OS = 'android';
   mockOrder.length = 0;
   mockGetZoom.mockReset().mockResolvedValue(8); mockZoomTo.mockReset();
+  mockGetCenter.mockReset().mockResolvedValue([35,32]);
   jest.mocked(NetworkManager.setConnected).mockReset().mockImplementation(() => { mockOrder.push('local-scheduler'); });
   NativeModules.PalMeshOfflineMaps = { renderDiagnosticsEnabled: true, recordRenderEvidence: mockEvidence };
   mockQuery.mockReset().mockImplementation(async options => [{ type: 'Feature', geometry: { type: 'Point', coordinates: [35, 32] },
@@ -77,8 +79,18 @@ test('enables the SDK local HTTP scheduler before mounting; style and glyphs rem
   expect(style.sources.offline.tiles).toEqual([descriptor.tileUrlTemplate]);
   await act(async () => { jest.advanceTimersByTime(1_000); });
   expect(screen.getByText('Offline map ready')).toBeOnTheScreen();
-  expect(mockEvidence).toHaveBeenCalledWith(1, 1, 1, 1, 8);
+  expect(mockEvidence).toHaveBeenCalledWith(1, 1, 1, 1, 8, 0);
   expect(failed).not.toHaveBeenCalled();
+});
+
+test('nested-map gestures are explicit and pan evidence never exports center coordinates', async () => {
+  await render(<OfflineMapView {...props} onUnavailable={jest.fn()} />);
+  expect(screen.getByTestId('native-map').props.dragPan).toBe(true);
+  expect(screen.getByTestId('native-map').props.touchZoom).toBe(true);
+  await act(async () => { jest.advanceTimersByTime(1_000); });
+  mockGetCenter.mockResolvedValue([35.01,32.01]);
+  await act(async () => { jest.advanceTimersByTime(1_000); });
+  expect(mockEvidence).toHaveBeenLastCalledWith(1, 1, 1, 1, 8, 1);
 });
 
 test('a blank renderer cannot report ready and times out into the existing honest error path', async () => {

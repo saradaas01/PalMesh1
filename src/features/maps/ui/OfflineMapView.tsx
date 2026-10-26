@@ -22,6 +22,8 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
   const map = useRef<MapRef>(null);
   const camera = useRef<CameraRef>(null);
   const zoomBusy = useRef<number | null>(null);
+  const lastCenter = useRef<readonly [number, number] | null>(null);
+  const cameraMoves = useRef(0);
   const [prepared, setPrepared] = useState(false);
   const [rendered, setRendered] = useState(false);
   const ready = useRef(false);
@@ -34,6 +36,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
     generation.current += 1;
     alive.current = true;
     settled.current = false;
+    lastCenter.current = null; cameraMoves.current = 0;
     ready.current = false;
     setRendered(false);
     setPrepared(false);
@@ -83,14 +86,20 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
       const roads = diagnostics && roadLayers.length ? await map.current.queryRenderedFeatures({ layers: roadLayers }) : [];
       const labels = diagnostics && labelLayers.length ? await map.current.queryRenderedFeatures({ layers: labelLayers }) : [];
       const zoom = diagnostics ? await map.current.getZoom() : 0;
+      const center = diagnostics ? await map.current.getCenter() : null;
       if (!alive.current || cycle !== generation.current) return;
+      if (center !== null) {
+        const previous = lastCenter.current;
+        if (previous && (Math.abs(previous[0] - center[0]) > 1e-7 || Math.abs(previous[1] - center[1]) > 1e-7)) cameraMoves.current += 1;
+        lastCenter.current = center;
+      }
       if (geometry.length > 0) { ready.current = true; setRendered(true); }
       settled.current = ready.current && (!diagnostics || labelLayers.length === 0 || labels.length > 0);
       const arabic = labels.filter(feature => typeof feature.properties?.['name:ar'] === 'string'
         && /[\u0600-\u06ff]/.test(feature.properties['name:ar'])).length;
       // Native debug builds emit bounded counts, never URLs/tokens, coordinates,
       // feature text or contact identifiers. Release builds make this a no-op.
-      if (diagnostics) await NativeModules.PalMeshOfflineMaps?.recordRenderEvidence?.(geometry.length, roads.length, labels.length, arabic, zoom);
+      if (diagnostics) await NativeModules.PalMeshOfflineMaps?.recordRenderEvidence?.(geometry.length, roads.length, labels.length, arabic, zoom, cameraMoves.current);
     } catch { /* Startup races may precede a style; the deadline still fails honestly. */ }
     finally { if (busy.current === cycle) busy.current = null; }
   };
@@ -119,7 +128,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
   return (
     <View style={styles.map}>
     <Map key={descriptor.tileUrlTemplate} ref={map} style={styles.map} mapStyle={mapStyle} attribution={false} logo={false}
-      compass={false} touchRotate={false} touchPitch={false}
+      compass={false} dragPan={true} touchZoom={true} doubleTapZoom={true} touchRotate={false} touchPitch={false}
       preferredFramesPerSecond={powerMode === 'conserve' ? 15 : 30}
       onDidFailLoadingMap={onUnavailable} onDidFinishRenderingMapFully={() => { void inspectRendering(); }}
       onRegionDidChange={() => { void inspectRendering(); }}>

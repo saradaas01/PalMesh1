@@ -44,7 +44,8 @@ ARM64 APK is published for installation. The baseline
 removes the scheduler hint and preparation mount gate to retain original
 immediate mounting and system reachability. Aggregate tracing, status/error
 handling and geometry probes remain, so it is an instrumented comparison,
-not a byte-identical old APK. It never artificially forces the SDK offline.
+not a byte-identical old APK. Accessible controls and explicit gesture settings
+also remain. It never artificially forces the SDK offline.
 
 `scripts/android/map_smoke.py` creates a fresh official API 35 AOSP emulator
 with no snapshots or previous map cache. Before installation/first launch it
@@ -79,7 +80,7 @@ and source date `2026-10-25T21:21:21Z`, then runs the full map/manifest
 validator. The genuine map bytes, provenance and licenses are preserved.
 
 Local checks on October 26, 2026 passed: TypeScript/build, 380 core tests,
-83 React Native tests, 47 Android-tool tests and 53 map-tool tests. The ARM64
+84 React Native tests, 47 Android-tool tests and 53 map-tool tests. The ARM64
 bundled debug build passed signature, JavaScript, genuine map/glyph packaging,
 native ABI, ZIP and ELF 16-KiB alignment verification. Local builds use the
 same genuine PBF but an independently generated local MBTiles hash; hosted
@@ -137,6 +138,21 @@ is reclassified as a passing end-to-end run. Later changes sample debug camera
 state for a bounded 60 seconds/on camera changes, verify actual guest UID 0
 with bounded root retries, and use accessible product zoom controls. SwiftShader
 image artifacts do not establish a physical-phone font defect.
+
+### Reproducible nested-map gesture defect
+
+Source `e89b3d2`, run `40403793272`, verified native zoom from
+6.5160958492 to 7.5160958492 and local tile hits increasing from two to four,
+but then failed because swiping did not change the map pixels. Inspection of
+the pinned Android bridge's `MLRNMapView.onTouchEvent` shows that parent touch
+interception is disabled only when its nullable `scrollEnabled` field is
+explicitly true. Omitting `dragPan` leaves that field null even though SDK map
+gestures otherwise default to enabled; the surrounding FlatList can take the
+swipe. The map now explicitly enables `dragPan`, `touchZoom` and `doubleTapZoom`.
+This is an observed pan/lifecycle defect; it does not prove the separate phone
+blank-map root cause. The stronger test requires both a native camera-movement
+counter increase and changed pixels after the swipe. Only a count is exported;
+camera center coordinates remain inside the component and are never logged.
 
 Neither emulator rendering nor a successful build establishes physical-phone
 success. Retest

@@ -158,8 +158,15 @@ class MapSmoke(smoke.Smoke):
             time.sleep(1)
         else: raise RuntimeError('Zoom control did not produce a verified native zoom increase')
         zoomed = self.screenshot(name + '-map-zoomed')
+        pan_baseline = next(value.get('cameraMoves', 0) for value in reversed(self.evidence()) if rendered_offline(value))
         self.command('shell', 'input', 'swipe', str(x+50), str(y), str(x-50), str(y+30), '400')
-        time.sleep(3)
+        pan_deadline = time.monotonic() + 15
+        while time.monotonic() < pan_deadline:
+            pan_records = self.evidence()
+            if any(rendered_offline(value) and value.get('cameraMoves', 0) > pan_baseline for value in pan_records): break
+            time.sleep(1)
+        else: raise RuntimeError('Swipe did not move the native map camera inside the surrounding list')
+        time.sleep(2)
         after = self.screenshot(name + '-map-pan-zoom')
         if zoomed['mapPixelsSha256'] == after['mapPixelsSha256']:
             raise RuntimeError('Map pixels did not change after pan/zoom')
