@@ -98,10 +98,10 @@ jobs:
         if: matrix.architecture == 'x86_64'
         run: |
           android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
-          "$ANDROID_HOME/emulator/emulator" -version
-          "$ANDROID_HOME/emulator/emulator" -help-gpu
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
           python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
           test -c /dev/kvm
           sudo chown "$(id -u):$(id -g)" /dev/kvm
