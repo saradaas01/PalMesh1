@@ -396,3 +396,25 @@ test('even a vault rejection without an Error fails closed and explicit import c
   await bob.security.verify(wire);
   assert.deepEqual((await bob.security.project(wire))?.payload, { text: 'Recovered persistence' });
 });
+
+test('saved contact choices expose only immutable imported addresses and survive identity restart', async () => {
+  const alice = await identity(); const bob = await identity(); const carol = await identity();
+  assert.deepEqual(alice.security.savedPeerIds(), []);
+  // Learning an authenticated address does not silently pin a human contact.
+  const nonce = randomUUID();
+  alice.security.verifyHandshake(carol.security.deviceId, nonce, undefined, carol.security.authenticate(nonce));
+  assert.deepEqual(alice.security.savedPeerIds(), []);
+  await alice.security.importPeer(bob.security.publicIdentity);
+  const choices = alice.security.savedPeerIds();
+  assert.deepEqual(choices, [bob.security.deviceId]);
+  assert.equal(Object.isFrozen(choices), true);
+  assert.ok(!JSON.stringify(choices).includes('Secret'));
+  const restarted = await identity(alice.vault);
+  assert.deepEqual(restarted.security.savedPeerIds(), [bob.security.deviceId]);
+  alice.vault.failure = true;
+  await assert.rejects(alice.security.importPeer(carol.security.publicIdentity));
+  assert.deepEqual(alice.security.savedPeerIds(), []);
+  alice.vault.failure = false;
+  await alice.security.importPeer(carol.security.publicIdentity);
+  assert.deepEqual(alice.security.savedPeerIds(), [bob.security.deviceId, carol.security.deviceId].sort());
+});
