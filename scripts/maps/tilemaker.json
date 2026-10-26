@@ -1,0 +1,26 @@
+{
+  "layers": {
+    "landuse": { "minzoom": 10, "maxzoom": 14, "simplify_below": 13, "simplify_level": 0.0001 },
+    "water": { "minzoom": 6, "maxzoom": 14, "simplify_below": 12, "simplify_level": 0.0001 },
+    "waterway": { "minzoom": 8, "maxzoom": 14, "simplify_below": 12, "simplify_level": 0.0001 },
+    "coastline": { "minzoom": 6, "maxzoom": 14, "simplify_below": 12, "simplify_level": 0.0001 },
+    "building": { "minzoom": 13, "maxzoom": 14 },
+    "transportation": { "minzoom": 6, "maxzoom": 14, "simplify_below": 13, "simplify_level": 0.00003 },
+    "transportation_name": { "minzoom": 13, "maxzoom": 14 },
+    "place": { "minzoom": 6, "maxzoom": 14 },
+    "poi": { "minzoom": 14, "maxzoom": 14 }
+  },
+  "settings": {
+    "minzoom": 6,
+    "maxzoom": 14,
+    "basezoom": 14,
+    "include_ids": false,
+    "name": "PalMesh Palestine OSM offline map",
+    "version": "1.0",
+    "description": "OpenStreetMap streets, buildings and places covering Gaza and the West Bank. No current hazard or access information.",
+    "compress": "gzip",
+    "mvt_version": 2,
+    "high_resolution": true,
+    "bounding_box": [34.15, 31.15, 35.65, 32.65]
+  }
+}

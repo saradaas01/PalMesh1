@@ -1,0 +1,10 @@
+// Opt in to embedding JavaScript without changing normal fast Metro builds.
+gradle.beforeProject { project ->
+    def repository = System.getenv('PALMESH_REPOSITORY_ROOT')
+    if (repository != null && project.rootProject.projectDir.canonicalFile == new File(repository, 'android').canonicalFile && project.path == ':app') {
+        project.pluginManager.withPlugin('com.facebook.react') {
+            project.extensions.getByName('react').debuggableVariants.set([])
+            project.extensions.getByName('react').extraPackagerArgs.addAll(['--max-workers', '2'])
+        }
+    }
+}

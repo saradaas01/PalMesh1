@@ -1,0 +1,2 @@
+"NSBluetoothAlwaysUsageDescription" = "يستخدم بالمش البلوتوث لتبادل رسائل الطوارئ مباشرة مع الهواتف القريبة دون إنترنت.";
+"NSLocationWhenInUseUsageDescription" = "يستخدم بالمش موقعك فقط عند طلب تحديد الموقع. مشاركة الموقع اختيارية.";

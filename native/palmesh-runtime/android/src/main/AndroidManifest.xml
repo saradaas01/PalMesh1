@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="${applicationId}.permission.PALMESH_INTERNAL" android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.PALMESH_INTERNAL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A connected-device foreground service also requires an authorized radio
+         prerequisite. CHANGE_WIFI_STATE is an Android documented prerequisite. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <application>
+        <service android:name=".MeshForegroundService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice" />
+    </application>
+</manifest>

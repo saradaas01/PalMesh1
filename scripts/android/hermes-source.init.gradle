@@ -1,0 +1,19 @@
+// The Hermes source pin can differ from the npm compiler package. Every bundled
+// variant must use the source-built compiler paired with its source-built VM.
+gradle.beforeProject { project ->
+    def repository = System.getenv('PALMESH_REPOSITORY_ROOT')
+    if (repository != null && project.rootProject.projectDir.canonicalFile == new File(repository, 'android').canonicalFile && project.path == ':app') {
+        project.pluginManager.withPlugin('com.facebook.react') {
+            def react = project.extensions.getByName('react')
+            def reactNativeDir = new File(repository, 'node_modules/react-native')
+            react.hermesCommand.set(new File(reactNativeDir, 'ReactAndroid/hermes-engine/build/hermes/bin/hermesc').absolutePath)
+            react.extraPackagerArgs.addAll(['--max-workers', '2'])
+            if (System.getenv('PALMESH_BUNDLE_DEBUG') == '1') react.debuggableVariants.set([])
+            project.tasks.matching { it.name.startsWith('createBundle') && it.name.endsWith('JsAndAssets') }.configureEach { task ->
+                def sourceBuild = project.gradle.includedBuilds.find { it.projectDir.canonicalFile == reactNativeDir.canonicalFile }
+                if (sourceBuild == null) throw new GradleException('The source Hermes compiler requires the React Native source composite')
+                task.dependsOn(sourceBuild.task(':packages:react-native:ReactAndroid:hermes-engine:buildHermesC'))
+            }
+        }
+    }
+}

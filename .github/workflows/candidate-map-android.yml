@@ -1,0 +1,71 @@
+name: Candidate Palestine map and Android APK
+on:
+  push:
+    paths:
+      - '.github/workflows/candidate-map-android.yml'
+      - 'scripts/maps/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: candidate-map-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate-map-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run check
+      - run: python3 -m unittest discover -s scripts/maps/tests -v
+      - name: Install tilemaker build dependencies from signed Ubuntu repositories
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake \
+            libboost-dev libboost-filesystem-dev libboost-program-options-dev \
+            libboost-system-dev liblua5.4-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev
+      - name: Build checksum-pinned official tilemaker source
+        run: python3 scripts/maps/prepare_tilemaker.py --workspace "$RUNNER_TEMP/palmesh-tilemaker"
+      - name: Generate a genuine candidate map with full provenance and coverage validation
+        run: >-
+          python3 scripts/maps/build_palestine.py --download
+          --source "$RUNNER_TEMP/palmesh-source.osm.pbf"
+          --tilemaker "$RUNNER_TEMP/palmesh-tilemaker/build/tilemaker"
+      - name: Retain candidate data for operator review (not an approved release asset)
+        uses: actions/upload-artifact@v4
+        with:
+          name: palmesh-candidate-palestine-map
+          path: |
+            mapdata/palestine.mbtiles
+            mapdata/palestine.manifest.json
+          retention-days: 14
+      - name: Retain tool source provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: tilemaker-candidate-provenance
+          path: ${{ runner.temp }}/palmesh-tilemaker/source-provenance.json
+          retention-days: 14
+      - run: python3 scripts/maps/package.py
+      - uses: ./.github/actions/setup-android
+      - run: python3 scripts/android/gradle.py --bundle-debug :app:assembleDebug
+      - run: >-
+          python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk
+          --require-bundle --architectures arm64-v8a --report dist/android/candidate-map-verification.json
+      - name: Publish debug-only APK with the candidate map
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-candidate-map-debug-apk
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            dist/android/candidate-map-verification.json
+            mapdata/palestine.manifest.json
+          retention-days: 14
