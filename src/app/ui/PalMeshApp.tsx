@@ -88,7 +88,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   return <SafeAreaProvider initialMetrics={initialWindowMetrics}>
     <ContactNamesProvider service={snapshot.resources?.contacts}>
     <SafeAreaView style={[styles.safeArea, rowStyle]}>
-      <StatusBar barStyle="dark-content" backgroundColor={palette.surface}/>
+      <StatusBar barStyle="dark-content"/>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
         <View style={ui.grow}><Text accessibilityRole="header" style={styles.brand}>PalMesh</Text><Text style={styles.caption}>{t('ui.offline')}</Text></View>
