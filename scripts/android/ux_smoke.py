@@ -8,6 +8,8 @@ from contacts_smoke import public_qr_item
 BaseSmoke=smoke.Smoke
 class UxSmoke(MapSmoke):
  skip_onboarding=False
+ def isolate(self):
+  super().isolate();self.command('shell','settings','put','secure','show_ime_with_hard_keyboard','1')
  def press(self,label):
   for _ in range(12):
    xml=self.dump();node=smoke.find_control(xml,label)
@@ -44,7 +46,7 @@ class UxSmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'Camera Friend'),'explicitly saved camera contact','contact-saved.xml')
    self.capture('contacts');self.tap('Message Camera Friend')
    self.wait_ui(lambda x:smoke.has_text(x,'Camera Friend'),'private header using saved name','named-thread.xml')
-   self.tap('Message');self.command('shell','input','text','PalMesh-UX-private-Hello');self.command('shell','input','keyevent','KEYCODE_BACK');self.tap('Send message')
+   self.tap('Message');self.capture('keyboard-composer');self.command('shell','input','text','PalMesh-UX-private-Hello');self.command('shell','input','keyevent','KEYCODE_BACK');self.tap('Send message')
    self.wait_ui(lambda x:smoke.has_text(x,smoke.CHAT_QUEUED),'private offline queue','private-queued.xml');self.tap('Dismiss notice');self.capture('private-thread');self.command('shell','input','keyevent','KEYCODE_BACK')
    logs=self.command('logcat','-d','-v','brief','PalMeshQrCamera:I','*:S');self.output.joinpath('native-camera.txt').write_text(logs)
    if 'preview_started' not in logs or 'decoded_qr' not in logs:raise RuntimeError('Camera preview/decode pipeline not confirmed')
