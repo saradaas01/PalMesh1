@@ -3,7 +3,6 @@ on:
   push:
     branches: ['feat/simple-offline-experience']
     paths:
-      - 'scripts/android/ux_smoke.py'
       - '.github/workflows/ux-replay.yml'
 permissions:
   contents: read
@@ -33,6 +32,7 @@ jobs:
               file=Path('prior-evidence')/name
               if file.exists():print(name,file.read_text(errors='replace')[-7000:])
   replay:
+    if: startsWith(github.event.head_commit.message, 'test(ux): replay')
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
