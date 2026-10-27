@@ -12,6 +12,10 @@ RENAMED='PalMesh Trusted Friend'
 PROFILE='PalMesh Owner'
 PRIVATE='PalMesh-private-offline-Hello'
 
+def public_qr_item(xml):
+    # Grid mode exposes the filename in the tile's accessibility description.
+    return next((n for n in smoke.nodes(xml) if any(n.get(field,'').startswith('PalMeshPublicContact') for field in ('text','content-desc'))),None)
+
 class ContactsSmoke(MapSmoke):
     def visible_control(self,xml,label):
         control=smoke.find_control(xml,label)
@@ -72,7 +76,7 @@ class ContactsSmoke(MapSmoke):
             xml=self.dump('image-picker.xml')
             rows=[dict(text=n.get('text','')[:160],label=n.get('content-desc','')[:160],bounds=n.get('bounds',''),resource=n.get('resource-id','')) for n in smoke.nodes(xml) if n.get('text') or n.get('content-desc')]
             print('CONTACT_PICKER '+json.dumps(rows[:60],ensure_ascii=False),flush=True)
-            item=next((n for n in smoke.nodes(xml) if n.get('text','').startswith('PalMeshPublicContact')),None)
+            item=public_qr_item(xml)
             if item is not None:
                 x,y=smoke.center(item);self.command('shell','input','tap',str(x),str(y));break
             # Recent and Images expose MediaStore content. Do not repeatedly tap
