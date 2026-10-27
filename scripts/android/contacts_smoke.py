@@ -48,26 +48,47 @@ class ContactsSmoke(MapSmoke):
         self.fill('Optional display name (on this device)',PROFILE)
         self.press('Save display name')
         self.wait_ui(lambda x:smoke.has_text(x,'Saved on this device.'),'saved local profile','profile-saved.xml')
+        print('CONTACT_CHECKPOINT profile-saved',flush=True)
         self.press('Show public identity QR');self.dump('public-qr.xml')
         self.command('shell','screencap','-p','/sdcard/public-qr-test.png')
         self.press('Hide public identity QR')
         fixture=Path(os.environ['PALMESH_CONTACT_FIXTURE'])
-        self.command('push',str(fixture/'PalMeshPublicContact.gif'),'/sdcard/Download/PalMeshPublicContact.gif')
+        image='/sdcard/Pictures/PalMeshPublicContact.gif'
+        self.command('shell','mkdir','-p','/sdcard/Pictures')
+        self.command('push',str(fixture/'PalMeshPublicContact.gif'),image)
+        # A raw adb push is not a MediaStore/Downloads entry. Register the local
+        # fixture before opening the scoped picker; no app permission is added.
+        self.command('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+image)
+        for _ in range(12):
+            indexed=self.command('shell','content','query','--uri','content://media/external/images/media','--projection','_id:_display_name',check=False)
+            if 'PalMeshPublicContact.gif' in indexed:break
+            time.sleep(1)
+        else:raise RuntimeError('Synthetic QR image was not indexed by Android MediaStore')
+        print('CONTACT_CHECKPOINT local-image-indexed',flush=True)
         self.press('Scan QR from a local image')
-        # AOSP DocumentsUI defaults to Recents. Downloads is reachable via drawer.
-        for attempt in range(10):
+        visited=set()
+        for attempt in range(16):
             xml=self.dump('image-picker.xml')
-            item=next((n for n in smoke.nodes(xml) if n.get('text')=='PalMeshPublicContact.gif'),None)
+            rows=[dict(text=n.get('text','')[:160],label=n.get('content-desc','')[:160],bounds=n.get('bounds',''),resource=n.get('resource-id','')) for n in smoke.nodes(xml) if n.get('text') or n.get('content-desc')]
+            print('CONTACT_PICKER '+json.dumps(rows[:60],ensure_ascii=False),flush=True)
+            item=next((n for n in smoke.nodes(xml) if n.get('text','').startswith('PalMeshPublicContact')),None)
             if item is not None:
                 x,y=smoke.center(item);self.command('shell','input','tap',str(x),str(y));break
+            # Recent and Images expose MediaStore content. Do not repeatedly tap
+            # the toolbar title when a root is already open.
+            choices=('Recent','Images','Pictures','Downloads','Internal storage')
+            root=next((n for choice in choices if choice not in visited for n in smoke.nodes(xml) if n.get('text')==choice),None)
             drawer=smoke.find_control(xml,'Show roots')
-            download=next((n for n in smoke.nodes(xml) if n.get('text')=='Downloads'),None)
-            if download is not None:
-                x,y=smoke.center(download);self.command('shell','input','tap',str(x),str(y))
+            drawer_open=any('roots_list' in n.get('resource-id','') for n in smoke.nodes(xml))
+            if drawer_open and root is not None:
+                label=root.get('text');visited.add(label)
+                x,y=smoke.center(root);self.command('shell','input','tap',str(x),str(y))
             elif drawer is not None:self.tap('Show roots')
             else:time.sleep(1)
         else:raise RuntimeError('Public-only QR fixture absent in scoped image picker')
+        print('CONTACT_CHECKPOINT image-selected',flush=True)
         self.wait_ui(lambda x:smoke.has_text(x,'Public identity to save — not verified'),'validated public QR preview','qr-preview.xml')
+        print('CONTACT_CHECKPOINT public-payload-previewed',flush=True)
         self.fill('Local contact nickname',NAME);self.press('Save contact identity')
         self.reveal('Start private conversation')
         xml=self.dump('contact-saved.xml')
@@ -79,6 +100,7 @@ class ContactsSmoke(MapSmoke):
         self.wait_ui(lambda x:smoke.has_text(x,RENAMED),'private thread showing saved nickname','private-thread.xml')
         self.tap('Message');self.command('shell','input','text',PRIVATE);self.command('shell','input','keyevent','KEYCODE_BACK');self.tap('Send message')
         self.wait_ui(lambda x:smoke.has_text(x,smoke.CHAT_QUEUED),'durable encrypted local queue','private-queued.xml')
+        print('CONTACT_CHECKPOINT private-message-queued',flush=True)
         self.tap('Dismiss notice');self.dump('private-history.xml')
         self.command('shell','input','keyevent','KEYCODE_BACK')
     def launch(self,name):

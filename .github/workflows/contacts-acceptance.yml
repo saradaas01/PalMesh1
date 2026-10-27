@@ -92,6 +92,14 @@ jobs:
           PYTHONPATH: ${{ runner.temp }}/map-test-python
           PALMESH_CONTACT_FIXTURE: ${{ runner.temp }}/contact-fixture
         run: python3 scripts/android/contacts_smoke.py --contacts-test --gpu swangle --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/contact-results" --state "$RUNNER_TEMP/private-contact-emulator"
+      - name: Retain the sealed x86 APK for isolated acceptance reruns
+        if: always() && matrix.architecture == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-contacts-emulator-apk
+          path: dist/android/palmesh-contacts-test.apk
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Retain synthetic acceptance evidence
         if: always() && matrix.architecture == 'x86_64'
         uses: actions/upload-artifact@v4
