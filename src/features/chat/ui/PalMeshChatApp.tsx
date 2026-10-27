@@ -1,3 +1,4 @@
+import { useContactNames } from '../../contacts/ContactNames';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, BackHandler, FlatList, KeyboardAvoidingView, Modal, Platform,
@@ -44,7 +45,8 @@ function ConversationRow({ item, onOpen }: {
   readonly item: Conversation; readonly onOpen: (id: string) => void;
 }): React.JSX.Element {
   const { t } = useI18n();
-  const title = item.id === '*' ? t('chat.broadcasts') : item.id;
+  const names = useContactNames();
+  const title = item.id === '*' ? t('chat.broadcasts') : names.label(item.id);
   const unread = item.unreadCount > 0 ? `, ${t('chat.unread', { count: item.unreadCount })}` : '';
   return (
     <Pressable accessibilityRole="button"
@@ -54,6 +56,7 @@ function ConversationRow({ item, onOpen }: {
         <Text style={[styles.peer, styles.grow]} numberOfLines={2}>{title}</Text>
         {item.unreadCount > 0 && <Text style={styles.badge}>{t('chat.unread', { count: item.unreadCount })}</Text>}
       </View>
+      {item.id !== '*' && names.short(item.id) !== item.id && <Text style={styles.secondary}>{names.short(item.id)} · {t(`contacts.${names.status(item.id)}`)}</Text>}
       <Text style={styles.secondary} numberOfLines={2}>{item.lastMessage.kind === 'sos' ? 'SOS · ' : ''}{item.lastMessage.text}</Text>
     </Pressable>
   );
@@ -65,10 +68,11 @@ function MessageBubble({ message, deviceId, now }: {
   const { t, language } = useI18n();
   const status = t(deliveryLabels[deliveryState(message, deviceId, now)]);
   const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-PS' : 'en', { hour: '2-digit', minute: '2-digit' });
-  const sender = message.outgoing ? t('chat.you') : message.source;
+  const names = useContactNames();
+  const sender = message.outgoing ? t('chat.you') : names.label(message.source);
   return (
     <View style={[styles.message, message.outgoing ? styles.outgoing : styles.incoming, message.kind === 'sos' && styles.emergencyMessage]}>
-      <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+      <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}{!message.outgoing && names.label(message.source) !== names.short(message.source) ? ' · '+names.short(message.source) : ''}</Text>
       <Text selectable style={styles.messageText}>{message.text}</Text>
       <Text style={styles.messageMeta}>{time} · {status}</Text>
     </View>
@@ -80,6 +84,7 @@ function NewConversation({ visible, onClose, savedRecipients }: {
   readonly savedRecipients: readonly string[];
 }): React.JSX.Element {
   const { t, direction } = useI18n();
+  const names = useContactNames();
   const { openConversation } = useChat();
   const [peerId, setPeerId] = useState('');
   const [invalid, setInvalid] = useState(false);
@@ -104,7 +109,7 @@ function NewConversation({ visible, onClose, savedRecipients }: {
           {savedRecipients.length > 0 && <>
             <Text accessibilityRole="header" style={styles.label}>{t('chat.savedContacts')}</Text>
             <Text style={styles.secondary}>{t('chat.contactTrust')}</Text>
-            {savedRecipients.map(id => <Button key={id} label={t('chat.chooseContact', { id })}
+            {savedRecipients.map(id => <Button key={id} label={t('chat.chooseContact', { id: names.label(id) + (names.label(id) !== names.short(id) ? ' · '+names.short(id) : '') })}
               onPress={() => { setPeerId(id); setInvalid(false); }} />)}
           </>}
           <Text style={styles.label}>{t('chat.peerIdLabel')}</Text>
@@ -131,6 +136,8 @@ export interface ChatScreenProps {
 
 export function ChatScreen({ embedded = false, showSos = true, savedRecipients = [], onOpenContacts }: ChatScreenProps): React.JSX.Element {
   const { t, direction, textStyle } = useI18n();
+  const names = useContactNames();
+  const [showFingerprint, setShowFingerprint] = useState(false);
   const {
     snapshot, deviceId, openConversation, closeConversation, setDraft, send, sendSos,
     loadOlder, refresh, dismissIssue, dismissNotice,
@@ -218,8 +225,9 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
         </View> : <View style={styles.content}>
           <View style={styles.sectionHeader}>
             <Button label={t('chat.back')} onPress={closeConversation} />
-            <Text accessibilityRole="header" style={[styles.threadTitle, styles.grow]} numberOfLines={2}>{isBroadcast ? t('chat.broadcasts') : selectedId}</Text>
+            <Text accessibilityRole="header" style={[styles.threadTitle, styles.grow]} numberOfLines={2}>{isBroadcast ? t('chat.broadcasts') : names.label(selectedId)}</Text>
           </View>
+          {!isBroadcast && selectedId && <View><Text style={styles.secondary}>{names.short(selectedId)} · {t(`contacts.${names.status(selectedId)}`)}</Text><Button label={t('contacts.fingerprint')} onPress={() => setShowFingerprint(!showFingerprint)} />{showFingerprint && <Text selectable style={styles.secondary}>{selectedId}</Text>}</View>}
           <FlatList ref={messageList} data={snapshot.messages} keyExtractor={(message) => message.id}
             renderItem={({ item }) => <MessageBubble message={item} deviceId={deviceId} now={snapshot.now} />}
             keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}

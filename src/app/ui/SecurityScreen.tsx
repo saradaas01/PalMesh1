@@ -1,3 +1,4 @@
+import { ContactsExperience } from '../../features/contacts/ContactsExperience';
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { LocalizedText as Text, useI18n } from '../../shared/i18n';
@@ -49,7 +50,8 @@ export function SecurityScreen({ runtime, snapshot }: {
     </View>}
     <Text style={styles.warning}>{t('app.securityLimitations')}</Text>
     <Text style={styles.body}>{t('app.verifyFingerprint')}</Text>
-    {security !== undefined && <>
+    {security !== undefined && snapshot.resources?.contacts !== undefined && <ContactsExperience security={security} service={snapshot.resources.contacts} onOpen={async id => { await snapshot.resources!.chat.openConversation(id); runtime.navigate('chat'); }} />}
+    {security !== undefined && snapshot.resources?.contacts === undefined && <>
       <Text accessibilityRole="header" style={styles.label}>{t('app.myFingerprint')}</Text>
       <Text selectable accessibilityLabel={t('app.myFingerprint')} style={styles.identifier}>{security.deviceId}</Text>
       <Text accessibilityRole="header" style={styles.label}>{t('app.publicIdentity')}</Text>

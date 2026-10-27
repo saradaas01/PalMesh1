@@ -1,3 +1,4 @@
+import type { ContactDirectory } from '../../features/contacts/ContactDirectory';
 import type { ChatService } from '../../features/chat';
 import type { LocationService } from '../../features/maps';
 import type { AcceptResult, OutgoingMessage, PeerId, PowerMode } from '../../features/dtn';
@@ -39,6 +40,7 @@ export interface AppNode {
 }
 
 export interface RuntimeResources {
+  readonly contacts?: ContactDirectory;
   readonly deviceId: PeerId;
   readonly node: AppNode;
   readonly chat: Pick<ChatService, keyof ChatService>;
