@@ -1,3 +1,4 @@
+import { ContactNamesProvider } from '../../features/contacts/ContactNames';
 import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -77,6 +78,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   const selectRoute = (route: AppRoute): void => runtime.navigate(route);
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+    <ContactNamesProvider service={snapshot.resources?.contacts}>
     <SafeAreaView style={[styles.safeArea, rowStyle]}>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
@@ -155,6 +157,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
       </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </ContactNamesProvider>
   </SafeAreaProvider>;
 }
 

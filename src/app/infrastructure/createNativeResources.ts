@@ -1,3 +1,4 @@
+import { ContactDirectory } from '../../features/contacts/ContactDirectory';
 import { open, isSQLCipher, type DB } from '@op-engineering/op-sqlite';
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
@@ -84,6 +85,8 @@ export async function createNativeResources(options: CreateNativeResourcesOption
         }
       },
     });
+    const contacts = new ContactDirectory(security, vault);
+    await contacts.initialize();
     const deviceId = security.deviceId;
     const store = new SqliteDtnStore(database('palmesh-dtn.sqlite'));
     const registry = new SqlitePeerRegistry(database('palmesh-peers.sqlite'));
@@ -125,7 +128,7 @@ export async function createNativeResources(options: CreateNativeResourcesOption
     });
     const emergency = new EmergencyService({ engine: node.engine, repository: emergencyRepository,
       ...(options.alerts ? { alerts: options.alerts } : {}) });
-    return { deviceId, node, chat, locations, emergency, security, release };
+    return { deviceId, node, chat, locations, emergency, security, contacts, release };
   } catch (error) {
     // Preserve the cause of bootstrap failure even when native cleanup also
     // fails. Every remaining handle is still given a chance to close.

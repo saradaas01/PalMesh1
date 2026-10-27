@@ -238,3 +238,11 @@ must stay excluded.
 Prepared SDKs and caches under `/workspace/.palmesh-tools` are local environment
 dependencies, not repository source. Use the committed `scripts/` and docs for
 reproduction. APK build outputs are intentionally ignored by Git.
+
+## Offline contact names milestone (separate, stacked PR)
+
+See [offline-contact-profiles.md](milestones/offline-contact-profiles.md) for the
+protected metadata design, public-only QR image exchange, existing import
+compatibility, explicit fingerprint comparison and separate Contacts Test app.
+Contact labels never change routing IDs or public-key pins. Hosted and physical
+acceptance results must be distinguished; no multi-device success is claimed.

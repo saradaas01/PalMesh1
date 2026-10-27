@@ -1,3 +1,4 @@
+import { shortIdentity } from '../../src/features/contacts/ContactDirectory';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -417,7 +418,7 @@ describe('integrated emergency, identity and offline settings', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
     expect(screen.getByText('Saved contact identities')).toBeOnTheScreen();
     expect(screen.getByText(/Saved keys identify a device/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: `Use contact ${peer.deviceId}` }));
+    await fireEvent.press(screen.getByRole('button', { name: `Use contact ${shortIdentity(peer.deviceId)}` }));
     expect(screen.getByLabelText('Recipient peer ID')).toHaveDisplayValue(peer.deviceId);
     await fireEvent.press(screen.getByRole('button', { name: 'Open conversation' }));
     expect(runtime.chat.openConversation).toHaveBeenLastCalledWith(peer.deviceId);

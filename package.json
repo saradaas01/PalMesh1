@@ -45,11 +45,13 @@
     "@palmesh/runtime": "file:native/palmesh-runtime",
     "@palmesh/wifi-direct": "file:native/palmesh-wifi-direct",
     "@react-native-community/geolocation": "3.4.0",
+    "qrcode-generator": "2.0.4",
     "react": "19.3.1",
     "react-native": "0.88.0",
     "react-native-ble-plx": "3.5.1",
     "react-native-get-random-values": "2.0.0",
     "react-native-safe-area-context": "5.10.1",
+    "react-native-svg": "15.16.0",
     "uuid": "11.1.1"
   },
   "op-sqlite": {

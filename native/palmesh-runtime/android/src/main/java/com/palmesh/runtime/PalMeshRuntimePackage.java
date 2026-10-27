@@ -10,7 +10,7 @@ import java.util.List;
 
 public final class PalMeshRuntimePackage implements ReactPackage {
     @Override public List<NativeModule> createNativeModules(ReactApplicationContext context) {
-        return Arrays.asList(new PalMeshRuntimeModule(context), new PalMeshSecurityModule(context));
+        return Arrays.asList(new PalMeshRuntimeModule(context), new PalMeshSecurityModule(context), new PalMeshPublicQrModule(context));
     }
 
     @Override public List<ViewManager> createViewManagers(ReactApplicationContext context) {
