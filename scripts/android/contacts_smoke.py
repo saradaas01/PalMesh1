@@ -13,14 +13,26 @@ PROFILE='PalMesh Owner'
 PRIVATE='PalMesh-private-offline-Hello'
 
 class ContactsSmoke(MapSmoke):
+    def visible_control(self,xml,label):
+        control=smoke.find_control(xml,label)
+        if control is None:return None
+        try:
+            x,y=smoke.center(control)
+            if 20 <= x <= 700 and 200 <= y <= 1070:return control
+        except RuntimeError:pass
+        return None
     def reveal(self,label):
-        for _ in range(14):
+        for _ in range(16):
             xml=self.dump()
-            if smoke.find_control(xml,label) is not None:return
-            self.command('shell','input','swipe','350','820','350','400','250')
+            if self.visible_control(xml,label) is not None:return
+            self.command('shell','input','swipe','350','900','350','430','300')
         raise RuntimeError('Contact control unavailable: '+label)
     def press(self,label):
-        self.reveal(label);self.tap(label)
+        self.reveal(label)
+        control=self.visible_control(self.dump(),label)
+        if control is None:raise RuntimeError('Contact control moved before tap: '+label)
+        x,y=smoke.center(control)
+        self.command('shell','input','tap',str(x),str(y))
     def fill(self,label,text):
         self.press(label)
         self.command('shell','input','keyevent','KEYCODE_MOVE_END')

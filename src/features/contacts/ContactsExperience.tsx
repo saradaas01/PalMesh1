@@ -30,21 +30,24 @@ function ContactRow({entry,service,onOpen}:{readonly entry:ContactEntry;readonly
 export function ContactsExperience({service,security,onOpen}:{readonly service:ContactDirectory;readonly security:IdentityDirectory;readonly onOpen:(id:string)=>Promise<void>}) {
  const {t}=useI18n();const {state}=useContactNames();
  const [profile,setProfile]=useState(state.profileName);const [name,setName]=useState('');const [input,setInput]=useState('');const [advanced,setAdvanced]=useState(false);const [qr,setQr]=useState(false);const [search,setSearch]=useState('');const [limit,setLimit]=useState(25);
+ const [noticeArea,setNoticeArea]=useState<'profile'|'import'>('import');
  const [busy,setBusy]=useState(false);const lock=useRef(false);const [notice,setNotice]=useState<'error'|'partial'|'existing'|'savedNotice'|null>(null);
  const payload=useMemo(()=>publicIdentityShare(security.publicIdentity,security.deviceId),[security]);
  const preview=useMemo(()=>{try{return parsePublicIdentity(input).id;}catch{return null;}},[input]);
- const run=async(operation:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setNotice(null);try{await operation();}catch{setNotice('error');}finally{lock.current=false;setBusy(false);}};
+ const run=async(operation:()=>Promise<void>,area:'profile'|'import'='import')=>{if(lock.current)return;lock.current=true;setBusy(true);setNoticeArea(area);setNotice(null);try{await operation();}catch{setNotice('error');}finally{lock.current=false;setBusy(false);}};
  const scan=async()=>{const native=NativeModules.PalMeshPublicQr as {scanImage?:()=>Promise<string|null>}|undefined;if(!native?.scanImage)throw new Error('Unavailable');const text=await native.scanImage();if(text===null)return;const candidate=parsePublicIdentity(text);setInput(publicIdentityShare(candidate.identity,candidate.id));};
+ const feedback=notice ? <Text accessibilityRole={notice==='error'||notice==='partial'?'alert':undefined} accessibilityLiveRegion="polite" style={styles.warning}>{t(`contacts.${notice}`)}</Text> : null;
  const contacts=state.contacts.filter(entry=>`${entry.name} ${entry.id}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  return <View style={styles.container}>
   <Text accessibilityRole="header" style={styles.title}>{t('app.myFingerprint')}</Text><Text selectable accessibilityLabel={t('app.myFingerprint')} style={styles.id}>{security.deviceId}</Text>
   <Text style={styles.warning}>{t('contacts.guide')}</Text>
   <Text style={styles.text}>{t('contacts.profile')}</Text>
   <TextInput accessibilityLabel={t('contacts.profile')} value={profile} onChangeText={setProfile} maxLength={160} editable={!busy && state.loaded} style={styles.input}/>
-  <Action label={t('contacts.saveProfile')} disabled={busy || !state.loaded} onPress={()=>{void run(async()=>{await service.setProfileName(profile);setNotice('savedNotice');});}}/>
+  <Action label={t('contacts.saveProfile')} disabled={busy || !state.loaded} onPress={()=>{void run(async()=>{await service.setProfileName(profile);setNotice('savedNotice');},'profile');}}/>
+  {noticeArea==='profile' && feedback}
   <Action label={t(qr?'contacts.hideQr':'contacts.qr')} onPress={()=>setQr(!qr)}/>
   {qr && <PublicIdentityQr payload={payload} label={t('contacts.qr')}/>}
-  <Action label={t('contacts.share')} disabled={busy} onPress={()=>{void run(async()=>{await Share.share({message:JSON.stringify(security.publicIdentity)});});}}/>
+  <Action label={t('contacts.share')} disabled={busy} onPress={()=>{void run(async()=>{await Share.share({message:JSON.stringify(security.publicIdentity)});},'profile');}}/>
   <Text accessibilityRole="header" style={styles.title}>{t('app.contactImport')}</Text>
   <Text style={styles.text}>{t('contacts.scanHelp')}</Text>
   <Action label={t('contacts.scan')} disabled={busy} onPress={()=>{void run(scan);}}/>
@@ -54,7 +57,7 @@ export function ContactsExperience({service,security,onOpen}:{readonly service:C
   <Text style={styles.text}>{t('contacts.name')}</Text>
   <TextInput accessibilityLabel={t('contacts.name')} value={name} onChangeText={setName} maxLength={160} editable={!busy} style={styles.input}/>
   <Action label={t('app.importContact')} disabled={busy || !preview} onPress={()=>{void run(async()=>{const result=await service.add(input,name);setNotice(result.alreadySaved?'existing':result.nameSaved?'savedNotice':'partial');if(result.nameSaved){setInput('');setName('');}});}}/>
-  {notice && <Text accessibilityRole={notice==='error'||notice==='partial'?'alert':undefined} accessibilityLiveRegion="polite" style={styles.warning}>{t(`contacts.${notice}`)}</Text>}
+  {noticeArea==='import' && feedback}
   {!state.loaded && <><Text accessibilityRole="alert" style={styles.warning}>{t('contacts.unavailable')}</Text><Action label={t('contacts.retry')} disabled={busy} onPress={()=>{void run(async()=>{await service.initialize();setProfile(service.getSnapshot().profileName);});}}/></>}
   <Text accessibilityRole="header" style={styles.title}>{t('contacts.list')}</Text>
   <TextInput accessibilityLabel={t('contacts.search')} placeholder={t('contacts.search')} placeholderTextColor="#a9bfd2" value={search} onChangeText={value=>{setSearch(value);setLimit(25);}} maxLength={128} style={styles.input}/>
