@@ -1,0 +1,103 @@
+name: Replay sealed UX camera acceptance
+on:
+  push:
+    branches: ['feat/simple-offline-experience']
+    paths:
+      - 'scripts/android/ux_smoke.py'
+      - '.github/workflows/ux-replay.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ux-sealed-replay
+  cancel-in-progress: true
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Refuse stale APK if any application or native source changed
+        run: git diff --exit-code eddd6e1ef5e56c24ad078808b0e011b03852afb2 HEAD -- src native android package.json package-lock.json index.js babel.config.js metro.config.js
+      - uses: actions/download-artifact@v5
+        with:
+          name: offline-ux-emulator-evidence
+          run-id: 40570822311
+          github-token: ${{ github.token }}
+          path: prior-evidence
+      - name: Inspect prior camera failure without reading app-private files
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as ET,json
+          for name in ('camera-public-preview.xml','final-ui.xml'):
+              file=Path('prior-evidence')/name
+              if file.exists():print(name,json.dumps([dict(text=n.get('text'),label=n.get('content-desc'),bounds=n.get('bounds')) for n in ET.fromstring(file.read_text()).iter('node') if n.get('text') or n.get('content-desc')],ensure_ascii=False))
+          for name in ('native-errors.txt','emulator.log'):
+              file=Path('prior-evidence')/name
+              if file.exists():print(name,file.read_text(errors='replace')[-7000:])
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-ux-emulator-apk
+          run-id: 40570822311
+          github-token: ${{ github.token }}
+          path: sealed-apk
+      - name: Verify immutable sealed APK bytes
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+          apk=Path('sealed-apk/palmesh-ux-test.apk')
+          assert hashlib.file_digest(apk.open('rb'),'sha256').hexdigest() == 'f89172d88d1984906d0305df90fd51b150a377351c30f18bc4532ca8a7af6578'
+      - uses: ./.github/actions/setup-android
+      - name: Install isolated emulator runtime and screenshot analysis dependency
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Verify packaging and ordinary map mode again
+        run: |
+          python3 scripts/android/verify-apk.py sealed-apk/palmesh-ux-test.apk --isolated-ux-test --architectures x86_64 --report sealed-apk/verification.json
+          python3 scripts/android/verify-map-mode.py sealed-apk/palmesh-ux-test.apk
+      - run: node scripts/android/contact-qr-fixture.cjs "$RUNNER_TEMP/contact-fixture"
+      - name: Prepare emulated camera image
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          from PIL import Image
+          root=Path(os.environ['RUNNER_TEMP'])/'contact-fixture'
+          qr=Image.open(root/'PalMeshPublicContact.gif').convert('RGB').resize((500,500),Image.Resampling.NEAREST)
+          image=Image.new('RGB',(1280,720),'white');image.paste(qr,(390,110));image.save(root/'camera.png')
+      - name: Exercise the corrected picker and full restart flow
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+          PALMESH_CONTACT_FIXTURE: ${{ runner.temp }}/contact-fixture
+        run: python3 scripts/android/ux_smoke.py --ux-test --camera-image "$RUNNER_TEMP/contact-fixture/camera.png" --gpu swangle --apk sealed-apk/palmesh-ux-test.apk --output "$RUNNER_TEMP/contact-results" --state "$RUNNER_TEMP/private-contact-emulator"
+      - name: Retain isolated replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-ux-sealed-replay-evidence
+          path: ${{ runner.temp }}/contact-results/
+          if-no-files-found: ignore
+          retention-days: 14

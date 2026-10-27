@@ -8,6 +8,12 @@ from contacts_smoke import public_qr_item
 BaseSmoke=smoke.Smoke
 class UxSmoke(MapSmoke):
  skip_onboarding=False
+ def diagnostics(self):
+  try:
+   self.capture('final-diagnostic')
+   print('UX_LAST_UI '+json.dumps([dict(text=n.get('text','')[:200],label=n.get('content-desc','')[:200],bounds=n.get('bounds','')) for n in smoke.nodes(self.last_xml) if n.get('text') or n.get('content-desc')][:70],ensure_ascii=False),flush=True)
+   print('UX_CAMERA_LOG '+self.command('logcat','-d','-v','brief','PalMeshQrCamera:I','CameraBase:W','AndroidRuntime:E','ReactNativeJS:E','*:S')[-12000:],flush=True)
+  finally:super().diagnostics()
  def isolate(self):
   super().isolate();self.command('shell','settings','put','secure','show_ime_with_hard_keyboard','1')
  def press(self,label):
