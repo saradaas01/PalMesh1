@@ -15,9 +15,9 @@ class Vault implements SecurityVault {
  async write(key:string,value:string){if(this.fail)throw new Error('locked');this.records.set(key,value);}
  async randomBytes(n:number){return randomBytes(n);}
 }
-async function setup(){
+async function setup(language:'en'|'ar'='en'){
  const vault=new Vault();const security=new SecurityService(vault);await security.initialize();const peer=new SecurityService(new Vault());await peer.initialize();const service=new ContactDirectory(security,vault);await service.initialize();const open=jest.fn(async(_id:string)=>{});
- await render(<I18nProvider><ContactNamesProvider service={service}><ContactsExperience security={security} service={service} onOpen={open}/></ContactNamesProvider></I18nProvider>);
+ await render(<I18nProvider initialLanguage={language}><ContactNamesProvider service={service}><ContactsExperience security={security} service={service} onOpen={open}/></ContactNamesProvider></I18nProvider>);
  return {vault,security,peer,service,open};
 }
 describe('offline contact experience',()=>{
@@ -45,4 +45,12 @@ describe('offline contact experience',()=>{
  const {service}=await setup();NativeModules.PalMeshPublicQr={scanImage:jest.fn(async()=>'{"privateKey":"never display this"}')};await fireEvent.press(screen.getByRole('button',{name:'Scan QR from a local image'}));
  expect(service.getSnapshot().contacts).toHaveLength(0);expect(screen.queryByText(/never display this/)).toBeNull();expect(screen.getByRole('alert')).toBeOnTheScreen();
  });
+ test('public QR renders on demand and Arabic contact controls remain accessible',async()=>{
+ await setup('ar');
+ expect(screen.getByLabelText('اسم العرض الاختياري (على هذا الجهاز)')).toBeOnTheScreen();
+ await fireEvent.press(screen.getByRole('button',{name:'عرض رمز الهوية العامة'}));
+ expect(screen.getByRole('button',{name:'إخفاء رمز الهوية العامة'})).toBeOnTheScreen();
+ expect(screen.getByRole('button',{name:'قراءة رمز QR من صورة محلية'})).toBeOnTheScreen();
+ });
+
 });

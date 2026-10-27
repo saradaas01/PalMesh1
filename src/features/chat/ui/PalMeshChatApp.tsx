@@ -56,6 +56,7 @@ function ConversationRow({ item, onOpen }: {
         <Text style={[styles.peer, styles.grow]} numberOfLines={2}>{title}</Text>
         {item.unreadCount > 0 && <Text style={styles.badge}>{t('chat.unread', { count: item.unreadCount })}</Text>}
       </View>
+      {item.id !== '*' && names.short(item.id) !== item.id && <Text style={styles.secondary}>{names.short(item.id)} · {t(`contacts.${names.status(item.id)}`)}</Text>}
       <Text style={styles.secondary} numberOfLines={2}>{item.lastMessage.kind === 'sos' ? 'SOS · ' : ''}{item.lastMessage.text}</Text>
     </Pressable>
   );
@@ -71,7 +72,7 @@ function MessageBubble({ message, deviceId, now }: {
   const sender = message.outgoing ? t('chat.you') : names.label(message.source);
   return (
     <View style={[styles.message, message.outgoing ? styles.outgoing : styles.incoming, message.kind === 'sos' && styles.emergencyMessage]}>
-      <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+      <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}{!message.outgoing && names.label(message.source) !== names.short(message.source) ? ' · '+names.short(message.source) : ''}</Text>
       <Text selectable style={styles.messageText}>{message.text}</Text>
       <Text style={styles.messageMeta}>{time} · {status}</Text>
     </View>

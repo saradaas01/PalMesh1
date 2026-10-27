@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NativeModules, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { LocalizedText as Text, useI18n } from '../../shared/i18n';
 import { ContactDirectory, parsePublicIdentity, publicIdentityShare, shortIdentity, type ContactEntry, type IdentityDirectory } from './ContactDirectory';
@@ -9,6 +9,8 @@ function Action({label,onPress,disabled=false}:{readonly label:string;readonly o
 }
 function ContactRow({entry,service,onOpen}:{readonly entry:ContactEntry;readonly service:ContactDirectory;readonly onOpen:(id:string)=>Promise<void>}) {
  const {t}=useI18n(); const [name,setName]=useState(entry.name); const [full,setFull]=useState(false); const [busy,setBusy]=useState(false);const [failed,setFailed]=useState(false);
+ const dirty=useRef(false);
+ useEffect(()=>{if(!dirty.current)setName(entry.name);},[entry.name]);
  const lock=useRef(false);
  const run=async(operation:()=>Promise<unknown>)=>{if(lock.current)return;lock.current=true;setBusy(true);setFailed(false);try{await operation();}catch{setFailed(true);}finally{lock.current=false;setBusy(false);}};
  return <View style={styles.card}>
@@ -16,8 +18,9 @@ function ContactRow({entry,service,onOpen}:{readonly entry:ContactEntry;readonly
   <Text style={styles.id}>{shortIdentity(entry.id)}</Text>
   <Text style={styles.text}>{t(entry.compared?'contacts.compared':'contacts.saved')}</Text>
   {entry.duplicateName && <Text style={styles.warning}>{t('contacts.duplicate')}</Text>}
-  <TextInput accessibilityLabel={`${t('contacts.name')}: ${shortIdentity(entry.id)}`} value={name} onChangeText={setName} maxLength={160} editable={!busy} style={styles.input}/>
-  <Action label={t('contacts.saveName')} disabled={busy} onPress={()=>{void run(()=>service.rename(entry.id,name));}}/>
+  <Text style={styles.text}>{t('contacts.name')}</Text>
+  <TextInput accessibilityLabel={`${t('contacts.name')}: ${shortIdentity(entry.id)}`} value={name} onChangeText={value=>{dirty.current=true;setName(value);}} maxLength={160} editable={!busy} style={styles.input}/>
+  <Action label={t('contacts.saveName')} disabled={busy} onPress={()=>{void run(async()=>{await service.rename(entry.id,name);dirty.current=false;});}}/>
   <Action label={t('contacts.fingerprint')} onPress={()=>setFull(!full)}/>
   {full && <><Text selectable style={styles.id}>{entry.id}</Text><Text style={styles.warning}>{t('app.verifyFingerprint')}</Text><Action label={t(entry.compared?'contacts.uncompare':'contacts.compare')} disabled={busy} onPress={()=>{void run(()=>service.setCompared(entry.id,!entry.compared));}}/></>}
   <Action label={t('contacts.chat')} disabled={busy} onPress={()=>{void run(()=>onOpen(entry.id));}}/>
@@ -36,24 +39,25 @@ export function ContactsExperience({service,security,onOpen}:{readonly service:C
  return <View style={styles.container}>
   <Text accessibilityRole="header" style={styles.title}>{t('app.myFingerprint')}</Text><Text selectable accessibilityLabel={t('app.myFingerprint')} style={styles.id}>{security.deviceId}</Text>
   <Text style={styles.warning}>{t('contacts.guide')}</Text>
+  <Text style={styles.text}>{t('contacts.profile')}</Text>
   <TextInput accessibilityLabel={t('contacts.profile')} value={profile} onChangeText={setProfile} maxLength={160} editable={!busy && state.loaded} style={styles.input}/>
   <Action label={t('contacts.saveProfile')} disabled={busy || !state.loaded} onPress={()=>{void run(async()=>{await service.setProfileName(profile);setNotice('savedNotice');});}}/>
   <Action label={t(qr?'contacts.hideQr':'contacts.qr')} onPress={()=>setQr(!qr)}/>
   {qr && <PublicIdentityQr payload={payload} label={t('contacts.qr')}/>}
   <Action label={t('contacts.share')} disabled={busy} onPress={()=>{void run(async()=>{await Share.share({message:JSON.stringify(security.publicIdentity)});});}}/>
-  <Text selectable accessibilityLabel={t('app.publicIdentity')} style={styles.id}>{JSON.stringify(security.publicIdentity)}</Text>
   <Text accessibilityRole="header" style={styles.title}>{t('app.contactImport')}</Text>
   <Text style={styles.text}>{t('contacts.scanHelp')}</Text>
   <Action label={t('contacts.scan')} disabled={busy} onPress={()=>{void run(scan);}}/>
   <Action label={t('contacts.paste')} onPress={()=>setAdvanced(!advanced)}/>
   {advanced && <TextInput accessibilityLabel={t('app.contactJson')} value={input} onChangeText={setInput} multiline maxLength={2048} autoCapitalize="none" autoCorrect={false} editable={!busy} style={[styles.input,styles.id]}/>}
   {preview && <><Text style={styles.text}>{t('contacts.preview')}</Text><Text selectable style={styles.id}>{preview}</Text></>}
+  <Text style={styles.text}>{t('contacts.name')}</Text>
   <TextInput accessibilityLabel={t('contacts.name')} value={name} onChangeText={setName} maxLength={160} editable={!busy} style={styles.input}/>
   <Action label={t('app.importContact')} disabled={busy || !preview} onPress={()=>{void run(async()=>{const result=await service.add(input,name);setNotice(result.alreadySaved?'existing':result.nameSaved?'savedNotice':'partial');if(result.nameSaved){setInput('');setName('');}});}}/>
   {notice && <Text accessibilityRole={notice==='error'||notice==='partial'?'alert':undefined} accessibilityLiveRegion="polite" style={styles.warning}>{t(`contacts.${notice}`)}</Text>}
   {!state.loaded && <><Text accessibilityRole="alert" style={styles.warning}>{t('contacts.unavailable')}</Text><Action label={t('contacts.retry')} disabled={busy} onPress={()=>{void run(async()=>{await service.initialize();setProfile(service.getSnapshot().profileName);});}}/></>}
   <Text accessibilityRole="header" style={styles.title}>{t('contacts.list')}</Text>
-  <TextInput accessibilityLabel={t('contacts.search')} value={search} onChangeText={value=>{setSearch(value);setLimit(25);}} maxLength={128} style={styles.input}/>
+  <TextInput accessibilityLabel={t('contacts.search')} placeholder={t('contacts.search')} placeholderTextColor="#a9bfd2" value={search} onChangeText={value=>{setSearch(value);setLimit(25);}} maxLength={128} style={styles.input}/>
   {contacts.length===0 && <Text style={styles.text}>{t('contacts.empty')}</Text>}
   {contacts.slice(0,limit).map(entry=><ContactRow key={entry.id} entry={entry} service={service} onOpen={onOpen}/>)}
   {contacts.length>limit && <Action label={t('contacts.more')} onPress={()=>setLimit(limit+25)}/>}

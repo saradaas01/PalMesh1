@@ -29,12 +29,12 @@ public final class PalMeshPublicQrModule extends ReactContextBaseJavaModule impl
     @Override public String getName() { return "PalMeshPublicQr"; }
     @ReactMethod public void scanImage(Promise promise) {
         ui.post(() -> {
-            if (invalid || pending != null || getCurrentActivity() == null) { promise.reject("QR_UNAVAILABLE","Image selection unavailable or busy"); return; }
+            if (invalid || pending != null || getReactApplicationContext().getCurrentActivity() == null) { promise.reject("QR_UNAVAILABLE","Image selection unavailable or busy"); return; }
             pending = promise; generation++;
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);
             intent.putExtra(Intent.EXTRA_LOCAL_ONLY,true);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            try { getCurrentActivity().startActivityForResult(intent,REQUEST); }
+            try { getReactApplicationContext().getCurrentActivity().startActivityForResult(intent,REQUEST); }
             catch (Exception error) { finish(null,"QR_UNAVAILABLE"); }
         });
     }

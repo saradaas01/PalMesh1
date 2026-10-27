@@ -92,6 +92,19 @@ class ApkVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unexpected application ID'):
             self.verify(self.apk(map_data=True), '--isolated-map-test')
 
+    def test_contacts_apk_preserves_primary_and_all_map_test_ids(self):
+        self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.contacttest'") + "application-label:'PalMesh Contacts Test'\napplication-debuggable\n"
+        report = self.verify(self.apk(map_data=True), '--isolated-contacts-test')
+        self.assertEqual(report['applicationId'], 'org.palmesh.contacttest')
+        self.assertEqual(report['verificationMode'], 'isolated-contacts-test')
+        self.assertTrue(report['isolatedFromPrimaryApp'])
+        self.assertFalse(report['existingIdentityMigrated'])
+        for option in ('--isolated-map-test', '--isolated-map-performance-test', '--require-bundle'):
+            with self.assertRaisesRegex(ValueError, 'Unexpected application ID'):
+                self.verify(self.apk(map_data=True), option)
+        with self.assertRaisesRegex(ValueError, 'missing its map pack'):
+            self.verify(self.apk(), '--isolated-contacts-test')
+
     def test_isolated_map_test_cannot_hide_its_test_identity(self):
         self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.maptest'") + 'application-debuggable\n'
         with self.assertRaisesRegex(ValueError, 'clearly labelled'):
