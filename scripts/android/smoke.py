@@ -244,12 +244,13 @@ def main() -> None:
     parser.add_argument('--gpu', choices=('swiftshader', 'swangle'), default='swiftshader',
                         help='Official emulator software graphics backend; no host GPU required')
     parser.add_argument('--isolated-map-test', action='store_true', help='Launch only the separately identified PalMesh map-test app')
+    parser.add_argument('--emergency-test',action='store_true')
     parser.add_argument('--ux-test',action='store_true',help='Separate redesign app')
     parser.add_argument('--camera-image',type=Path,help='Explicit synthetic image-backed emulator camera')
     parser.add_argument('--contacts-test', action='store_true', help='Separate offline contacts app')
     parser.add_argument('--map-performance-test', action='store_true', help='Launch the separately identified map performance app')
     args = parser.parse_args()
-    PACKAGE = 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
+    PACKAGE = 'org.palmesh.emergencytest' if args.emergency_test else 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')

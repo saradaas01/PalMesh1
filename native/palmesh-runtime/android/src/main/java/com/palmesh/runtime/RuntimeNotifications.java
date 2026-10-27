@@ -47,7 +47,7 @@ final class RuntimeNotifications {
             .setContentTitle(context.getString(R.string.palmesh_mesh_title))
             .setContentText(context.getString(R.string.palmesh_mesh_body))
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setContentIntent(openApp(context))
+            .setContentIntent(openApp(context, false))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(new Notification.Action.Builder(null, context.getString(R.string.palmesh_mesh_stop), stopIntent).build())
@@ -64,7 +64,7 @@ final class RuntimeNotifications {
             .setDefaults(audible ? Notification.DEFAULT_ALL : 0)
             .setOnlyAlertOnce(true)
             .setGroup("palmesh-emergencies")
-            .setContentIntent(openApp(context))
+            .setContentIntent(openApp(context, true))
             .setAutoCancel(true);
         // Channel settings control sound on Android 8+. A suppressed child
         // group alert prevents a burst of new UUIDs from repeatedly sounding.
@@ -81,11 +81,12 @@ final class RuntimeNotifications {
             .setShowWhen(true);
     }
 
-    private static PendingIntent openApp(Context context) {
+    private static PendingIntent openApp(Context context, boolean emergency) {
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (launch == null) throw new IllegalStateException("No launcher activity is registered");
+        if (emergency) launch.setData(android.net.Uri.parse("palmesh://emergencies"));
         launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        return PendingIntent.getActivity(context, 27003, launch,
+        return PendingIntent.getActivity(context, emergency ? 27004 : 27003, launch,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 }

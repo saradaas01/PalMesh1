@@ -39,7 +39,7 @@ public final class PalMeshLocationModule extends ReactContextBaseJavaModule impl
    if(!precise&&!allowed(Manifest.permission.ACCESS_COARSE_LOCATION)){fail("GPS_DENIED");return;}
    if(manager==null){fail("GPS_PROVIDER");return;}
    if(!deviceEnabled()){fail("GPS_DISABLED");return;}
-   List<String> providers=enabledProviders();if(providers.isEmpty()){fail("GPS_PROVIDER");return;}
+   List<String> providers=enabledProviders();android.util.Log.i("PalMeshGps","request_started precise="+precise+" providers="+providers);if(providers.isEmpty()){fail("GPS_PROVIDER");return;}
    main.postDelayed(deadline,(long)timeoutMs);
    int watching=0;
    for(String provider:providers){
@@ -57,8 +57,8 @@ public final class PalMeshLocationModule extends ReactContextBaseJavaModule impl
  });}
  @ReactMethod public void cancel(int requestId){main.post(()->{if(pending!=null&&token==requestId)fail("GPS_CANCELLED");});}
  private boolean valid(Location l){return Double.isFinite(l.getLatitude())&&Math.abs(l.getLatitude())<=90&&Double.isFinite(l.getLongitude())&&Math.abs(l.getLongitude())<=180&&l.getTime()>0&&l.getTime()<=System.currentTimeMillis()+300000&&l.hasAccuracy()&&Float.isFinite(l.getAccuracy())&&l.getAccuracy()>=0;}
- private void success(Location l){Promise p=pending;if(p==null)return;WritableMap coords=Arguments.createMap();coords.putDouble("latitude",l.getLatitude());coords.putDouble("longitude",l.getLongitude());coords.putDouble("accuracy",l.getAccuracy());WritableMap result=Arguments.createMap();result.putMap("coords",coords);result.putDouble("timestamp",l.getTime());result.putBoolean("approximate",!precise||!LocationManager.GPS_PROVIDER.equals(l.getProvider())||l.getAccuracy()>100);cleanup();p.resolve(result);}
- private void fail(String code){Promise p=pending;if(p==null)return;cleanup();p.reject(code,"Foreground location could not complete");}
+ private void success(Location l){Promise p=pending;if(p==null)return;WritableMap coords=Arguments.createMap();coords.putDouble("latitude",l.getLatitude());coords.putDouble("longitude",l.getLongitude());coords.putDouble("accuracy",l.getAccuracy());WritableMap result=Arguments.createMap();result.putMap("coords",coords);result.putDouble("timestamp",l.getTime());result.putBoolean("approximate",!precise||!LocationManager.GPS_PROVIDER.equals(l.getProvider())||l.getAccuracy()>100);android.util.Log.i("PalMeshGps","fix_received provider="+l.getProvider());cleanup();p.resolve(result);}
+ private void fail(String code){Promise p=pending;if(p==null)return;android.util.Log.i("PalMeshGps",code);cleanup();p.reject(code,"Foreground location could not complete");}
  private void cleanup(){pending=null;candidate=null;main.removeCallbacks(deadline);main.removeCallbacks(fallback);try{if(manager!=null)manager.removeUpdates(listener);}catch(RuntimeException ignored){}}
  @Override public void onHostPause(){main.post(()->fail("GPS_CANCELLED"));}
  @Override public void onHostDestroy(){main.post(()->fail("GPS_CANCELLED"));}

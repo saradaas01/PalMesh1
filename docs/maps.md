@@ -197,3 +197,10 @@ passed; physical-device rendering and distribution signing remain required.
 Application cryptography and encrypted persistence are
 implemented, with the limitations described in the security model; no field
 validation or independent security audit is claimed.
+
+## Emergency assistance map
+
+See [Emergency Map/GPS milestone](milestones/emergency-map-gps.md) for current
+original-ID SOS markers, offline foreground acquisition, privacy, errors and the
+physical retest plan. Earlier dataset/device limitations above are historical;
+the map-bundled workflow pins the existing genuine Palestine producer artifact.

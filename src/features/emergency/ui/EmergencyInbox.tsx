@@ -1,4 +1,6 @@
-import { Disclosure, ui, palette } from '../../../shared/ui/design';
+import {LocationDetails} from '../../maps/ui/LocationDetails';
+import {sosLocation} from '../../maps/domain/emergencyMap';
+import { Action, Disclosure, ui, palette } from '../../../shared/ui/design';
 import { useContactNames } from '../../contacts/ContactNames';
 import React, { useSyncExternalStore } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -10,7 +12,7 @@ export type EmergencyUiService = Pick<EmergencyService, 'getSnapshot' | 'subscri
 
 /** An inline route, rather than an interrupting modal. The application keeps
  * its global SOS action mounted while users review or respond to emergencies. */
-export function EmergencyInbox({ service }: { readonly service: EmergencyUiService }): React.JSX.Element {
+export function EmergencyInbox({ service,onViewMap }: { readonly service: EmergencyUiService; readonly onViewMap?:((id:string)=>void)|undefined }): React.JSX.Element {
   const snapshot = useSyncExternalStore(service.subscribe, service.getSnapshot, service.getSnapshot);
   const { t, rowStyle } = useI18n();
   return <View style={[styles.container, rowStyle]}>
@@ -27,7 +29,7 @@ export function EmergencyInbox({ service }: { readonly service: EmergencyUiServi
     <FlatList data={snapshot.entries} keyExtractor={entry => entry.id}
       ListEmptyComponent={snapshot.status === 'ready' ? <LocalizedText style={styles.text}>{t('emergency.empty')}</LocalizedText> : undefined}
       renderItem={({ item }) => <EmergencyCard entry={item} now={snapshot.now}
-        pending={snapshot.pendingResponseIds.includes(item.id)} service={service} />} />
+        pending={snapshot.pendingResponseIds.includes(item.id)} service={service} onViewMap={onViewMap} />} />
   </View>;
 }
 
@@ -45,10 +47,10 @@ export function EmergencyBanner({ service, onOpen }: {
   </View>;
 }
 
-function EmergencyCard({ entry, now, pending, service }: {
-  readonly entry: EmergencyEntry; readonly now: number; readonly pending: boolean; readonly service: EmergencyUiService;
+function EmergencyCard({ entry, now, pending, service,onViewMap }: {
+  readonly entry: EmergencyEntry; readonly now: number; readonly pending: boolean; readonly service: EmergencyUiService; readonly onViewMap?:((id:string)=>void)|undefined;
 }): React.JSX.Element {
-  const { t } = useI18n();
+  const { t,language } = useI18n();
   const names=useContactNames();
   const expired = entry.expiresAt <= now;
   return <View style={styles.card}>
@@ -56,7 +58,8 @@ function EmergencyCard({ entry, now, pending, service }: {
     <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: names.label(entry.source) })}</LocalizedText>
     <LocalizedText style={styles.dim}>{t('emergency.age', { age: reportAge(entry.receivedAt, now, t) })}</LocalizedText>
     <LocalizedText selectable style={styles.body}>{entry.text}</LocalizedText>
-    {entry.location !== undefined && <LocalizedText style={styles.dim}>{t('emergency.location')}</LocalizedText>}
+    <LocalizedText style={styles.dim}>{t('emMap.reported',{time:new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-PS':'en-GB',{timeZone:'Asia/Hebron',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})})}</LocalizedText>
+    {sosLocation(entry,now)?<><LocationDetails location={sosLocation(entry,now)!} now={now}/>{onViewMap&&<Action label={t('emMap.view')} onPress={()=>onViewMap(entry.id)}/>}</>:<LocalizedText style={styles.dim}>{t('emMap.unavailable')}</LocalizedText>}
     {entry.responses.map(response => <LocalizedText key={response.id} style={styles.response}>
       {t('emergency.responding', { responder: names.label(response.responder) })}
     </LocalizedText>)}

@@ -7,7 +7,8 @@ import type { PowerMode } from '../../src/features/dtn/domain/types';
 import type { LocationActionResult, MapsSnapshot, OfflineMapDescriptor, PeerLocation } from '../../src/features/maps/domain/types';
 import type { MapsUiService } from '../../src/features/maps/ui/MapsProvider';
 import { OfflineMapView } from '../../src/features/maps/ui/OfflineMapView';
-import { PalMeshMapsApp } from '../../src/features/maps/ui/PalMeshMapsApp';
+import {MapsProvider} from '../../src/features/maps/ui/MapsProvider';
+import { PalMeshMapsApp,MapsScreen } from '../../src/features/maps/ui/PalMeshMapsApp';
 
 // Tests exercise the real screen and application boundary, not a fake map SDK.
 // Native drawing, tile HTTP, and GPU behavior require device validation.
@@ -75,7 +76,7 @@ describe('PalMesh offline maps UI', () => {
     await render(<PalMeshMapsApp service={service} />);
     await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByRole('alert')).toHaveTextContent(/bundled Palestine MBTiles asset is missing or could not be opened/);
-    expect(screen.getByText('No GPS fix stored. Update GPS to obtain one.')).toBeOnTheScreen();
+    expect(screen.getByText('No GPS fix stored. Tap My location to try.')).toBeOnTheScreen();
     expect(screen.getByRole('switch', { name: 'Share location periodically' })).not.toBeChecked();
     expect(service.refreshLocal).not.toHaveBeenCalled();
     expect(service.shareOnce).not.toHaveBeenCalled();
@@ -104,20 +105,17 @@ describe('PalMesh offline maps UI', () => {
     expect(renderedContrast(screen.getByText('Last report received 3 minutes ago'))).toBeGreaterThanOrEqual(4.5);
     expect(screen.getByText('GPS fix obtained 10 minutes ago')).toBeOnTheScreen();
     expect(screen.getByText('GPS fix obtained 1 minute ago')).toBeOnTheScreen();
+    for (const control of screen.getAllByRole('button',{name:'Coordinates (optional)'})) await fireEvent.press(control);
     expect(screen.getByText('Latitude 31.50000, longitude 34.47000')).toBeOnTheScreen();
     expect(screen.queryByText(/peer-alice is online/i)).toBeNull();
   });
 
-  test('updates report age reactively and distinguishes SOS reports without claiming peer presence', async () => {
-    const service = new ReactiveMapsService();
-    service.patch({ peers: [peer({ origin: 'sos' })] });
-    await render(<PalMeshMapsApp service={service} />);
-    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
-    expect(screen.getByText('SOS · peer-alice')).toBeOnTheScreen();
-    expect(screen.getByText('Last report received 3 minutes ago')).toBeOnTheScreen();
-    await act(async () => { service.patch({ now: NOW + 60_000 }); });
-    expect(screen.getByText('Last report received 4 minutes ago')).toBeOnTheScreen();
-    expect(screen.getByText(/They do not confirm that a peer is connected/)).toBeOnTheScreen();
+  test('never substitutes the per-contact SOS registry for original emergency reports', async () => {
+    const service = new ReactiveMapsService();service.patch({peers:[peer({origin:'sos'})],mapStatus:'ready',map:descriptor});
+    await render(<PalMeshMapsApp service={service}/>);
+    expect(screen.queryByText('SOS · peer-alice')).toBeNull();
+    expect(screen.getByText('No incoming SOS reports yet.')).toBeOnTheScreen();
+    expect(jest.mocked(OfflineMapView).mock.calls.at(-1)![0].peers).toEqual([]);
   });
 
   test('distinguishes a just-arrived report from its old GPS fix after a long store-and-forward delay', async () => {
@@ -135,7 +133,7 @@ describe('PalMesh offline maps UI', () => {
     await render(<PalMeshMapsApp service={service} />);
     await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByRole('button', { name: 'Share location once' })).toBeEnabled();
-    await fireEvent.press(screen.getByRole('button', { name: 'Update GPS' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'My location' }));
     expect(service.refreshLocal).toHaveBeenCalledTimes(1);
     expect(screen.getByText('GPS fix obtained just now')).toBeOnTheScreen();
     expect(service.shareOnce).not.toHaveBeenCalled();
@@ -254,3 +252,18 @@ describe('PalMesh offline maps UI', () => {
     expect(service.start).toHaveBeenCalledTimes(1);
   });
 });
+
+test('Emergency Map uses each original SOS and exposes unavailable/old locations without recycling peer reports',async()=>{
+ const service=new ReactiveMapsService();service.patch({mapStatus:'ready',map:descriptor});
+ const entries=[{id:'first-sos',source:'peer-alice',text:'First synthetic emergency',createdAt:NOW-1000,receivedAt:NOW,expiresAt:NOW+100000,outgoing:false,dismissed:false,responseId:null,responses:[],location:{latitude:31.5,longitude:34.47,timestamp:NOW-3600000}},{id:'second-sos',source:'peer-alice',text:'Second synthetic emergency',createdAt:NOW,receivedAt:NOW,expiresAt:NOW+100000,outgoing:false,dismissed:false,responseId:null,responses:[]}];
+ const emergencySnapshot={status:'ready' as const,entries,urgent:entries[0]!,pendingResponseIds:[],issue:null,now:NOW};const emergency={getSnapshot:()=>emergencySnapshot,subscribe:()=>()=>{},refresh:async()=>{},respond:jest.fn(async()=>({status:'queued' as const,messageId:'response'})),dismiss:jest.fn(async()=>{})};
+ await render(<MapsProvider service={service}><MapsScreen emergency={emergency}/></MapsProvider>);
+ expect(screen.getByText('Location unavailable')).toBeOnTheScreen();expect(screen.getByText('Old location — the person may have moved.')).toBeOnTheScreen();expect(screen.queryByText('Latitude 31.50000, longitude 34.47000')).toBeNull();
+ await fireEvent.press(screen.getByRole('button',{name:'View on map'}));const props=jest.mocked(OfflineMapView).mock.calls.at(-1)![0];expect(props.focus).toMatchObject({id:'sos:first-sos',location:entries[0]!.location});expect(props.emergencies).toHaveLength(2);expect(service.refreshLocal).not.toHaveBeenCalled();
+});
+
+test('GPS cancellation stays explicit and never blocks the prominent SOS action',async()=>{
+ const service=new ReactiveMapsService();service.patch({locating:true});const cancel=jest.fn();await render(<PalMeshMapsApp service={{...service,getSnapshot:service.getSnapshot,subscribe:service.subscribe,start:service.start,stop:service.stop,setVisible:service.setVisible,refresh:service.refresh,refreshLocal:service.refreshLocal,shareOnce:service.shareOnce,setSharing:service.setSharing,setPowerMode:service.setPowerMode,sendSos:service.sendSos,dismissIssue:service.dismissIssue,dismissNotice:service.dismissNotice,cancelLocation:cancel}}/>);await fireEvent.press(screen.getByRole('button',{name:'Cancel GPS request'}));expect(cancel).toHaveBeenCalledTimes(1);expect(screen.getByRole('button',{name:'I Need Help · SOS'})).toBeEnabled();
+});
+
+for(const issue of ['gps-disabled','gps-timeout'] as const)test(`GPS ${issue} keeps the last fix, shows actionable guidance and leaves SOS enabled`,async()=>{const service=new ReactiveMapsService();service.patch({issue,localLocation:{latitude:31.5,longitude:34.47,timestamp:NOW-10000}});await render(<PalMeshMapsApp service={service}/>);expect(screen.getByText(issue==='gps-disabled'?/Turn on Location/:/Go outdoors/).props.accessibilityRole).toBe('alert');expect(screen.getByRole('button',{name:'I Need Help · SOS'})).toBeEnabled();expect(service.shareOnce).not.toHaveBeenCalled();});

@@ -46,3 +46,7 @@ test('urgent banner exposes navigation and Arabic inbox is available with RTL te
   expect(screen.queryByText('SOS inbox')).toBeNull();
   expect(screen.getByText('Please send water')).toHaveStyle({ writingDirection: 'rtl' });
 });
+
+test('View on map carries the original SOS ID and never appears for a coordinate-free report',async()=>{
+ const view=jest.fn();const located={...incoming,id:'located',location:{latitude:31.5,longitude:34.47,timestamp:1000}};await render(<EmergencyInbox service={service([located,{...incoming,id:'no-fix'}])} onViewMap={view}/>);expect(screen.getByText('Location unavailable')).toBeOnTheScreen();await fireEvent.press(screen.getByRole('button',{name:'View on map'}));expect(view).toHaveBeenCalledWith('located');expect(screen.getAllByRole('button',{name:'View on map'})).toHaveLength(1);
+});

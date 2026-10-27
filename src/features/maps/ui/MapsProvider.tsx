@@ -62,5 +62,5 @@ export function useMaps() {
     dismissIssue: () => service.dismissIssue(),
     dismissNotice: () => service.dismissNotice(),
   }), [service]);
-  return { snapshot, deviceId: service.deviceId, visible, ...actions };
+  return { snapshot, service, deviceId: service.deviceId, visible, ...actions };
 }

@@ -149,13 +149,13 @@ test('never reads GPS or broadcasts by default, and refreshing a fix remains loc
   assert.deepEqual(service.getSnapshot().peers, [], 'the local broadcast is not a peer marker');
 });
 
-for (const result of ['denied', 'unavailable'] as const) {
+for (const result of ['denied', 'disabled', 'timeout', 'unavailable'] as const) {
   test(`surfaces ${result} GPS without publishing an invented or stale fix`, async t => {
     const { service, source, engine } = fixture(t);
     await service.start(); await service.refreshLocal();
     source.result = { status: result };
     assert.deepEqual(await service.shareOnce(), { status: 'rejected', reason: 'no-location' });
-    assert.equal(service.getSnapshot().issue, result === 'denied' ? 'gps-denied' : 'gps-unavailable');
+    assert.equal(service.getSnapshot().issue, result === 'denied' ? 'gps-denied' : result === 'disabled' ? 'gps-disabled' : result === 'timeout' ? 'gps-timeout' : 'gps-unavailable');
     assert.equal(service.getSnapshot().locating, false);
     assert.equal(service.getSnapshot().notice, null);
     assert.equal(engine.publications.length, 0);
