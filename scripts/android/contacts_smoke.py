@@ -62,6 +62,7 @@ class ContactsSmoke(MapSmoke):
         for _ in range(12):
             indexed=self.command('shell','content','query','--uri','content://media/external/images/media','--projection','_id:_display_name',check=False)
             if 'PalMeshPublicContact.gif' in indexed:break
+            print('CONTACT_MEDIASTORE '+indexed[:800],flush=True)
             time.sleep(1)
         else:raise RuntimeError('Synthetic QR image was not indexed by Android MediaStore')
         print('CONTACT_CHECKPOINT local-image-indexed',flush=True)
