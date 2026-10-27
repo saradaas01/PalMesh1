@@ -44,3 +44,18 @@ clearing. CI debug signing keys are ephemeral, so this deliberately avoids
 requiring an in-place signature update. The Actions artifact is named
 `android-offline-map-performance-test-apk`; install its
 `palmesh-map-performance-test.apk`. Physical smoothness requires user retesting.
+
+Hosted evidence at `1c503b1`: run 40527807315, job 122272834700 passed
+two cold starts with external guest networking blocked, ordinary-build actual
+street pixels, zoom/pan pixel changes, zero diagnostic feature records, bounded
+readiness polling, public chat/SOS persistence and stable identity. OS CPU/thread
+and frame diagnostics are retained in the workflow artifact. This is emulator
+evidence, not a TECNO phone performance measurement. ARM64 APK verification and
+publication passed in job 122272833977.
+
+The separate instrumented acceptance jobs stalled their gesture checks while
+repeatedly querying 8,337 geometry and 7,781 road records; the ordinary performance
+job passed. Acceptance now captures one initial geometry/label sample and uses
+scalar zoom/center getters for subsequent camera evidence. Counts in that mode
+describe the initial sample; post-gesture screenshots separately prove rendering.
+Ordinary builds still make zero rendered-feature queries.

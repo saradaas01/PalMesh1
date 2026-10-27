@@ -100,6 +100,7 @@ test('nested-map gestures are explicit and pan evidence never exports center coo
   mockGetCenter.mockResolvedValue([35.01,32.01]);
   await act(async () => { jest.advanceTimersByTime(1_000); });
   expect(mockEvidence).toHaveBeenLastCalledWith(1, 1, 1, 1, 8, 1);
+  expect(mockQuery).toHaveBeenCalledTimes(3); // one geometry/road/label sample; camera updates stay scalar
 });
 
 test('a blank renderer cannot report ready and times out into the existing honest error path', async () => {
