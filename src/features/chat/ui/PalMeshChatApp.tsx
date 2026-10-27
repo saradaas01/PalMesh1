@@ -193,7 +193,7 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
             {snapshot.draft.length>3500&&<Text accessibilityLabel={t('chat.length')} style={styles.composerCount}>{snapshot.draft.length}/4096</Text>}
             <View style={[styles.row, styles.wrap]}>
               <TextInput accessibilityLabel={t('chat.message')} accessibilityHint={t(isBroadcast ? 'chat.broadcastPrivacy' : 'chat.composeHint')}
-                placeholder={t(isBroadcast ? 'chat.broadcastPlaceholder' : 'chat.directPlaceholder')} placeholderTextColor="#b9c5cf" multiline maxLength={4096}
+                placeholder={t(isBroadcast ? 'chat.broadcastPlaceholder' : 'chat.directPlaceholder')} placeholderTextColor={palette.muted} multiline maxLength={4096}
                 value={snapshot.draft} onChangeText={setDraft} editable={!snapshot.pendingSend}
                 style={[styles.input, textStyle, styles.messageInput]} />
               <Button label={t(snapshot.pendingSend ? 'chat.queueing' : 'chat.send')}
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   button: { minHeight: 48, minWidth: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: '#18343D', marginVertical: 3 },
-  primaryButton: { backgroundColor: '#087F82' },
+  primaryButton: { backgroundColor: palette.primary },
   buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center', writingDirection: 'auto' },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.75 },
@@ -259,14 +259,14 @@ const styles = StyleSheet.create({
   loading: { alignItems: 'center', paddingVertical: 12, gap: 8 },
   message: { maxWidth: '94%', padding: 12, borderRadius: 10, gap: 6 },
   outgoing: { alignSelf: 'flex-end', backgroundColor: '#DCF1EC' },
-  incoming: { alignSelf: 'flex-start', backgroundColor: '#18343D' },
+  incoming: { alignSelf: 'flex-start', backgroundColor: palette.surface },
   emergencyMessage: { borderWidth: 2, borderColor: '#ff6a6a' },
   messageSender: { color: '#536B75', fontSize: 13, fontWeight: '700', writingDirection: 'auto' },
   messageText: { color: '#18343D', fontSize: 18, lineHeight: 27, writingDirection: 'auto' },
   messageMeta: { color: '#536B75', fontSize: 12, writingDirection: 'auto' },
   composer: { borderTopWidth: 1, borderTopColor: '#DEE7E9', paddingVertical: 8 },
   composerCount: { color: '#536B75', fontSize: 12, textAlign: 'right', marginBottom: 4 },
-  input: { minHeight: 48, color: '#18343D', backgroundColor: '#18343D', borderWidth: 1, borderColor: '#DEE7E9', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 17, writingDirection: 'auto' },
+  input: { minHeight: 48, color: palette.ink, backgroundColor: palette.surface, borderWidth: 1, borderColor: '#DEE7E9', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 17, writingDirection: 'auto' },
   messageInput: { flexGrow: 1, flexShrink: 1, flexBasis: 180, minWidth: 100, maxHeight: 144 },
   peerInput: { writingDirection: 'ltr', textAlign: 'left' },
   feedback: { flexGrow: 0, flexShrink: 1, maxHeight: 160 },
@@ -280,5 +280,5 @@ const styles = StyleSheet.create({
   dialog: { padding: 20, gap: 14 },
   dialogClose: { paddingHorizontal: 20, paddingTop: 8, flexShrink: 0 },
   label: { color: '#18343D', fontSize: 17, fontWeight: '700', writingDirection: 'auto' },
-  errorText: { color: '#ffb5b5', fontSize: 16, lineHeight: 24, writingDirection: 'auto' },
+  errorText: { color: palette.danger, fontSize: 16, lineHeight: 24, writingDirection: 'auto' },
 });

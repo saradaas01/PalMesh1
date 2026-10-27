@@ -1,4 +1,5 @@
 import React from 'react';
+import {renderedContrast} from './contrast';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import { AppState, BackHandler } from 'react-native';
@@ -317,3 +318,5 @@ describe('PalMesh chat UI', () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 });
+
+test('typed drafts and incoming messages stay readable on their rendered surfaces',async()=>{const service=new ReactiveChatService();await render(<PalMeshChatApp service={service}/>);await openAlice();await fireEvent.changeText(screen.getByLabelText('Message'),'Readable offline draft');expect(renderedContrast(screen.getByLabelText('Message'))).toBeGreaterThanOrEqual(4.5);expect(renderedContrast(screen.getByText('Can you hear me?'))).toBeGreaterThanOrEqual(4.5);});

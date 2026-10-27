@@ -1,4 +1,5 @@
 import React from 'react';
+import {renderedContrast} from './contrast';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AppState } from 'react-native';
@@ -100,6 +101,7 @@ describe('PalMesh offline maps UI', () => {
     expect(props.powerMode).toBe('normal');
     expect(screen.getByText('Bundled map attribution')).toBeOnTheScreen();
     expect(screen.getByText('Last report received 3 minutes ago')).toBeOnTheScreen();
+    expect(renderedContrast(screen.getByText('Last report received 3 minutes ago'))).toBeGreaterThanOrEqual(4.5);
     expect(screen.getByText('GPS fix obtained 10 minutes ago')).toBeOnTheScreen();
     expect(screen.getByText('GPS fix obtained 1 minute ago')).toBeOnTheScreen();
     expect(screen.getByText('Latitude 31.50000, longitude 34.47000')).toBeOnTheScreen();

@@ -1,4 +1,4 @@
-import { Disclosure, ui } from '../../../shared/ui/design';
+import { Disclosure, ui, palette } from '../../../shared/ui/design';
 import { useContactNames } from '../../contacts/ContactNames';
 import React, { useSyncExternalStore } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   explanation: { color: '#725318', fontSize: 16, marginBottom: 16 },
   text: { color: '#18343D', fontSize: 16 }, dim: { color: '#536B75', fontSize: 14, marginTop: 6 },
   body: { color: '#18343D', fontSize: 19, marginVertical: 12 },
-  card: { backgroundColor: '#18343D', padding: 16, borderWidth: 2, borderColor: '#D84747', borderRadius: 8, marginBottom: 16 },
+  card: { backgroundColor: palette.surface, padding: 16, borderWidth: 2, borderColor: '#D84747', borderRadius: 8, marginBottom: 16 },
   cardTitle: { color: '#18343D', fontSize: 21, fontWeight: '700' },
   button: { backgroundColor: '#087F82', minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center', borderRadius: 6, marginTop: 10 },
   buttonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 17, textAlign: 'center' },
@@ -87,5 +87,5 @@ const styles = StyleSheet.create({
   response: { color: '#087F82', fontSize: 16, marginTop: 8 },
   banner: { backgroundColor: '#FCECEE', padding: 12, borderBottomColor: '#FF7373', borderBottomWidth: 2 },
   bannerTitle: { color: '#18343D', fontSize: 20, fontWeight: '800' },
-  issue: { padding: 12, backgroundColor: '#55371A', marginBottom: 12 }, disabled: { opacity: 0.65 },
+  issue: { padding: 12, backgroundColor: palette.warningSoft, marginBottom: 12 }, disabled: { opacity: 0.65 },
 });

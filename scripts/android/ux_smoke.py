@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Actual camera frames, explicit contact preview, RTL/small-screen UX and persistence."""
-import json,os,time,subprocess,base64,io
+import json,os,time,subprocess,base64,io,re
 from pathlib import Path
 import smoke
 from map_smoke import MapSmoke
@@ -37,7 +37,15 @@ class UxSmoke(MapSmoke):
   xml=self.last_xml
   ime=[n for n in smoke.nodes(xml) if 'inputmethod' in n.get('package','') and smoke.BOUNDS.fullmatch(n.get('bounds',''))]
   tops=[int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(2)) for n in ime if int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(4))>int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(2))]
-  if not tops:raise RuntimeError('Soft keyboard was not exercised')
+  # uiautomator dumps only the active application window on this AOSP image.
+  # Confirm visibility and frame using Android's own inset/window state instead.
+  if not tops:
+   windows=self.command('shell','dumpsys','window');self.output.joinpath('keyboard-windows.txt').write_text(windows)
+   for line in windows.splitlines():
+    if re.search(r'\b(?:mType|type)=ime\b',line) and re.search(r'\b(?:mVisible|visible)=true\b',line):
+     frame=re.search(r'\b(?:mFrame|frame)=\[(\d+),(\d+)\]\[(\d+),(\d+)\]',line)
+     if frame and int(frame.group(4))>int(frame.group(2)):tops.append(int(frame.group(2)))
+  if not tops:raise RuntimeError('Visible soft-keyboard frame was not confirmed')
   for label in ('Message','Send message'):
    control=smoke.find_control(xml,label)
    if control is None:raise RuntimeError('Composer control unavailable with keyboard: '+label)

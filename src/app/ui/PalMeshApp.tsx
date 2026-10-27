@@ -121,7 +121,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
             <SecurityScreen runtime={runtime} snapshot={snapshot} /> :
           <ScrollView contentContainerStyle={styles.startup}>
             {snapshot.status === 'starting' || snapshot.status === 'idle' ? <>
-              <ActivityIndicator accessibilityLabel={t('app.starting')} color="#ffffff" />
+              <ActivityIndicator accessibilityLabel={t('app.starting')} color={palette.primary} />
               <Text style={styles.body}>{t('app.startingProgress')}</Text>
               <Text style={styles.secondary}>{t('app.queuesNotReady')}</Text>
             </> : <>
