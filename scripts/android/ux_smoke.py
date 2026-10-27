@@ -33,6 +33,16 @@ class UxSmoke(MapSmoke):
   from PIL import Image
   image=Image.open(io.BytesIO(data)).convert('RGB');image.thumbnail((540,960));stream=io.BytesIO();image.save(stream,format='JPEG',quality=60);encoded=base64.b64encode(stream.getvalue()).decode()
   for i in range(0,min(len(encoded),120000),4000):print('UX_IMAGE_CHUNK '+name+' '+encoded[i:i+4000],flush=True)
+ def check_keyboard(self):
+  xml=self.last_xml
+  ime=[n for n in smoke.nodes(xml) if 'inputmethod' in n.get('package','') and smoke.BOUNDS.fullmatch(n.get('bounds',''))]
+  tops=[int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(2)) for n in ime if int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(4))>int(smoke.BOUNDS.fullmatch(n.get('bounds','')).group(2))]
+  if not tops:raise RuntimeError('Soft keyboard was not exercised')
+  for label in ('Message','Send message'):
+   control=smoke.find_control(xml,label)
+   if control is None:raise RuntimeError('Composer control unavailable with keyboard: '+label)
+   box=smoke.BOUNDS.fullmatch(control.get('bounds',''));bottom=int(box.group(4))
+   if bottom<=int(box.group(2)) or bottom>min(tops):raise RuntimeError('Composer is covered by the soft keyboard: '+label)
  def permission(self,allow):
   suffix='permission_allow_foreground_only_button' if allow else 'permission_deny_button'
   xml=self.wait_ui(lambda x:any(n.get('resource-id','').endswith(suffix) for n in smoke.nodes(x)),'on-demand camera permission','camera-permission.xml')
@@ -54,7 +64,7 @@ class UxSmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'Camera Friend'),'explicitly saved camera contact','contact-saved.xml')
    self.capture('contacts');self.tap('Message Camera Friend')
    self.wait_ui(lambda x:smoke.has_text(x,'Camera Friend'),'private header using saved name','named-thread.xml')
-   self.tap('Message');self.capture('keyboard-composer');self.command('shell','input','text','PalMesh-UX-private-Hello');self.command('shell','input','keyevent','KEYCODE_BACK');self.tap('Send message')
+   self.tap('Message');self.command('shell','input','text','PalMesh-UX-private-Hello');self.capture('keyboard-composer');self.check_keyboard();self.command('shell','input','keyevent','KEYCODE_BACK');self.tap('Send message')
    self.wait_ui(lambda x:smoke.has_text(x,smoke.CHAT_QUEUED),'private offline queue','private-queued.xml');self.tap('Dismiss notice');self.capture('private-thread');self.command('shell','input','keyevent','KEYCODE_BACK')
    logs=self.command('logcat','-d','-v','brief','PalMeshQrCamera:I','*:S');self.output.joinpath('native-camera.txt').write_text(logs)
    if 'preview_started' not in logs or 'decoded_qr' not in logs:raise RuntimeError('Camera preview/decode pipeline not confirmed')

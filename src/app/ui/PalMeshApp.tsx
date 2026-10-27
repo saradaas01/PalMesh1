@@ -1,7 +1,7 @@
 import { ContactNamesProvider } from '../../features/contacts/ContactNames';
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatProvider, ChatScreen } from '../../features/chat/ui';
 import { MapsProvider, MapsScreen, type MapsUiService } from '../../features/maps/ui';
 import type { RadioStatus } from '../../features/mesh';
@@ -89,7 +89,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
     <ContactNamesProvider service={snapshot.resources?.contacts}>
     <SafeAreaView style={[styles.safeArea, rowStyle]}>
       <StatusBar barStyle="dark-content"/>
-      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardFrame>
       <View style={styles.header}>
         <View style={ui.grow}><Text accessibilityRole="header" style={styles.brand}>PalMesh</Text><Text style={styles.caption}>{t('ui.offline')}</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.sos')} accessibilityHint={t('ui.sosHint')}
@@ -148,12 +148,16 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
       {!keyboardVisible && <View accessibilityRole="tablist" style={styles.tabs}>
         {(['chat','contacts','maps','more'] as const).map((route,index)=><Pressable key={route} accessibilityRole="tab" accessibilityLabel={t((['ui.messages','ui.contacts','ui.map','ui.more'] as const)[index]!)} disabled={!ready} accessibilityState={{disabled:!ready,selected:snapshot.route===route||route==='more'&&['profile','settings','emergencies'].includes(snapshot.route)}} onPress={()=>selectRoute(route)} style={[styles.tab,compactTabs&&styles.tabCompact,(snapshot.route===route||route==='more'&&['profile','settings','emergencies'].includes(snapshot.route))&&styles.selectedTab]}><Icon name={(['message','people','map','more'] as const)[index]!} color={snapshot.route===route?palette.primary:palette.muted}/><Text style={styles.tabText}>{t((['ui.messages','ui.contacts','ui.map','ui.more'] as const)[index]!)}</Text></Pressable>)}
       </View>}
-      </KeyboardAvoidingView>
+      </KeyboardFrame>
     </SafeAreaView>
     </ContactNamesProvider>
   </SafeAreaProvider>;
 }
 
+function KeyboardFrame({children}:{readonly children:React.ReactNode}) {
+ const insets=useSafeAreaInsets();
+ return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={insets.top}>{children}</KeyboardAvoidingView>;
+}
 function MoreScreen({snapshot,navigate}:{readonly snapshot:ReturnType<AppUiRuntime['getSnapshot']>;readonly navigate:(route:AppRoute)=>void}) {
  const {t}=useI18n();const {state}=useContactNames();return <Screen title={t('ui.more')}><Card><View style={ui.row}><Avatar name={state.profileName}/><View style={ui.grow}><Text style={ui.heading}>{state.profileName||t('ui.profile')}</Text><Text style={ui.muted}>{t('ui.offline')}</Text></View></View><Action label={t('ui.profile')} icon="profile" onPress={()=>navigate('profile')}/></Card><Action label={t('ui.settings')} icon="settings" onPress={()=>navigate('settings')}/><Action label={t('ui.helpInbox')} icon="help" onPress={()=>navigate('emergencies')}/><Card><Text style={ui.heading}>{t('ui.sosInfo')}</Text><Text style={ui.muted}>{t('ui.sosHint')}</Text></Card></Screen>;
 }
