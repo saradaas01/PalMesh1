@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LocalizedText as Text, useI18n } from '../i18n';
-export const palette = { background:'#F4F7F8',surface:'#FFFFFF',ink:'#18343D',muted:'#536B75',line:'#DEE7E9',primary:'#087F82',soft:'#E3F3F1',danger:'#B83242',dangerSoft:'#FCECEE',warning:'#725318',warningSoft:'#FFF5DA' } as const;
+export const palette = { background:'#F4F7F8',surface:'#FFFFFF',ink:'#18343D',muted:'#536B75',line:'#DEE7E9',primary:'#087477',soft:'#E3F3F1',danger:'#B83242',dangerSoft:'#FCECEE',warning:'#725318',warningSoft:'#FFF5DA' } as const;
 export const space={xs:4,sm:8,md:12,lg:16,xl:24,xxl:32} as const;
 export type IconName='message'|'people'|'map'|'more'|'profile'|'settings'|'qr'|'camera'|'arrow'|'help'|'plus';
 export function Icon({name,color=palette.primary,size=24}:{readonly name:IconName;readonly color?:string;readonly size?:number}) {

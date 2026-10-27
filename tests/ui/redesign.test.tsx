@@ -8,6 +8,7 @@ import {ContactDirectory,publicIdentityShare} from '../../src/features/contacts/
 import {ContactNamesProvider} from '../../src/features/contacts/ContactNames';
 import {ContactsExperienceV2,ProfileExperience} from '../../src/features/contacts/IdentityExperience';
 import {SecurityService} from '../../src/features/security/application/SecurityService';
+import {palette} from '../../src/shared/ui/design';
 import {OnboardingPreferences} from '../../src/features/onboarding/OnboardingPreferences';
 import {FirstRun} from '../../src/features/onboarding/OnboardingScreen';
 class Vault {records=new Map<string,string>();async read(k:string){return this.records.get(k)??null;}async write(k:string,v:string){this.records.set(k,v);}async randomBytes(n:number){return randomBytes(n);}}
@@ -36,4 +37,9 @@ test('Arabic camera invocation passes locale and optional profile never becomes 
 });
 test('first-run onboarding is skippable, persists offline and never opens the camera',async()=>{
  const {vault,contacts,security}=await setup();const preferences=new OnboardingPreferences(security.deviceId,vault);await preferences.initialize();await render(<ContactNamesProvider service={contacts}><FirstRun preferences={preferences}><Text>Inbox</Text></FirstRun></ContactNamesProvider>);await fireEvent.press(screen.getByRole('button',{name:'Skip for now'}));expect(preferences.getSnapshot().complete).toBe(true);expect(NativeModules.PalMeshPublicQr.scanCamera).not.toHaveBeenCalled();const restart=new OnboardingPreferences(security.deviceId,vault);await restart.initialize();expect(restart.getSnapshot().complete).toBe(true);
+});
+
+test('shared action and notice colors keep normal-size text contrast on their actual surfaces',()=>{
+ const luminance=(hex:string)=>{const c=hex.slice(1).match(/../g)!.map(x=>parseInt(x,16)/255).map(x=>x<=0.04045?x/12.92:((x+0.055)/1.055)**2.4);return c[0]!*0.2126+c[1]!*0.7152+c[2]!*0.0722;};
+ for(const [text,background] of [[palette.primary,palette.soft],['#FFFFFF',palette.primary],['#FFFFFF',palette.danger],[palette.muted,palette.surface],[palette.ink,palette.background],[palette.danger,palette.dangerSoft]]){const a=luminance(text!),b=luminance(background!);expect((Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)).toBeGreaterThanOrEqual(4.5);}
 });
