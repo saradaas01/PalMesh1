@@ -250,6 +250,13 @@ describe('PalMesh chat UI', () => {
     const service = new ReactiveChatService();
     const view = await render(<PalMeshChatApp service={service} />);
     expect(dispatchBack()).toBe(false);
+    await fireEvent.press(screen.getByRole('button', {name: 'New message'}));
+    let chooserHandled = false;
+    await act(async () => { chooserHandled = dispatchBack(); });
+    expect(chooserHandled).toBe(true);
+    expect(screen.getByRole('header', {name: 'Messages'})).toBeOnTheScreen();
+    expect(service.closeConversation).not.toHaveBeenCalled();
+    expect(dispatchBack()).toBe(false);
     await openAlice();
     let handled = false;
     await act(async () => { handled = dispatchBack(); });

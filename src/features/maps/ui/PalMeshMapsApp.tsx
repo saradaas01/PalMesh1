@@ -72,7 +72,7 @@ export function MapsScreen({ embedded = false, showSos = true }: MapsScreenProps
       contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
         {snapshot.mapStatus === 'loading' ? <View style={styles.loading}>
-          <ActivityIndicator accessibilityLabel={t('maps.opening')} color="#ffffff" />
+          <ActivityIndicator accessibilityLabel={t('maps.opening')} color={palette.primary} />
           <Text style={styles.body}>{t('maps.openingProgress')}</Text>
         </View> : snapshot.mapStatus !== 'ready' || snapshot.map === null || renderFailed ? <View style={styles.unavailable}>
           <Text accessibilityRole="alert" style={styles.body}>{renderFailed

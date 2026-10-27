@@ -100,15 +100,15 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
   const broadcastUnread = broadcast?.unreadCount ?? 0;
   useEffect(() => { followLatest.current = true; }, [selectedId]);
   useEffect(() => {
-    // BackHandler is a no-op on iOS. Android Modals route back to onRequestClose
-    // directly, so this listener only handles the underlying inbox/thread.
+    // Inline recipient selection consumes Back before the underlying inbox.
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (newConversation) { setNewConversation(false); return true; }
       if (selectedId === null) return false;
       closeConversation();
       return true;
     });
     return () => subscription.remove();
-  }, [selectedId, closeConversation]);
+  }, [selectedId, closeConversation, newConversation]);
   const requestSos = (): void => {
     if (sosInFlight.current || snapshot.pendingSos) return;
     sosInFlight.current = true;
@@ -160,7 +160,7 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
               <Button label={`${t('chat.broadcasts')}${broadcastUnread > 0 ? `, ${t('chat.unread', { count: broadcastUnread })}` : ''}`}
                 onPress={() => { void openConversation('*'); }} />
               {snapshot.status === 'loading' && <View style={styles.loading}>
-                <ActivityIndicator color="#ffffff" accessibilityLabel={t('chat.loading')} />
+                <ActivityIndicator color={palette.primary} accessibilityLabel={t('chat.loading')} />
                 <Text style={styles.secondary}>{t('chat.loadingProgress')}</Text>
               </View>}
               {snapshot.status === 'error' && snapshot.issue === null &&
