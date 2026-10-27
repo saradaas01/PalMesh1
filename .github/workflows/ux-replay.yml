@@ -106,8 +106,8 @@ jobs:
           from pathlib import Path
           from PIL import Image
           root=Path(os.environ['RUNNER_TEMP'])/'contact-fixture'
-          qr=Image.open(root/'PalMeshPublicContact.gif').convert('RGB').resize((320,320),Image.Resampling.NEAREST)
-          image=Image.new('RGB',(640,480),'white');image.paste(qr,(160,80));image.save(root/'camera.png')
+          qr=Image.open(root/'PalMeshPublicContact.gif').convert('RGB').resize((224,224),Image.Resampling.NEAREST)
+          image=Image.new('RGB',(640,480),'white');image.paste(qr,(16,128));image.save(root/'camera.png')
       - name: Exercise the corrected picker and full restart flow
         env:
           PYTHONPATH: ${{ runner.temp }}/map-test-python

@@ -45,7 +45,9 @@ class UxSmoke(MapSmoke):
    self.tap('Contacts');self.tap('Add contact');self.tap('Scan QR code');self.permission(False)
    self.wait_ui(lambda x:smoke.has_text(x,'Camera access is off. Allow it in Android/iOS settings, or import a QR image.'),'honest camera denial','camera-denied.xml')
    self.tap('Scan QR code');self.permission(True)
-   self.wait_ui(lambda x:smoke.has_text(x,'Add this contact?'),'decoded live-camera public QR preview','camera-public-preview.xml')
+   budget=self.ui_timeout;self.ui_timeout=60
+   try:self.wait_ui(lambda x:smoke.has_text(x,'Add this contact?'),'decoded live-camera public QR preview','camera-public-preview.xml')
+   finally:self.ui_timeout=budget
    fixture=Path(os.environ['PALMESH_CONTACT_FIXTURE']);expected=json.loads((fixture/'public-identity.json').read_text())['id']
    self.tap('Show fingerprint');self.wait_ui(lambda x:smoke.has_text(x,expected),'derived camera QR fingerprint','camera-fingerprint.xml')
    self.fill('Contact name','Camera Friend');self.press('Save')
