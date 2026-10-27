@@ -246,3 +246,11 @@ protected metadata design, public-only QR image exchange, existing import
 compatibility, explicit fingerprint comparison and separate Contacts Test app.
 Contact labels never change routing IDs or public-key pins. Hosted and physical
 acceptance results must be distinguished; no multi-device success is claimed.
+
+## UI/UX priority milestone
+
+The dedicated `feat/simple-offline-experience` branch is stacked on PR #10. See
+[milestone details](milestones/simple-offline-experience.md) for the shared design,
+focused profile/contact/settings screens, optional identity details, persistent
+onboarding, real offline camera scanning and separate UX Test application. Exact
+completed CI/emulator evidence and download links are recorded in its Pull Request.

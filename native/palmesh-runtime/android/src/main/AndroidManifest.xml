@@ -7,7 +7,10 @@
     <!-- A connected-device foreground service also requires an authorized radio
          prerequisite. CHANGE_WIFI_STATE is an Android documented prerequisite. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <application>
+        <activity android:name=".PublicQrCameraActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@android:style/Theme.Material.NoActionBar" />
         <service android:name=".MeshForegroundService"
             android:exported="false"
             android:stopWithTask="false"

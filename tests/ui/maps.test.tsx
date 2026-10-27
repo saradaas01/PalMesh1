@@ -1,4 +1,5 @@
 import React from 'react';
+import {renderedContrast} from './contrast';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AppState } from 'react-native';
@@ -72,6 +73,7 @@ describe('PalMesh offline maps UI', () => {
   test('clearly reports missing bundled tiles without requesting GPS or enabling sharing', async () => {
     const service = new ReactiveMapsService();
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByRole('alert')).toHaveTextContent(/bundled Palestine MBTiles asset is missing or could not be opened/);
     expect(screen.getByText('No GPS fix stored. Update GPS to obtain one.')).toBeOnTheScreen();
     expect(screen.getByRole('switch', { name: 'Share location periodically' })).not.toBeChecked();
@@ -90,6 +92,7 @@ describe('PalMesh offline maps UI', () => {
     const localLocation = { latitude: 31.6, longitude: 35.1, timestamp: NOW - 60_000 };
     service.patch({ mapStatus: 'ready', map: descriptor, peers: [report], localLocation });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByLabelText('Offline map of bundled coverage')).toBeOnTheScreen();
     const props = jest.mocked(OfflineMapView).mock.calls.at(-1)![0];
     expect(props.descriptor).toBe(descriptor);
@@ -98,6 +101,7 @@ describe('PalMesh offline maps UI', () => {
     expect(props.powerMode).toBe('normal');
     expect(screen.getByText('Bundled map attribution')).toBeOnTheScreen();
     expect(screen.getByText('Last report received 3 minutes ago')).toBeOnTheScreen();
+    expect(renderedContrast(screen.getByText('Last report received 3 minutes ago'))).toBeGreaterThanOrEqual(4.5);
     expect(screen.getByText('GPS fix obtained 10 minutes ago')).toBeOnTheScreen();
     expect(screen.getByText('GPS fix obtained 1 minute ago')).toBeOnTheScreen();
     expect(screen.getByText('Latitude 31.50000, longitude 34.47000')).toBeOnTheScreen();
@@ -108,6 +112,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     service.patch({ peers: [peer({ origin: 'sos' })] });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByText('SOS · peer-alice')).toBeOnTheScreen();
     expect(screen.getByText('Last report received 3 minutes ago')).toBeOnTheScreen();
     await act(async () => { service.patch({ now: NOW + 60_000 }); });
@@ -120,6 +125,7 @@ describe('PalMesh offline maps UI', () => {
     service.patch({ peers: [peer({ receivedAt: NOW,
       location: { latitude: 31.5, longitude: 34.47, timestamp: NOW - 2 * 86_400_000 } })] });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByText('Last report received just now')).toBeOnTheScreen();
     expect(screen.getByText('GPS fix obtained 2 days ago')).toBeOnTheScreen();
   });
@@ -127,6 +133,7 @@ describe('PalMesh offline maps UI', () => {
   test('updates GPS only on explicit request and allows one-off sharing before a stored fix exists', async () => {
     const service = new ReactiveMapsService();
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByRole('button', { name: 'Share location once' })).toBeEnabled();
     await fireEvent.press(screen.getByRole('button', { name: 'Update GPS' }));
     expect(service.refreshLocal).toHaveBeenCalledTimes(1);
@@ -140,6 +147,7 @@ describe('PalMesh offline maps UI', () => {
   test('opts into periodic sharing, reports low-battery pause, and leaves SOS usable', async () => {
     const service = new ReactiveMapsService();
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByText('Periodic sharing is off.')).toBeOnTheScreen();
     await fireEvent(screen.getByRole('switch', { name: 'Share location periodically' }), 'change', { nativeEvent: { value: true } });
     expect(service.setSharing).toHaveBeenLastCalledWith(true);
@@ -156,6 +164,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     service.patch({ issue: 'gps-denied', status: 'error' });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByText(/Location access was denied/)).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(service.sendSos).toHaveBeenCalledTimes(1);
@@ -171,6 +180,7 @@ describe('PalMesh offline maps UI', () => {
     let finish!: () => void;
     service.sosGate = new Promise<void>(resolve => { finish = resolve; });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByRole('button', { name: 'Updating GPS' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Share location once' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
@@ -186,6 +196,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     service.patch({ mapStatus: 'ready', map: descriptor, peers: [peer()] });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     const props = jest.mocked(OfflineMapView).mock.calls.at(-1)![0];
     await act(async () => { props.onUnavailable(); });
     expect(screen.getByText(/Offline map could not render/)).toBeOnTheScreen();
@@ -201,6 +212,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     service.start.mockImplementation(async () => { service.patch({ status: 'loading', mapStatus: 'loading' }); });
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByLabelText('Opening offline map')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
   });
@@ -211,6 +223,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     service.patch({ sharing: true });
     const view = await render(<PalMeshMapsApp service={service} visible={false} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(service.setVisible).toHaveBeenLastCalledWith(false);
     expect(screen.getByText(/Periodic sharing paused while this screen is hidden/)).toBeOnTheScreen();
     const listener = nativeSubscription.mock.calls.find(([event]) => event === 'change')?.[1];
@@ -236,6 +249,7 @@ describe('PalMesh offline maps UI', () => {
     AppState.currentState = null;
     const service = new ReactiveMapsService();
     await render(<PalMeshMapsApp service={service} />);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(service.setVisible).toHaveBeenLastCalledWith(false);
     expect(service.start).toHaveBeenCalledTimes(1);
   });

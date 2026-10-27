@@ -1,3 +1,5 @@
+import { Action, Disclosure, ui, palette } from '../../../shared/ui/design';
+import { useContactNames } from '../../contacts/ContactNames';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -18,16 +20,14 @@ const issueLabels: Readonly<Record<LocationIssue, TranslationKey>> = {
 function Button({ label, onPress, disabled = false }: {
   readonly label: string; readonly onPress: () => void; readonly disabled?: boolean;
 }): React.JSX.Element {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }}
-    disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.button, disabled && styles.disabled, pressed && styles.pressed]}>
-    <Text style={styles.buttonText}>{label}</Text>
-  </Pressable>;
+  return <Action label={label} onPress={onPress} disabled={disabled}/>;
 }
 
 function PeerReport({ peer, now }: { readonly peer: PeerLocation; readonly now: number }): React.JSX.Element {
   const { t } = useI18n();
+  const names=useContactNames();
   return <View style={[styles.peer, peer.origin === 'sos' && styles.sosPeer]}>
-    <Text selectable style={styles.peerName}>{peer.origin === 'sos' ? 'SOS · ' : ''}{peer.deviceId}</Text>
+    <Text selectable style={styles.peerName}>{peer.origin === 'sos' ? 'SOS · ' : ''}{names.label(peer.deviceId)}</Text>
     <Text selectable style={styles.body}>{t('maps.coordinates', { latitude: peer.location.latitude.toFixed(5), longitude: peer.location.longitude.toFixed(5) })}</Text>
     <Text style={styles.secondary}>{t('maps.fixAge', { age: reportAge(peer.location.timestamp, now, t) })}</Text>
     <Text style={styles.secondary}>{t('maps.reportAge', { age: reportAge(peer.receivedAt, now, t) })}</Text>
@@ -71,10 +71,8 @@ export function MapsScreen({ embedded = false, showSos = true }: MapsScreenProps
       renderItem={({ item }) => <PeerReport peer={item} now={snapshot.now} />}
       contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
-        <Text selectable style={styles.secondary}>{t('common.peerId', { id: deviceId })}</Text>
-        <Text style={styles.explanation}>{t('maps.stale')}</Text>
         {snapshot.mapStatus === 'loading' ? <View style={styles.loading}>
-          <ActivityIndicator accessibilityLabel={t('maps.opening')} color="#ffffff" />
+          <ActivityIndicator accessibilityLabel={t('maps.opening')} color={palette.primary} />
           <Text style={styles.body}>{t('maps.openingProgress')}</Text>
         </View> : snapshot.mapStatus !== 'ready' || snapshot.map === null || renderFailed ? <View style={styles.unavailable}>
           <Text accessibilityRole="alert" style={styles.body}>{renderFailed
@@ -87,8 +85,10 @@ export function MapsScreen({ embedded = false, showSos = true }: MapsScreenProps
               peers={snapshot.peers} powerMode={snapshot.powerMode} onUnavailable={reportUnavailable} />
           </View>
           <Text selectable style={styles.attribution}>{snapshot.map.attribution}</Text>
-          <Text style={styles.explanation}>{t('maps.legend')}</Text>
+          <Disclosure title={t('ui.details')}><Text style={ui.muted}>{t('maps.legend')}</Text><Text style={ui.muted}>{t('maps.stale')}</Text></Disclosure>
         </>}
+        <Disclosure title={t('ui.mapOptions')}>
+        <Text style={ui.muted}>{t('maps.stale')}</Text>
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.heading}>{t('maps.lastFix')}</Text>
           {snapshot.localLocation === null ? <Text style={styles.body}>{t('maps.noFix')}</Text> : <>
@@ -117,6 +117,7 @@ export function MapsScreen({ embedded = false, showSos = true }: MapsScreenProps
               onValueChange={value => setPowerMode(value ? 'conserve' : 'normal')} style={styles.switch} />
           </View>
         </View>
+        </Disclosure>
         {snapshot.status === 'loading' && <Text style={styles.secondary}>{t('maps.loadingReports')}</Text>}
         <View style={styles.sectionHeading}>
           <Text accessibilityRole="header" style={styles.heading}>{t('maps.peerReports')}</Text>
@@ -160,35 +161,35 @@ export function PalMeshMapsApp({ service, visible = true }: PalMeshMapsAppProps)
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0a1118' },
-  header: { padding: 16, borderBottomColor: '#405264', borderBottomWidth: 1, flexShrink: 0 },
-  title: { color: '#ffffff', fontSize: 25, fontWeight: '800', writingDirection: 'auto' },
-  heading: { color: '#ffffff', fontSize: 21, fontWeight: '700', writingDirection: 'auto' },
-  body: { color: '#ffffff', fontSize: 17, lineHeight: 25, writingDirection: 'auto' },
-  secondary: { color: '#d2dde8', fontSize: 15, lineHeight: 23, writingDirection: 'auto' },
-  explanation: { color: '#bdcbd8', fontSize: 14, lineHeight: 21, marginVertical: 8, writingDirection: 'auto' },
+  safeArea: { flex: 1, backgroundColor: '#F4F7F8' },
+  header: { padding: 16, borderBottomColor: '#DEE7E9', borderBottomWidth: 1, flexShrink: 0 },
+  title: { color: '#18343D', fontSize: 25, fontWeight: '800', writingDirection: 'auto' },
+  heading: { color: '#18343D', fontSize: 21, fontWeight: '700', writingDirection: 'auto' },
+  body: { color: '#18343D', fontSize: 17, lineHeight: 25, writingDirection: 'auto' },
+  secondary: { color: '#536B75', fontSize: 15, lineHeight: 23, writingDirection: 'auto' },
+  explanation: { color: '#536B75', fontSize: 14, lineHeight: 21, marginVertical: 8, writingDirection: 'auto' },
   list: { flex: 1, minHeight: 0 },
   listContent: { padding: 16, paddingBottom: 24 },
-  section: { marginTop: 18, gap: 8, paddingTop: 14, borderTopColor: '#405264', borderTopWidth: 1 },
+  section: { marginTop: 18, gap: 8, paddingTop: 14, borderTopColor: '#DEE7E9', borderTopWidth: 1 },
   sectionHeading: { marginTop: 24, gap: 10, marginBottom: 12 },
   loading: { minHeight: 160, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  unavailable: { padding: 14, backgroundColor: '#48231b', borderRadius: 8, marginVertical: 12, gap: 10 },
-  mapFrame: { height: 280, marginTop: 12, backgroundColor: '#172430', borderWidth: 1, borderColor: '#8b9eaf', borderRadius: 8, overflow: 'hidden' },
-  attribution: { color: '#d2dde8', fontSize: 12, marginTop: 6, writingDirection: 'auto' },
-  button: { minHeight: 48, minWidth: 48, padding: 12, borderRadius: 8, justifyContent: 'center', alignItems: 'center', backgroundColor: '#164c74' },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '700', textAlign: 'center', writingDirection: 'auto' },
+  unavailable: { padding: 14, backgroundColor: '#FFF5DA', borderRadius: 8, marginVertical: 12, gap: 10 },
+  mapFrame: { height: 340, marginTop: 12, backgroundColor: palette.soft, borderWidth: 1, borderColor: '#DEE7E9', borderRadius: 8, overflow: 'hidden' },
+  attribution: { color: '#536B75', fontSize: 12, marginTop: 6, writingDirection: 'auto' },
+  button: { minHeight: 48, minWidth: 48, padding: 12, borderRadius: 8, justifyContent: 'center', alignItems: 'center', backgroundColor: '#087F82' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center', writingDirection: 'auto' },
   setting: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
   grow: { flex: 1 },
   switch: { minWidth: 48, minHeight: 48 },
-  peer: { marginVertical: 7, padding: 14, backgroundColor: '#253545', borderRadius: 8, gap: 7 },
+  peer: { marginVertical: 7, padding: 14, backgroundColor: palette.surface, borderRadius: 8, gap: 7 },
   sosPeer: { borderColor: '#ff6675', borderWidth: 2 },
-  peerName: { color: '#ffffff', fontSize: 18, fontWeight: '700', writingDirection: 'auto' },
-  empty: { color: '#d2dde8', fontSize: 17, lineHeight: 25, paddingVertical: 16, writingDirection: 'auto' },
-  feedback: { padding: 12, backgroundColor: '#263a37', flexGrow: 0, flexShrink: 1, maxHeight: 160 },
-  sosContainer: { padding: 12, borderTopColor: '#405264', borderTopWidth: 1, backgroundColor: '#0a1118', flexShrink: 0, zIndex: 1 },
+  peerName: { color: '#18343D', fontSize: 18, fontWeight: '700', writingDirection: 'auto' },
+  empty: { color: '#536B75', fontSize: 17, lineHeight: 25, paddingVertical: 16, writingDirection: 'auto' },
+  feedback: { padding: 12, backgroundColor: '#E3F3F1', flexGrow: 0, flexShrink: 1, maxHeight: 160 },
+  sosContainer: { padding: 12, borderTopColor: '#DEE7E9', borderTopWidth: 1, backgroundColor: '#F4F7F8', flexShrink: 0, zIndex: 1 },
   sos: { minHeight: 68, padding: 14, backgroundColor: '#b91525', borderColor: '#ff919c', borderWidth: 2, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  sosText: { color: '#ffffff', fontSize: 23, fontWeight: '800', textAlign: 'center', writingDirection: 'auto' },
-  sosHint: { color: '#d2dde8', fontSize: 12, textAlign: 'center', marginTop: 6, writingDirection: 'auto' },
+  sosText: { color: '#FFFFFF', fontSize: 23, fontWeight: '800', textAlign: 'center', writingDirection: 'auto' },
+  sosHint: { color: '#536B75', fontSize: 12, textAlign: 'center', marginTop: 6, writingDirection: 'auto' },
   disabled: { opacity: 0.55 },
   pressed: { opacity: 0.75 },
 });

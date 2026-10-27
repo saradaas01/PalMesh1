@@ -43,11 +43,11 @@ class SmokeRunnerTests(unittest.TestCase):
 
     def test_public_chat_requires_exact_body_and_queued_metadata(self):
         xml = ('<hierarchy><node text="' + smoke.PUBLIC_TEXT + '"/>'
-               '<node text="02:31 PM · Queued locally"/></hierarchy>')
+               '<node text="02:31 PM · Waiting to connect"/></hierarchy>')
         self.assertTrue(smoke.public_chat_visible(xml))
         self.assertFalse(smoke.public_chat_visible(xml.replace(smoke.PUBLIC_TEXT, 'Other message')))
-        self.assertFalse(smoke.public_chat_visible(xml.replace('Queued locally', 'Stored by a peer')))
-        self.assertFalse(smoke.public_chat_visible(xml.replace('Queued locally', 'Not Queued locally')))
+        self.assertFalse(smoke.public_chat_visible(xml.replace('Waiting to connect', 'Saved by another phone')))
+        self.assertFalse(smoke.public_chat_visible(xml.replace('Waiting to connect', 'Not Waiting to connect')))
 
     def test_public_warning_is_required_before_synthetic_chat_input(self):
         runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)

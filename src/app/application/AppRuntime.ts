@@ -135,7 +135,7 @@ export class AppRuntime {
   }
 
   navigate = (route: AppRoute): void => {
-    if (!['chat', 'maps', 'emergencies', 'contacts'].includes(route)) throw new TypeError('Invalid app route');
+    if (!['chat', 'maps', 'emergencies', 'contacts', 'profile', 'settings', 'more'].includes(route)) throw new TypeError('Invalid app route');
     this.patch({ route });
     this.applyVisibility();
   };

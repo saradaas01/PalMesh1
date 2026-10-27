@@ -92,6 +92,14 @@ class ApkVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unexpected application ID'):
             self.verify(self.apk(map_data=True), '--isolated-map-test')
 
+    def test_ux_apk_is_separate_from_every_existing_installation(self):
+        self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.uxtest'") + "application-label:'PalMesh UX Test'\napplication-debuggable\n"
+        report=self.verify(self.apk(map_data=True),'--isolated-ux-test')
+        self.assertEqual(report['applicationId'],'org.palmesh.uxtest')
+        self.assertFalse(report['existingIdentityMigrated'])
+        for option in ('--isolated-contacts-test','--isolated-map-test','--isolated-map-performance-test','--require-bundle'):
+            with self.assertRaisesRegex(ValueError,'Unexpected application ID'):self.verify(self.apk(map_data=True),option)
+
     def test_contacts_apk_preserves_primary_and_all_map_test_ids(self):
         self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.contacttest'") + "application-label:'PalMesh Contacts Test'\napplication-debuggable\n"
         report = self.verify(self.apk(map_data=True), '--isolated-contacts-test')

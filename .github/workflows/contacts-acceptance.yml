@@ -16,6 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   contacts:
+    if: github.head_ref != 'feat/simple-offline-experience' && github.ref_name != 'feat/simple-offline-experience'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:

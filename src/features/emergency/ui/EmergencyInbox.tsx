@@ -1,3 +1,5 @@
+import { Disclosure, ui, palette } from '../../../shared/ui/design';
+import { useContactNames } from '../../contacts/ContactNames';
 import React, { useSyncExternalStore } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { LocalizedText, reportAge, useI18n } from '../../../shared/i18n';
@@ -13,7 +15,8 @@ export function EmergencyInbox({ service }: { readonly service: EmergencyUiServi
   const { t, rowStyle } = useI18n();
   return <View style={[styles.container, rowStyle]}>
     <LocalizedText accessibilityRole="header" style={styles.title}>{t('emergency.title')}</LocalizedText>
-    <LocalizedText style={styles.explanation}>{t('emergency.noGuarantee')}</LocalizedText>
+    <LocalizedText style={styles.explanation}>{t('ui.sosHint')}</LocalizedText>
+    <Disclosure title={t('ui.sosInfo')}><LocalizedText style={ui.muted}>{t('emergency.noGuarantee')}</LocalizedText></Disclosure>
     {snapshot.status === 'loading' && <LocalizedText accessibilityLiveRegion="polite" style={styles.text}>{t('emergency.loading')}</LocalizedText>}
     {snapshot.issue !== null && <View style={styles.issue}>
       <LocalizedText accessibilityRole="alert" style={styles.text}>{t('emergency.problem')}</LocalizedText>
@@ -46,15 +49,16 @@ function EmergencyCard({ entry, now, pending, service }: {
   readonly entry: EmergencyEntry; readonly now: number; readonly pending: boolean; readonly service: EmergencyUiService;
 }): React.JSX.Element {
   const { t } = useI18n();
+  const names=useContactNames();
   const expired = entry.expiresAt <= now;
   return <View style={styles.card}>
     <LocalizedText accessibilityRole="header" style={styles.cardTitle}>{t(entry.outgoing ? 'emergency.outgoing' : 'emergency.incoming')}</LocalizedText>
-    <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: entry.source })}</LocalizedText>
+    <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: names.label(entry.source) })}</LocalizedText>
     <LocalizedText style={styles.dim}>{t('emergency.age', { age: reportAge(entry.receivedAt, now, t) })}</LocalizedText>
     <LocalizedText selectable style={styles.body}>{entry.text}</LocalizedText>
     {entry.location !== undefined && <LocalizedText style={styles.dim}>{t('emergency.location')}</LocalizedText>}
     {entry.responses.map(response => <LocalizedText key={response.id} style={styles.response}>
-      {t('emergency.responding', { responder: response.responder })}
+      {t('emergency.responding', { responder: names.label(response.responder) })}
     </LocalizedText>)}
     {entry.responseId !== null && <LocalizedText accessibilityLiveRegion="polite" style={styles.response}>{t('emergency.responseQueued')}</LocalizedText>}
     {expired && <LocalizedText style={styles.dim}>{t('emergency.expired')}</LocalizedText>}
@@ -70,18 +74,18 @@ function EmergencyCard({ entry, now, pending, service }: {
   </View>;
 }
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1017', padding: 16 },
-  title: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginBottom: 8 },
-  explanation: { color: '#F5D988', fontSize: 16, marginBottom: 16 },
-  text: { color: '#FFFFFF', fontSize: 16 }, dim: { color: '#C6D0DD', fontSize: 14, marginTop: 6 },
-  body: { color: '#FFFFFF', fontSize: 19, marginVertical: 12 },
-  card: { backgroundColor: '#18212E', padding: 16, borderWidth: 2, borderColor: '#D84747', borderRadius: 8, marginBottom: 16 },
-  cardTitle: { color: '#FFFFFF', fontSize: 21, fontWeight: '700' },
-  button: { backgroundColor: '#244E72', minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center', borderRadius: 6, marginTop: 10 },
+  container: { flex: 1, backgroundColor: '#F4F7F8', padding: 16 },
+  title: { color: '#18343D', fontSize: 26, fontWeight: '800', marginBottom: 8 },
+  explanation: { color: '#725318', fontSize: 16, marginBottom: 16 },
+  text: { color: '#18343D', fontSize: 16 }, dim: { color: '#536B75', fontSize: 14, marginTop: 6 },
+  body: { color: '#18343D', fontSize: 19, marginVertical: 12 },
+  card: { backgroundColor: palette.surface, padding: 16, borderWidth: 2, borderColor: '#D84747', borderRadius: 8, marginBottom: 16 },
+  cardTitle: { color: '#18343D', fontSize: 21, fontWeight: '700' },
+  button: { backgroundColor: '#087F82', minHeight: 52, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center', borderRadius: 6, marginTop: 10 },
   buttonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 17, textAlign: 'center' },
-  review: { backgroundColor: '#344153', minHeight: 48, justifyContent: 'center', borderRadius: 6, padding: 12, marginTop: 8 },
-  response: { color: '#A7F3B9', fontSize: 16, marginTop: 8 },
-  banner: { backgroundColor: '#651A22', padding: 12, borderBottomColor: '#FF7373', borderBottomWidth: 2 },
-  bannerTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
-  issue: { padding: 12, backgroundColor: '#55371A', marginBottom: 12 }, disabled: { opacity: 0.65 },
+  review: { backgroundColor: '#087F82', minHeight: 48, justifyContent: 'center', borderRadius: 6, padding: 12, marginTop: 8 },
+  response: { color: '#087F82', fontSize: 16, marginTop: 8 },
+  banner: { backgroundColor: '#FCECEE', padding: 12, borderBottomColor: '#FF7373', borderBottomWidth: 2 },
+  bannerTitle: { color: '#18343D', fontSize: 20, fontWeight: '800' },
+  issue: { padding: 12, backgroundColor: palette.warningSoft, marginBottom: 12 }, disabled: { opacity: 0.65 },
 });

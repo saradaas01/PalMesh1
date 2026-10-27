@@ -1,3 +1,4 @@
+import type { OnboardingPreferences } from '../../features/onboarding/OnboardingPreferences';
 import type { ContactDirectory } from '../../features/contacts/ContactDirectory';
 import type { ChatService } from '../../features/chat';
 import type { LocationService } from '../../features/maps';
@@ -41,6 +42,7 @@ export interface AppNode {
 
 export interface RuntimeResources {
   readonly contacts?: ContactDirectory;
+  readonly onboarding?: OnboardingPreferences;
   readonly deviceId: PeerId;
   readonly node: AppNode;
   readonly chat: Pick<ChatService, keyof ChatService>;
@@ -51,7 +53,7 @@ export interface RuntimeResources {
   release(): Promise<void>;
 }
 
-export type AppRoute = 'chat' | 'maps' | 'emergencies' | 'contacts';
+export type AppRoute = 'chat' | 'maps' | 'emergencies' | 'contacts' | 'profile' | 'settings' | 'more';
 export interface AppSnapshot {
   readonly status: 'idle' | 'starting' | 'ready' | 'error';
   /** Sanitized recovery category only; never retain native error text or keys. */

@@ -20,12 +20,11 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = 'org.palmesh'
 SOS = 'I Need Help · SOS'
-CONTACTS = 'Identity and contacts'
+CONTACTS = 'Contacts'
 INBOX = 'SOS inbox'
 QUEUED = 'SOS queued on this device. Receipt or assistance is not confirmed.'
 PUBLIC_CHAT = 'Nearby broadcasts · Public'
-PUBLIC_WARNING = ('Public and not encrypted: mesh participants can read and relay these messages '
-                  'beyond nearby devices. Do not share private information.')
+PUBLIC_WARNING = 'Public · Not encrypted · Can be relayed'
 PUBLIC_TEXT = 'PalMesh-public-smoke-Hello'
 CHAT_QUEUED = 'Message queued on this device. Delivery is not confirmed.'
 FINGERPRINT = re.compile(r'pm1:[0-9a-f]{64}(?![0-9a-f])')
@@ -72,7 +71,7 @@ def public_chat_visible(xml: str) -> bool:
     # The native metadata Text combines a locale-rendered time and custody.
     # Require the exact synthetic body and explicit local queue suffix.
     return has_text(xml, PUBLIC_TEXT) and any(
-        node.get(field, '').endswith(' · Queued locally')
+        node.get(field, '').endswith(' · Waiting to connect')
         for node in nodes(xml) for field in ('text', 'content-desc'))
 
 
@@ -93,6 +92,7 @@ def avd_configuration(sdk: Path) -> str:
 
 
 class Smoke:
+    skip_onboarding = True
     def __init__(self, sdk: Path, output: Path, serial: str, ui_timeout: int):
         if not re.fullmatch(r'emulator-[0-9]+', serial):
             raise ValueError('This synthetic SOS test accepts emulator serials only.')
@@ -173,9 +173,13 @@ class Smoke:
         self.command('shell', 'wm', 'dismiss-keyguard')
         result = self.command('shell', 'am', 'start', '-W', '-n', PACKAGE + '/org.palmesh.MainActivity', timeout=60)
         self.output.joinpath(name + '-launch.txt').write_text(result + '\n')
-        return self.wait_ui(lambda xml: find_control(xml, SOS) is not None
+        xml = self.wait_ui(lambda xml: find_control(xml, SOS) is not None
                             and find_control(xml, CONTACTS) is not None,
                             'enabled local messaging and SOS controls', name + '-ready.xml')
+        if self.skip_onboarding and find_control(xml,'Skip for now') is not None:
+            self.tap('Skip for now')
+            xml=self.dump(name+'-onboarding-skipped.xml')
+        return xml
 
     def tap(self, label: str) -> None:
         control = find_control(self.dump(), label)
@@ -209,16 +213,15 @@ class Smoke:
                      'retained public chat after restart', 'retained-chat.xml')
 
     def identity(self, name: str) -> str:
-        self.tap(CONTACTS)
+        self.tap('More');self.tap('My profile');self.tap('Advanced identity details')
         for attempt in range(8):
-            xml = self.dump(name)
-            value = fingerprint(xml)
-            if value is not None:
-                return value
-            # Swipe inside the content area, away from the persistent SOS footer.
-            self.command('shell', 'input', 'swipe', '360', '840', '360', '430', '400')
-            time.sleep(0.5)
-        raise RuntimeError('The native contact screen did not expose its public identity fingerprint.')
+            xml=self.dump(name);value=fingerprint(xml)
+            if value is not None:return value
+            self.command('shell','input','swipe','360','840','360','430','400')
+        raise RuntimeError('Profile did not expose its optional public fingerprint')
+
+    def open_inbox(self):
+        self.tap('More');self.tap(INBOX)
 
     def diagnostics(self) -> None:
         result = self.command('logcat', '-d', '-t', '300', 'AndroidRuntime:E', 'ReactNativeJS:E', '*:S',
@@ -241,10 +244,12 @@ def main() -> None:
     parser.add_argument('--gpu', choices=('swiftshader', 'swangle'), default='swiftshader',
                         help='Official emulator software graphics backend; no host GPU required')
     parser.add_argument('--isolated-map-test', action='store_true', help='Launch only the separately identified PalMesh map-test app')
+    parser.add_argument('--ux-test',action='store_true',help='Separate redesign app')
+    parser.add_argument('--camera-image',type=Path,help='Explicit synthetic image-backed emulator camera')
     parser.add_argument('--contacts-test', action='store_true', help='Separate offline contacts app')
     parser.add_argument('--map-performance-test', action='store_true', help='Launch the separately identified map performance app')
     args = parser.parse_args()
-    PACKAGE = 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
+    PACKAGE = 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
@@ -283,6 +288,7 @@ def main() -> None:
                 str(sdk / 'emulator/emulator'), '-avd', 'PalMeshSmoke', '-accel', 'on',
                 '-no-window', '-no-audio', '-gpu', args.gpu, '-no-snapshot',
                 '-cores', '2', '-memory', '4096', '-port', '5554',
+                *(['-camera-back','imagefile:'+str(args.camera_image.resolve(strict=True))] if args.camera_image else ['-camera-back','emulated']),
             ], env=environment, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             smoke.wait_boot(args.boot_timeout, process)
             smoke.isolate()
@@ -295,14 +301,14 @@ def main() -> None:
             smoke.tap(SOS)
             smoke.wait_ui(lambda xml: has_text(xml, QUEUED), 'the durable local SOS queue notice', 'sos-queued.xml')
             smoke.tap('Dismiss SOS notice')
-            smoke.tap(INBOX)
+            smoke.open_inbox()
             smoke.wait_ui(lambda xml: has_text(xml, 'Your SOS'), 'the outgoing SOS history', 'sos-history.xml')
             smoke.launch('second')
             after = smoke.identity('second-identity.xml')
             if before != after:
                 raise RuntimeError('The established identity changed after a cold restart.')
             smoke.retained_public_chat()
-            smoke.tap(INBOX)
+            smoke.open_inbox()
             smoke.wait_ui(lambda xml: has_text(xml, 'Your SOS'), 'retained SOS history after restart', 'retained-sos.xml')
             report.update(passed=True, offlineColdLaunch=True, localSosPersisted=True, localPublicChatPersisted=True,
                           identityStable=True, publicIdentitySha256=hashlib.sha256(before.encode()).hexdigest(),

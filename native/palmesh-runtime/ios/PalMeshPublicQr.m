@@ -3,6 +3,8 @@
 #import <PhotosUI/PhotosUI.h>
 #import <CoreImage/CoreImage.h>
 #import <ImageIO/ImageIO.h>
+#import <AVFoundation/AVFoundation.h>
+#import "PalMeshCameraController.h"
 
 @interface PalMeshPublicQr : NSObject <RCTBridgeModule, PHPickerViewControllerDelegate>
 @property(nonatomic,copy) RCTPromiseResolveBlock resolve;
@@ -31,6 +33,26 @@ RCT_REMAP_METHOD(scanImage, scanResolver:(RCTPromiseResolveBlock)resolve rejecte
     PHPickerViewController *picker=[[PHPickerViewController alloc] initWithConfiguration:configuration];
     picker.delegate=self; [presenter presentViewController:picker animated:YES completion:nil];
   });
+}
+RCT_REMAP_METHOD(copyFingerprint, copyValue:(NSString *)fingerprint resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+ if(!fingerprint||fingerprint.length!=68||![NSRegularExpression regularExpressionWithPattern:@"^pm1:[0-9a-f]{64}$" options:0 error:nil]||[[NSRegularExpression regularExpressionWithPattern:@"^pm1:[0-9a-f]{64}$" options:0 error:nil] numberOfMatchesInString:fingerprint options:0 range:NSMakeRange(0,fingerprint.length)]!=1){reject(@"INVALID_FINGERPRINT",@"Invalid public fingerprint",nil);return;}
+ dispatch_async(dispatch_get_main_queue(),^{UIPasteboard.generalPasteboard.string=fingerprint;resolve(nil);});
+}
+RCT_REMAP_METHOD(scanCamera, cameraLanguage:(NSString *)language resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+ dispatch_async(dispatch_get_main_queue(),^{
+  if(self.resolve){reject(@"QR_CAMERA_UNAVAILABLE",@"Scanner busy",nil);return;}
+  if(![AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo]){reject(@"QR_NO_CAMERA",@"Camera unavailable",nil);return;}
+  self.resolve=resolve;self.reject=reject;self.generation++;NSUInteger operation=self.generation;
+  void(^present)(BOOL)=^(BOOL granted){dispatch_async(dispatch_get_main_queue(),^{
+   if(!self.resolve||operation!=self.generation)return;
+   if(!granted){RCTPromiseRejectBlock failure=self.reject;self.resolve=nil;self.reject=nil;self.generation++;failure(@"QR_CAMERA_DENIED",@"Camera access denied",nil);return;}
+   UIViewController *presenter=RCTPresentedViewController();if(!presenter){[self finish:nil error:YES];return;}
+   PalMeshCameraController *camera=[PalMeshCameraController new];camera.arabic=[language isEqualToString:@"ar"];camera.modalPresentationStyle=UIModalPresentationFullScreen;
+   camera.onResult=^(NSString *value,NSString *error){if(!self.resolve||operation!=self.generation)return;if(error){RCTPromiseRejectBlock failure=self.reject;self.resolve=nil;self.reject=nil;self.generation++;failure(error,@"Camera unavailable",nil);}else [self finish:value error:NO];};
+   [presenter presentViewController:camera animated:YES completion:nil];
+  });};
+  AVAuthorizationStatus status=[AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];if(status==AVAuthorizationStatusNotDetermined)[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:present];else present(status==AVAuthorizationStatusAuthorized);
+ });
 }
 - (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
   [picker dismissViewControllerAnimated:YES completion:nil];

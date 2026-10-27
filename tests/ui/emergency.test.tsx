@@ -1,4 +1,5 @@
 import React from 'react';
+import {renderedContrast} from './contrast';
 import { expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { EmergencyBanner, EmergencyInbox, type EmergencyUiService } from '../../src/features/emergency/ui';
@@ -17,6 +18,8 @@ function service(entries: readonly EmergencyEntry[]): EmergencyUiService {
 test('incoming SOS can be reviewed or answered without implying rescue or opening a modal', async () => {
   const inbox = service([incoming]); await render(<EmergencyInbox service={inbox} />);
   expect(screen.getByText('Please send water')).toBeOnTheScreen();
+  expect(renderedContrast(screen.getByText('Please send water'))).toBeGreaterThanOrEqual(4.5);
+  await fireEvent.press(screen.getByRole('button',{name:'How SOS works'}));
   expect(screen.getByText('A response is a statement of intent. Assistance is not confirmed.')).toBeOnTheScreen();
   const respond = screen.getByRole('button', { name: 'I can respond' });
   expect(respond.props.accessibilityHint).toContain('Does not share your location');

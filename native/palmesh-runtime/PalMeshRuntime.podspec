@@ -10,6 +10,6 @@ Pod::Spec.new do |s|
   s.source = { :git => "https://github.com/saradaas01/PalMesh1.git", :tag => s.version.to_s }
   s.platforms = { :ios => "15.1" }
   s.source_files = "ios/**/*.{h,m,mm}"
-  s.frameworks = 'Security', 'UIKit', 'UserNotifications', 'PhotosUI', 'CoreImage', 'ImageIO'
+  s.frameworks = 'Security', 'UIKit', 'UserNotifications', 'PhotosUI', 'CoreImage', 'ImageIO', 'AVFoundation'
   install_modules_dependencies(s)
 end
