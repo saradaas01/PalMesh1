@@ -1,5 +1,34 @@
 # Current progress checkpoint
 
+## Physical map-performance follow-up — October 27, 2026
+
+The user confirms that offline maps render on TECNO POVA 5 / LH7n, Android 14,
+but severe lag lasts roughly one minute. Acceptance diagnostics had been shipped
+in ordinary debug APKs: repeated full geometry/road queries lasted 60 seconds.
+Ordinary builds now perform zero rendered-feature queries and stop lightweight
+local-resource readiness polling after success. Full tracing is an explicit
+acceptance-only build flag. [Performance diagnosis and verification](milestones/map-performance.md)
+records the distinction between emulator profiling and physical retesting.
+Local checks pass: 380 core, 87 UI, 53 Android-tool and 53 map-tool tests;
+ARM64 performance APK signature/ABI/bundle/map/alignment and sealed diagnostics
+metadata checks pass. The new package `org.palmesh.mapperftest` preserves both
+existing app installations. Hosted ordinary-APK profiling is tracked in PR #9.
+
+## Priority offline-map correction — October 26, 2026
+
+The user reports a real phone rendering maps only while internet is available.
+The dedicated `fix/offline-map-cold-start` branch preserves `work` and leaves
+PRs #1 and #8 open. The renderer now enables MapLibre's SDK scheduling hint
+after local-only style validation, before mounting. Blank rendering has an
+honest deadline/error and explicit retry reopens the local host. Local checks
+pass (380 core, 85 UI, 49 Android-tool, 53 map-tool tests and bundled ARM64 APK
+verification). [Diagnosis and hosted acceptance procedure](offline-map-cold-start.md)
+distinguish source/local evidence from actual hosted emulator results and the
+still-required physical-phone retest. Hosted fixed-build offline rendering,
+gesture-image changes and persistence passed on source `c8a3471`. The original behavior also
+rendered there, so the physical-phone failure is not reproduced and its exact
+cause remains unconfirmed. Existing genuine map data is preserved.
+
 All application source and configuration are backed up on the GitHub `work`
 branch. The initial verified backup commit is
 `877de4644680858cc87aaf30cf86ad3dfa5295e2`. Later commits preserve completed

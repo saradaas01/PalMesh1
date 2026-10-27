@@ -1,5 +1,5 @@
 """Exercise release safety gates without Gradle, network access or private keys."""
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 import hashlib
 import importlib.util
 import io
@@ -70,6 +70,36 @@ class ApkVerificationTests(unittest.TestCase):
         self.assertFalse(report['deviceInstallationTested'])
         self.assertTrue(report['elfAlignment16KiB'])
         self.assertEqual(len(report['nativeLibraryLoadAlignment']), 4)
+
+    def test_isolated_map_test_requires_explicit_id_label_debug_map_and_bundle(self):
+        self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.maptest'") + "application-label:'PalMesh Map Test'\napplication-debuggable\n"
+        report = self.verify(self.apk(map_data=True), '--isolated-map-test')
+        self.assertTrue(report['isolatedFromPrimaryApp'])
+        self.assertFalse(report['existingIdentityMigrated'])
+        self.assertFalse(report['releaseEligible'])
+        with self.assertRaisesRegex(ValueError, 'Unexpected application ID'):
+            self.verify(self.apk(map_data=True))
+        with self.assertRaisesRegex(ValueError, 'missing its map pack'):
+            self.verify(self.apk(), '--isolated-map-test')
+        with self.assertRaisesRegex(ValueError, 'Missing embedded JavaScript'):
+            self.verify(self.apk(bundle=False, map_data=True), '--isolated-map-test')
+
+    def test_performance_apk_preserves_both_existing_application_ids(self):
+        self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.mapperftest'") + "application-label:'PalMesh Map Performance Test'\napplication-debuggable\n"
+        report = self.verify(self.apk(map_data=True), '--isolated-map-performance-test')
+        self.assertEqual(report['applicationId'], 'org.palmesh.mapperftest')
+        self.assertTrue(report['isolatedFromPrimaryApp'])
+        with self.assertRaisesRegex(ValueError, 'Unexpected application ID'):
+            self.verify(self.apk(map_data=True), '--isolated-map-test')
+
+    def test_isolated_map_test_cannot_hide_its_test_identity(self):
+        self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.maptest'") + 'application-debuggable\n'
+        with self.assertRaisesRegex(ValueError, 'clearly labelled'):
+            self.verify(self.apk(map_data=True), '--isolated-map-test')
+
+    def test_isolated_map_test_never_passes_as_release(self):
+        with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+            self.verify(self.apk(map_data=True), '--isolated-map-test', '--release')
 
     def test_release_checks_packaged_map_and_operator_certificate(self):
         report = self.verify(self.apk(map_data=True), '--release', '--version-code', '1', '--version-name', '0.1.0')

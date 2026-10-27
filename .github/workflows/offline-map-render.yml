@@ -1,0 +1,207 @@
+name: Offline map cold rendering
+on:
+  push:
+    branches: ['fix/offline-map-cold-start']
+  pull_request:
+    paths:
+      - 'src/features/maps/**'
+      - 'native/palmesh-offline-maps/**'
+      - 'scripts/android/map_smoke.py'
+      - 'scripts/android/map_perf_smoke.py'
+      - '.github/workflows/offline-map-render.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: offline-map-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - reachability: system-baseline
+            architecture: x86_64
+            gpu: swiftshader
+            isolated: false
+            performance: false
+          - reachability: local-resources
+            architecture: x86_64
+            gpu: swiftshader
+            isolated: false
+            performance: false
+          - reachability: local-resources
+            architecture: x86_64
+            gpu: swangle
+            isolated: true
+            performance: false
+          - reachability: local-resources
+            architecture: arm64-v8a
+            gpu: swiftshader
+            isolated: false
+            performance: false
+          - reachability: local-resources
+            architecture: x86_64
+            gpu: swangle
+            isolated: true
+            performance: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run check
+      - run: python3 -m unittest discover -s scripts/android/tests -v
+      - name: Verify immutable genuine source artifact provenance
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = {owner: context.repo.owner, repo: context.repo.repo};
+            const {data: run} = await github.rest.actions.getWorkflowRun({...repo, run_id: 40352843627});
+            if (run.head_sha !== '84464a5b19387b3f0d0e8bbf1bf425329236ecfd' || run.conclusion !== 'success') throw new Error('Unexpected map producer');
+            const {data} = await github.rest.actions.listWorkflowRunArtifacts({...repo, run_id: run.id});
+            if (!data.artifacts.some(a => a.id === 12664512510 && a.name === 'palmesh-candidate-palestine-map' && !a.expired)) throw new Error('Pinned genuine map artifact unavailable');
+      - uses: actions/download-artifact@v5
+        with:
+          name: palmesh-candidate-palestine-map
+          run-id: 40352843627
+          github-token: ${{ github.token }}
+          path: mapdata
+      - name: Validate the unchanged genuine map and manifest
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/maps')
+          from mbtiles import checked_manifest
+          m = checked_manifest(Path('mapdata/palestine.manifest.json'), Path('mapdata/palestine.mbtiles'))
+          assert m['sha256'] == '16a88c49eb002bfc4729327bef4629e513f33069532b815c532316738aef06b8'
+          assert m['sourceSha256'] == 'bb28f83176b77d1b58701b8e2ebe4b241d37c7871e51f2739a9a684b47c5d44f'
+          assert m['dataTimestamp'] == '2026-10-25T21:21:21Z'
+          print('Preserved genuine map hash/date/provenance and complete coverage verified.')
+          PY
+          python3 scripts/maps/package.py
+      - name: Reproduce original SDK behavior in the isolated baseline variant only
+        if: matrix.reachability == 'system-baseline'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/features/maps/ui/OfflineMapView.tsx')
+          text = p.read_text()
+          line = "if (Platform.OS === 'android') NetworkManager.setConnected(true);"
+          assert text.count(line) == 1
+          text = text.replace(line, '// Baseline: retain original system reachability.')
+          guard = 'if (mapStyle === null || !prepared)'
+          assert text.count(guard) == 1
+          # The original component mounted immediately. Removing only the hint
+          # would retain the new preparation gate and would not isolate that risk.
+          text = text.replace(guard, 'if (mapStyle === null)')
+          p.write_text(text)
+          PY
+      - uses: ./.github/actions/setup-android
+      - name: Install isolated emulator runtime and screenshot analysis dependency
+        if: matrix.architecture == 'x86_64'
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Build selected application identity
+        env:
+          ISOLATED: ${{ matrix.isolated }}
+          PERFORMANCE: ${{ matrix.performance }}
+        run: |
+          options=()
+          if [ '${{ matrix.architecture }}' = x86_64 ] && [ "$PERFORMANCE" != true ]; then options+=(-PpalmeshMapDiagnostics=true); fi
+          if [ "$PERFORMANCE" = true ]; then options+=(-PpalmeshMapPerformanceTest=true); elif [ "$ISOLATED" = true ]; then options+=(-PpalmeshIsolatedMapTest=true); fi
+          python3 scripts/android/gradle.py --bundle-debug --architectures ${{ matrix.architecture }} "${options[@]}" :app:assembleDebug
+      - name: Verify selected application identity and complete packaging
+        env:
+          ISOLATED: ${{ matrix.isolated }}
+          PERFORMANCE: ${{ matrix.performance }}
+        run: |
+          options=()
+          if [ "$PERFORMANCE" = true ]; then options+=(--isolated-map-performance-test); elif [ "$ISOLATED" = true ]; then options+=(--isolated-map-test); fi
+          python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --require-bundle --architectures ${{ matrix.architecture }} "${options[@]}" --report dist/android/offline-map-verification.json
+          mode=()
+          if [ '${{ matrix.architecture }}' = x86_64 ] && [ "$PERFORMANCE" != true ]; then mode+=(--enabled); fi
+          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk "${mode[@]}"
+          if [ '${{ matrix.architecture }}' = arm64-v8a ]; then cp android/app/build/outputs/apk/debug/app-debug.apk dist/android/primary-map-debug.apk; fi
+      - name: Cold start with radios off and non-loopback guest egress rejected
+        if: matrix.architecture == 'x86_64'
+        env:
+          REACHABILITY_MODE: ${{ matrix.reachability }}
+          MAP_GPU: ${{ matrix.gpu }}
+          ISOLATED: ${{ matrix.isolated }}
+          PERFORMANCE: ${{ matrix.performance }}
+          PALMESH_TEST_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          export PYTHONPATH="$RUNNER_TEMP/map-test-python"
+          options=()
+          if [ "$PERFORMANCE" = true ]; then options+=(--map-performance-test); elif [ "$ISOLATED" = true ]; then options+=(--isolated-map-test); fi
+          if [ "$PERFORMANCE" = true ]; then
+            python3 scripts/android/map_perf_smoke.py "${options[@]}" --gpu "$MAP_GPU" --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+          elif [ "$REACHABILITY_MODE" = system-baseline ]; then
+            python3 scripts/android/map_smoke.py "${options[@]}" --gpu "$MAP_GPU" --observe-system-baseline --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+          else
+            python3 scripts/android/map_smoke.py "${options[@]}" --gpu "$MAP_GPU" --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/map-render-results" --state "$RUNNER_TEMP/private-map-emulator"
+          fi
+      - name: Surface bounded render failure evidence
+        if: failure() && matrix.architecture == 'x86_64'
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'map-render-results'
+          for name in ('smoke-report.json','emulator-root.txt','offline-connectivity.txt','radio-settings.json','network-interfaces-before.txt','map-network.txt','map-runtime-errors.txt'):
+              path = root / name
+              if path.is_file(): print(name + ':\n' + path.read_text(errors='replace')[-10000:])
+      - name: Retain fresh synthetic diagnostics, screenshots and request/render evidence
+        if: always() && matrix.architecture == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-map-render-${{ matrix.reachability }}-${{ matrix.architecture }}-${{ matrix.gpu }}-perf-${{ matrix.performance }}
+          path: ${{ runner.temp }}/map-render-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Build and verify an ARM64 test app that preserves the installed primary app
+        if: matrix.architecture == 'arm64-v8a'
+        run: |
+          python3 scripts/android/gradle.py --bundle-debug --architectures arm64-v8a -PpalmeshMapPerformanceTest=true :app:assembleDebug
+          python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --isolated-map-performance-test --architectures arm64-v8a --report dist/android/isolated-map-verification.json
+          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/android/palmesh-map-performance-test.apk
+      - name: Publish separately identified map-test APK
+        if: matrix.architecture == 'arm64-v8a'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-map-performance-test-apk
+          path: |
+            dist/android/palmesh-map-performance-test.apk
+            dist/android/isolated-map-verification.json
+            mapdata/palestine.manifest.json
+          retention-days: 14
+      - name: Publish fixed ARM64 map-bundled test APK only
+        if: matrix.architecture == 'arm64-v8a' && matrix.reachability == 'local-resources'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-map-fixed-debug-apk
+          path: |
+            dist/android/primary-map-debug.apk
+            dist/android/offline-map-verification.json
+            mapdata/palestine.manifest.json
+          retention-days: 14

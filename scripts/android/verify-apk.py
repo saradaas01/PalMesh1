@@ -65,12 +65,15 @@ def main() -> None:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--release', action='store_true')
     mode.add_argument('--unsigned-preview', action='store_true', help='Inspect unsigned nondebuggable packaging; never install or distribute this artifact')
+    mode.add_argument('--isolated-map-test', action='store_true', help='Verify the separately identified, debuggable map-test app; never a release')
+    mode.add_argument('--isolated-map-performance-test', action='store_true', help='Separate map performance app, never a release')
     parser.add_argument('--require-bundle', action='store_true')
     parser.add_argument('--architectures', help='Expected comma-separated ABI set')
     parser.add_argument('--version-name')
     parser.add_argument('--version-code')
     parser.add_argument('--report', type=Path)
     args = parser.parse_args()
+    is_test = args.isolated_map_test or args.isolated_map_performance_test
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
     sdk = Path(sdk_value) if sdk_value else Path('/workspace/.palmesh-tools/android-sdk')
     tools = sdk / 'build-tools/37.0.0'
@@ -96,10 +99,11 @@ def main() -> None:
             if not runtimes <= entries: raise ValueError('Missing native runtime libraries for ' + architecture)
         native_alignment = {name: elf_load_alignment(archive.read(name)) for name in libraries}
         bundled = 'assets/index.android.bundle' in entries and archive.getinfo('assets/index.android.bundle').file_size > 0
-        if (args.release or args.unsigned_preview or args.require_bundle) and not bundled: raise ValueError('Missing embedded JavaScript bundle')
+        if (args.release or args.unsigned_preview or is_test or args.require_bundle) and not bundled: raise ValueError('Missing embedded JavaScript bundle')
         has_map = 'assets/palmesh/palestine.mbtiles' in entries
         if args.release and not has_map: raise ValueError('Release APK is missing the reviewed Palestine map pack')
-        if args.release:
+        if is_test and not has_map: raise ValueError('Isolated map test APK is missing its map pack')
+        if args.release or is_test:
             manifest_path = 'assets/palmesh/palestine.manifest.json'
             if manifest_path not in entries or archive.getinfo(manifest_path).file_size > 262144:
                 raise ValueError('Missing or oversized bundled map provenance manifest')
@@ -111,12 +115,16 @@ def main() -> None:
     badging = subprocess.check_output([str(tools / 'aapt2'), 'dump', 'badging', str(apk)], text=True)
     package_line = next((line for line in badging.splitlines() if line.startswith('package: ')), '')
     package_fields = dict(re.findall(r"([A-Za-z][A-Za-z0-9]*)='([^']*)'", package_line))
-    if package_fields.get('name') != 'org.palmesh': raise ValueError('Unexpected application ID')
+    expected_package = 'org.palmesh.mapperftest' if args.isolated_map_performance_test else 'org.palmesh.maptest' if is_test else 'org.palmesh'
+    if package_fields.get('name') != expected_package: raise ValueError('Unexpected application ID')
     for expected, field in [(args.version_name, 'versionName'), (args.version_code, 'versionCode')]:
         if expected is not None and package_fields.get(field) != expected:
             raise ValueError('Unexpected Android ' + field)
     if "launchable-activity: name='org.palmesh.MainActivity'" not in badging: raise ValueError('Missing launcher activity')
     debuggable = 'application-debuggable' in badging
+    expected_label = "PalMesh Map Performance Test" if args.isolated_map_performance_test else "PalMesh Map Test"
+    if is_test and (not debuggable or f"application-label:'{expected_label}'" not in badging):
+        raise ValueError('Isolated map test must be debuggable and clearly labelled')
     if (args.release or args.unsigned_preview) and debuggable: raise ValueError('Release or unsigned preview APK must not be debuggable')
     java_value = os.environ.get('JAVA_HOME')
     java = str(Path(java_value) / 'bin/java') if java_value else 'java'
@@ -138,9 +146,11 @@ def main() -> None:
               'applicationId': package_fields['name'], 'versionName': package_fields.get('versionName'), 'versionCode': package_fields.get('versionCode'),
               'embeddedJavaScriptBundle': bundled, 'bundledPalestineMap': has_map, 'debuggable': debuggable,
               'signingCertificateSha256': fingerprints, 'zipAlignment16KiB': True, 'elfAlignment16KiB': True, 'nativeLibraryLoadAlignment': native_alignment, 'deviceInstallationTested': False,
-              'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'development',
+              'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'isolated-map-performance-test' if args.isolated_map_performance_test else 'isolated-map-test' if is_test else 'development',
               'signatureVerified': not args.unsigned_preview, 'installable': not args.unsigned_preview,
               'releaseEligible': args.release}
+    if is_test:
+        report.update(isolatedFromPrimaryApp=True, existingIdentityMigrated=False)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2) + '\n')

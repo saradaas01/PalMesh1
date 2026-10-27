@@ -62,6 +62,7 @@ static int PMQueryDeadline(void *context) {
 @property(nonatomic) NSInteger minZoom;
 @property(nonatomic) NSInteger maxZoom;
 @property(atomic) BOOL closed;
+@property(atomic) NSUInteger tileHits;
 @property(nonatomic, copy) NSString *fontRoot;
 - (instancetype)initWithFile:(NSString *)path error:(NSError **)error;
 - (void)close;
@@ -200,8 +201,9 @@ static int PMQueryDeadline(void *context) {
     }
     NSString *path = first[1]; NSString *prefix = [NSString stringWithFormat:@"/%@/",_token];
     if (!validHost || ![path hasPrefix:prefix]) { [self respond:client status:404 data:nil contentType:@"application/octet-stream"]; return; }
-    NSString *tail = [path substringFromIndex:prefix.length]; NSData *data = nil; NSString *contentType = @"application/vnd.mapbox-vector-tile";
+    NSString *tail = [path substringFromIndex:prefix.length]; NSData *data = nil; BOOL tileRequest = NO; NSString *contentType = @"application/vnd.mapbox-vector-tile";
     if (PMMatches(tail,@"^[0-9]{1,2}/[0-9]{1,7}/[0-9]{1,7}\\.pbf$")) {
+      tileRequest = YES;
       NSArray *coordinates = [tail componentsSeparatedByString:@"/"]; NSInteger zoom = [coordinates[0] integerValue]; uint64_t x = [coordinates[1] longLongValue], y = [coordinates[2] longLongValue];
       if (zoom >= _minZoom && zoom <= _maxZoom && zoom <= 22 && x < (1ULL << zoom) && y < (1ULL << zoom)) {
         [_databaseLock lock];
@@ -234,6 +236,7 @@ static int PMQueryDeadline(void *context) {
         }
       }
     }
+    if (data && tileRequest) { @synchronized(self) { self.tileHits += 1; } }
     [self respond:client status:data ? 200 : 404 data:data contentType:contentType];
   } @finally {
     [client finish]; [_clientsLock lock]; [_clients removeObject:client]; [_clientsLock unlock];
@@ -257,6 +260,9 @@ static int PMQueryDeadline(void *context) {
 @implementation PalMeshOfflineMaps
 RCT_EXPORT_MODULE()
 + (BOOL)requiresMainQueueSetup { return NO; }
+RCT_REMAP_METHOD(localResourceStatus, statusResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  resolve(@{@"tileHits": @(self.host ? self.host.tileHits : 0)});
+}
 RCT_REMAP_METHOD(open, openOptions:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   [self.host close]; self.host = nil;
   NSString *asset = options[@"assetName"]; NSString *expected = options[@"expectedSha256"];

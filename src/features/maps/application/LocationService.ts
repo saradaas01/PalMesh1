@@ -142,13 +142,13 @@ export class LocationService {
     if (this.visible && this.state.powerMode === 'normal') await this.capture(true, true);
   };
 
-  refresh = async (): Promise<void> => {
+  refresh = async (options?: { readonly retryMap?: boolean }): Promise<void> => {
     if (!this.active) { await this.start(); return; }
     const generation = this.generation;
     this.archiveFailed = false;
     this.patch({ issue: null });
     if (this.unsubscribe === null) this.attach(generation);
-    if (this.state.mapStatus !== 'ready') void this.openMap(generation);
+    if (options?.retryMap || this.state.mapStatus !== 'ready') void this.openMap(generation);
     await this.enqueue(() => this.synchronize(generation), generation);
   };
 

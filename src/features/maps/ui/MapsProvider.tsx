@@ -52,7 +52,7 @@ export function useMaps() {
   const getSnapshot = useCallback(() => service.getSnapshot(), [service]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const actions = useMemo(() => ({
-    refresh: () => service.refresh(),
+    refresh: (options?: Parameters<LocationService['refresh']>[0]) => service.refresh(options),
     refreshLocal: () => service.refreshLocal(),
     shareOnce: () => service.shareOnce(),
     setSharing: (sharing: boolean) => service.setSharing(sharing),
