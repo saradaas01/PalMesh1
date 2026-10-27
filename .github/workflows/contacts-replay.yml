@@ -1,0 +1,75 @@
+name: Replay sealed contacts Android acceptance
+on:
+  push:
+    branches: ['feat/offline-contact-profiles']
+    paths:
+      - 'scripts/android/contacts_smoke.py'
+      - '.github/workflows/contacts-replay.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: contacts-sealed-replay
+  cancel-in-progress: true
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Refuse stale APK if any application or native source changed
+        run: git diff --exit-code 6940a7f9d29376da547d16bc3be068e8b43d5605 HEAD -- src native android package.json package-lock.json index.js babel.config.js metro.config.js
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-contacts-emulator-apk
+          run-id: 40535458976
+          github-token: ${{ github.token }}
+          path: sealed-apk
+      - name: Verify immutable sealed APK bytes
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+          apk=Path('sealed-apk/palmesh-contacts-test.apk')
+          assert hashlib.file_digest(apk.open('rb'),'sha256').hexdigest() == '82637b816910764e32511839ac4c1beb653ce50c28e7732e12a808717397b93d'
+      - uses: ./.github/actions/setup-android
+      - name: Install isolated emulator runtime and screenshot analysis dependency
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Verify packaging and ordinary map mode again
+        run: |
+          python3 scripts/android/verify-apk.py sealed-apk/palmesh-contacts-test.apk --isolated-contacts-test --architectures x86_64 --report sealed-apk/verification.json
+          python3 scripts/android/verify-map-mode.py sealed-apk/palmesh-contacts-test.apk
+      - run: node scripts/android/contact-qr-fixture.cjs "$RUNNER_TEMP/contact-fixture"
+      - name: Exercise the corrected picker and full restart flow
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+          PALMESH_CONTACT_FIXTURE: ${{ runner.temp }}/contact-fixture
+        run: python3 scripts/android/contacts_smoke.py --contacts-test --gpu swangle --apk sealed-apk/palmesh-contacts-test.apk --output "$RUNNER_TEMP/contact-results" --state "$RUNNER_TEMP/private-contact-emulator"
+      - name: Retain isolated replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-contacts-sealed-replay-evidence
+          path: ${{ runner.temp }}/contact-results/
+          if-no-files-found: ignore
+          retention-days: 14

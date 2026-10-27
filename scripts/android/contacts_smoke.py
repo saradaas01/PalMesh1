@@ -81,7 +81,10 @@ class ContactsSmoke(MapSmoke):
             root=next((n for choice in choices if choice not in visited for n in smoke.nodes(xml) if n.get('text')==choice),None)
             drawer=smoke.find_control(xml,'Show roots')
             drawer_open=any('roots_list' in n.get('resource-id','') for n in smoke.nodes(xml))
-            if drawer_open and root is not None:
+            folder=next((n for n in smoke.nodes(xml) if n.get('text')=='Pictures' and n.get('resource-id')=='android:id/title'),None)
+            if not drawer_open and folder is not None:
+                x,y=smoke.center(folder);self.command('shell','input','tap',str(x),str(y))
+            elif drawer_open and root is not None:
                 label=root.get('text');visited.add(label)
                 x,y=smoke.center(root);self.command('shell','input','tap',str(x),str(y))
             elif drawer is not None:self.tap('Show roots')
