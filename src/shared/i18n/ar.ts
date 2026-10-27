@@ -112,7 +112,7 @@ export const ar = {
   "maps.dismissNotice": "إغلاق تنبيه الخريطة",
   "maps.issue.storage-unavailable": "المواقع المحفوظة غير متاحة. أعد تحميلها.",
   "maps.issue.gps-denied": "رُفض إذن الوصول إلى الموقع. اسمح به في إعدادات الجهاز لتحديث الموقع.",
-  "maps.issue.gps-unavailable": "تعذّر تحديد الموقع. احتُفظ بآخر موقع محفوظ.",
+  "maps.issue.gps-unavailable": "تعذّر الحصول على موقع من الجهاز. تحقق من تشغيل الموقع وإذن التطبيق (الموقع الدقيق يساعد دون إنترنت)، ثم جرّب في مكان مفتوح. احتفظنا بآخر موقع.",
   "maps.issue.queue-full": "قائمة الإرسال ممتلئة. لم يُحفظ البث للإرسال.",
   "maps.issue.broadcast-unavailable": "تعذّر حفظ البث للإرسال. حاول مرة أخرى.",
   "maps.issue.routing-error": "حدثت مشكلة في الشبكة المحلية. قد تتأخر المشاركة.",
@@ -315,5 +315,9 @@ export const ar = {
   "ui.stored": "محفوظ على هذا الهاتف",
   "ui.received": "تم الاستلام",
   "ui.routingEnded": "انتهت إعادة الإرسال",
+
+  "maps.issue.gps-disabled": "موقع الجهاز مغلق. فعّل الموقع في إعدادات أندرويد ثم حاول مجددًا. احتفظنا بآخر موقع.",
+  "maps.issue.gps-timeout": "لم نحدد الموقع بعد. جرّب في مكان مفتوح بسماء واضحة؛ قد يتأخر GPS دون إنترنت. احتفظنا بآخر موقع.",
+
 
 } satisfies Readonly<Record<TranslationKey, string>>;

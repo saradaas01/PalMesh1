@@ -3,7 +3,7 @@ import { isPeerId } from '../../dtn/domain/validation';
 import type { SqliteRow, SynchronousSqliteDatabase } from '../../dtn/infrastructure/sqlite/SqliteDtnStore';
 import { validLocationFix } from '../domain/locations';
 import type { LocationRepository } from '../domain/ports';
-import type { LocationArchive, PeerLocation } from '../domain/types';
+import type { LocationArchive, LocationQuality, PeerLocation } from '../domain/types';
 
 /** Own tables and identity binding coexist with routing/chat on the same SQLite
  * file. The host owns this connection; the repository never closes it. */
@@ -45,19 +45,26 @@ export class SqliteLocationRepository implements LocationRepository {
         this.database.execute('CREATE INDEX palmesh_location_received ON palmesh_peer_locations (received_at, device_id)');
         this.database.execute('INSERT INTO palmesh_location_schema (singleton, version, local_device_id) VALUES (1, 1, ?)', [localDeviceId]);
       }
+      this.database.execute('CREATE TABLE IF NOT EXISTS palmesh_local_quality (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), fix_timestamp INTEGER NOT NULL, quality_json TEXT NOT NULL)');
       this.prunePeers();
     });
     this.identity = localDeviceId;
   }
 
-  async saveLocal(location: LocationFix): Promise<void> {
+  async saveLocal(location: LocationFix, quality?: LocationQuality): Promise<void> {
     this.requireIdentity();
     if (!validLocationFix(location)) throw new TypeError('Invalid local location fix');
-    this.database.execute(`INSERT INTO palmesh_local_location (singleton, latitude, longitude, fix_timestamp)
+    if (quality && !validQuality(quality, location.timestamp)) throw new TypeError('Invalid local location quality');
+    this.transaction(() => { const result = this.database.execute(`INSERT INTO palmesh_local_location (singleton, latitude, longitude, fix_timestamp)
       VALUES (1, ?, ?, ?) ON CONFLICT(singleton) DO UPDATE SET
         latitude = excluded.latitude, longitude = excluded.longitude, fix_timestamp = excluded.fix_timestamp
       WHERE excluded.fix_timestamp > palmesh_local_location.fix_timestamp`,
     [location.latitude, location.longitude, location.timestamp]);
+    if (result.rowsAffected > 0) {
+      this.database.execute('DELETE FROM palmesh_local_quality WHERE singleton = 1');
+      if (quality) this.database.execute('INSERT INTO palmesh_local_quality VALUES (1, ?, ?)', [location.timestamp, JSON.stringify(quality)]);
+    }
+    });
   }
 
   async upsertPeers(peers: readonly PeerLocation[]): Promise<void> {
@@ -92,7 +99,10 @@ export class SqliteLocationRepository implements LocationRepository {
       if (peer.deviceId === this.identity) throw new Error('Location registry contains the local device as a peer');
       return peer;
     });
-    return Object.freeze({ localLocation: local ? decodeFix(local) : null, peers: Object.freeze(peers) });
+    const row = this.database.execute('SELECT * FROM palmesh_local_quality WHERE singleton = 1').rows[0];
+    const quality: unknown = row ? JSON.parse(text(row, 'quality_json')) : undefined;
+    const localQuality = local && validQuality(quality, Number(local.fix_timestamp)) ? Object.freeze(quality) : undefined;
+    return Object.freeze({ localLocation: local ? decodeFix(local) : null, peers: Object.freeze(peers), ...(localQuality ? {localQuality} : {}) });
   }
 
   private prunePeers(): void {
@@ -150,3 +160,8 @@ function integer(row: SqliteRow, column: string): number {
   return value;
 }
 function isTimestamp(value: unknown): value is number { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0; }
+
+function validQuality(value: unknown, timestamp: number): value is LocationQuality {
+ if (!value || typeof value !== 'object') return false;
+ const q=value as LocationQuality;return q.timestamp === timestamp && typeof q.approximate === 'boolean' && (q.accuracyMeters === undefined || typeof q.accuracyMeters === 'number' && Number.isFinite(q.accuracyMeters) && q.accuracyMeters >= 0);
+}

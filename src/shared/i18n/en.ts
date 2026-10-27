@@ -110,7 +110,7 @@ export const en = {
   "maps.dismissNotice": "Dismiss map notice",
   "maps.issue.storage-unavailable": "Stored locations are unavailable. Retry loading them.",
   "maps.issue.gps-denied": "Location access was denied. Allow it in device settings to update GPS.",
-  "maps.issue.gps-unavailable": "GPS could not obtain a location. Your last stored fix is kept.",
+  "maps.issue.gps-unavailable": "No location provider could return a fix. Check device Location and app location permissions (Precise helps offline GPS), then try outdoors. Your last fix is kept.",
   "maps.issue.queue-full": "The local message queue is full. The broadcast was not queued.",
   "maps.issue.broadcast-unavailable": "The broadcast could not be queued. Please try again.",
   "maps.issue.routing-error": "The mesh reported a problem. Sharing may be delayed.",
@@ -313,6 +313,10 @@ export const en = {
   "ui.stored": "Saved on this phone",
   "ui.received": "Received",
   "ui.routingEnded": "Forwarding ended",
+
+  "maps.issue.gps-disabled": "Device location is off. Turn on Location in Android settings, then try again. Your last fix is kept.",
+  "maps.issue.gps-timeout": "No fix yet. Go outdoors with a clear sky and try again; offline GPS can take longer. Your last fix is kept.",
+
 
 } as const;
 

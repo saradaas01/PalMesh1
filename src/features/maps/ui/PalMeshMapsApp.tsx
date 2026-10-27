@@ -11,6 +11,8 @@ import { OfflineMapView } from './OfflineMapView';
 const issueLabels: Readonly<Record<LocationIssue, TranslationKey>> = {
   'storage-unavailable': 'maps.issue.storage-unavailable',
   'gps-denied': 'maps.issue.gps-denied',
+  'gps-disabled': 'maps.issue.gps-disabled',
+  'gps-timeout': 'maps.issue.gps-timeout',
   'gps-unavailable': 'maps.issue.gps-unavailable',
   'queue-full': 'maps.issue.queue-full',
   'broadcast-unavailable': 'maps.issue.broadcast-unavailable',

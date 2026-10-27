@@ -152,6 +152,7 @@ export class LocationService {
     await this.enqueue(() => this.synchronize(generation), generation);
   };
 
+  cancelLocation = (): void => this.cancelGps();
   refreshLocal = (): Promise<LocationActionResult> => this.capture(false, false);
   shareOnce = (): Promise<LocationActionResult> => this.capture(true, false);
   dismissIssue = (): void => { this.patch({ issue: null }); };
@@ -201,13 +202,13 @@ export class LocationService {
       const result = await this.source.read(controller.signal);
       if (!this.live(generation) || controller.signal.aborted || !this.visible) return { status: 'rejected', reason: 'unavailable' };
       if (result.status !== 'fix' || !this.safeLocal(result.location)) {
-        if (result.status !== 'cancelled') this.patch({ issue: result.status === 'denied' ? 'gps-denied' : 'gps-unavailable' });
+        if (result.status !== 'cancelled') this.patch({ issue: result.status === 'denied' ? 'gps-denied' : result.status === 'disabled' ? 'gps-disabled' : result.status === 'timeout' ? 'gps-timeout' : 'gps-unavailable' });
         return { status: 'rejected', reason: 'no-location' };
       }
       const fix = Object.freeze({ ...result.location });
       const current = this.state.localLocation;
       if (current === null || fix.timestamp > current.timestamp) {
-        this.patch({ localLocation: fix, now: this.now() });
+        this.patch({ localLocation: fix, localQuality: result.quality, now: this.now() });
         this.pendingLocal = fix;
         this.flushArchive(generation);
       }
@@ -275,7 +276,7 @@ export class LocationService {
         if (!this.initialized) return;
         const local = this.pendingLocal;
         const peers = [...this.pendingPeers.values()].slice(0, 100);
-        if (local) await this.repository.saveLocal(local);
+        if (local) await this.repository.saveLocal(local, this.state.localQuality?.timestamp === local.timestamp ? this.state.localQuality : undefined);
         if (peers.length) await this.repository.upsertPeers(peers);
         if (this.pendingLocal === local) this.pendingLocal = null;
         for (const peer of peers) if (this.pendingPeers.get(peer.deviceId) === peer) this.pendingPeers.delete(peer.deviceId);
@@ -296,7 +297,7 @@ export class LocationService {
     const current = this.state.localLocation;
     const localLocation = stored && this.safeLocal(stored) && (!current || stored.timestamp > current.timestamp) ? stored : current;
     this.patch({
-      localLocation, peers: Object.freeze([...archive.peers]),
+      localLocation, localQuality: archive.localQuality?.timestamp === localLocation?.timestamp ? archive.localQuality : this.state.localQuality?.timestamp === localLocation?.timestamp ? this.state.localQuality : undefined, peers: Object.freeze([...archive.peers]),
       status: this.unsubscribe === null ? 'error' : 'ready', now: this.now(),
       ...(this.unsubscribe === null ? { issue: 'storage-unavailable' as const }
         : this.state.issue === 'storage-unavailable' ? { issue: null } : {}),

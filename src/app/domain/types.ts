@@ -46,7 +46,7 @@ export interface RuntimeResources {
   readonly deviceId: PeerId;
   readonly node: AppNode;
   readonly chat: Pick<ChatService, keyof ChatService>;
-  readonly locations: Pick<LocationService, keyof LocationService>;
+  readonly locations: Pick<LocationService, Exclude<keyof LocationService, 'cancelLocation'>> & Partial<Pick<LocationService, 'cancelLocation'>>;
   readonly emergency?: EmergencyService;
   readonly security?: SecurityService;
   /** Release manager and database handles only after node/features have stopped. */

@@ -113,7 +113,7 @@ test('the overall deadline includes permission wait and late authorization canno
   const reading = source.read(new AbortController().signal);
   await until(() => permissions() === 1);
   t.mock.timers.tick(500);
-  assert.deepEqual(await reading, { status: 'unavailable' });
+  assert.deepEqual(await reading, { status: 'timeout' });
   permission.resolve('granted');
   await new Promise<void>(resolve => setImmediate(resolve));
   assert.equal(bridge.watches.length, 0);
@@ -128,7 +128,7 @@ for (const ending of ['cancelled', 'timeout'] as const) {
     await until(() => bridge.watches.length === 1);
     if (ending === 'cancelled') controller.abort();
     else t.mock.timers.tick(500);
-    const expected = { status: ending === 'cancelled' ? 'cancelled' : 'unavailable' };
+    const expected = { status: ending === 'cancelled' ? 'cancelled' : 'timeout' };
     assert.deepEqual(await reading, expected);
     assert.deepEqual(bridge.cleared, [40]);
     bridge.watches[0]!.success(position);
@@ -180,7 +180,7 @@ test('native permission-denied errors remain distinguishable from unavailable GP
     const reading = source.read(new AbortController().signal);
     await until(() => bridge.watches.length === 1);
     bridge.watches[0]!.error({ code });
-    assert.deepEqual(await reading, { status: code === 1 ? 'denied' : 'unavailable' });
+    assert.deepEqual(await reading, { status: code === 1 ? 'denied' : code === 3 ? 'timeout' : 'unavailable' });
     assert.deepEqual(bridge.cleared, [40]);
   }
 });
@@ -262,4 +262,9 @@ test('a finished action removes its abort listener so cancelling it later cannot
   bridge.watches[1]!.success(position);
   assert.equal((await second).status, 'fix');
   assert.deepEqual(bridge.cleared, [40, 41]);
+});
+
+test('disabled device location and provider failure remain distinct; precision is local metadata only',async()=>{
+ for(const [code,status] of [[4,'disabled'],[2,'unavailable'],[5,'cancelled']] as const){const {source,bridge}=fixture();const reading=source.read(new AbortController().signal);await until(()=>bridge.watches.length===1);bridge.watches[0]!.error({code});assert.equal((await reading).status,status);assert.deepEqual(bridge.cleared,[40]);}
+ const {source,bridge}=fixture();const reading=source.read(new AbortController().signal);await until(()=>bridge.watches.length===1);bridge.watches[0]!.success({...position,coords:{...position.coords,accuracy:450},approximate:true});const result=await reading;assert.equal(result.status,'fix');if(result.status==='fix'){assert.deepEqual(result.quality,{timestamp:100000,approximate:true,accuracyMeters:450});assert.deepEqual(Object.keys(result.location).sort(),['latitude','longitude','timestamp']);}
 });

@@ -1,5 +1,5 @@
 import type { AcceptResult, DtnEvent, LocationFix, OutgoingMessage, PeerId, StoredMessage } from '../../dtn/domain/types';
-import type { GpsResult, LocationArchive, OfflineMapDescriptor, PeerLocation } from './types';
+import type { GpsResult, LocationQuality, LocationArchive, OfflineMapDescriptor, PeerLocation } from './types';
 
 export interface LocationEngine {
   readonly deviceId: PeerId;
@@ -10,7 +10,7 @@ export interface LocationEngine {
 
 export interface LocationRepository {
   initialize(localDeviceId: PeerId): Promise<void>;
-  saveLocal(location: LocationFix): Promise<void>;
+  saveLocal(location: LocationFix, quality?: LocationQuality): Promise<void>;
   /** Only a strictly newer fix replaces a peer's stored report. */
   upsertPeers(peers: readonly PeerLocation[]): Promise<void>;
   read(): Promise<LocationArchive>;

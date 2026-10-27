@@ -5,7 +5,7 @@ import type { LocationService } from '../application/LocationService';
 
 export type MapsUiService = Pick<LocationService,
   'deviceId' | 'getSnapshot' | 'subscribe' | 'start' | 'stop' | 'setVisible' | 'refresh' |
-  'refreshLocal' | 'shareOnce' | 'setSharing' | 'setPowerMode' | 'sendSos' | 'dismissIssue' | 'dismissNotice'>;
+  'refreshLocal' | 'shareOnce' | 'setSharing' | 'setPowerMode' | 'sendSos' | 'dismissIssue' | 'dismissNotice'> & Partial<Pick<LocationService, 'cancelLocation'>>;
 
 const MapsContext = createContext<{ readonly service: MapsUiService; readonly visible: boolean } | null>(null);
 
@@ -54,6 +54,7 @@ export function useMaps() {
   const actions = useMemo(() => ({
     refresh: (options?: Parameters<LocationService['refresh']>[0]) => service.refresh(options),
     refreshLocal: () => service.refreshLocal(),
+    cancelLocation: () => service.cancelLocation?.(),
     shareOnce: () => service.shareOnce(),
     setSharing: (sharing: boolean) => service.setSharing(sharing),
     setPowerMode: (mode: PowerMode) => service.setPowerMode(mode),
