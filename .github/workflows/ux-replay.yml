@@ -12,6 +12,26 @@ concurrency:
   group: ux-sealed-replay
   cancel-in-progress: true
 jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: offline-ux-emulator-evidence
+          run-id: 40570822311
+          github-token: ${{ github.token }}
+          path: prior-evidence
+      - name: Inspect prior camera failure without reading app-private files
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as ET,json
+          for name in ('camera-public-preview.xml','final-ui.xml'):
+              file=Path('prior-evidence')/name
+              if file.exists():print(name,json.dumps([dict(text=n.get('text'),label=n.get('content-desc'),bounds=n.get('bounds')) for n in ET.fromstring(file.read_text()).iter('node') if n.get('text') or n.get('content-desc')],ensure_ascii=False))
+          for name in ('native-errors.txt','emulator.log'):
+              file=Path('prior-evidence')/name
+              if file.exists():print(name,file.read_text(errors='replace')[-7000:])
   replay:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
