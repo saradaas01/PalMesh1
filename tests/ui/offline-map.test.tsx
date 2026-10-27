@@ -140,3 +140,27 @@ test('invalid remote resource descriptors fail before enabling the SDK or mounti
   expect(NetworkManager.setConnected).not.toHaveBeenCalled();
   expect(screen.queryByTestId('native-map')).toBeNull();
 });
+
+
+test('ordinary debug builds never enumerate features or sample gestures after readiness', async () => {
+  const status = jest.fn<() => Promise<{ tileHits: number }>>().mockResolvedValue({ tileHits: 2 });
+  NativeModules.PalMeshOfflineMaps = { renderDiagnosticsEnabled: false, localResourceStatus: status };
+  const failed = jest.fn(); await render(<OfflineMapView {...props} onUnavailable={failed} />);
+  await act(async () => { jest.advanceTimersByTime(2_000); });
+  expect(screen.getByText('Offline map ready')).toBeOnTheScreen();
+  expect(mockQuery).not.toHaveBeenCalled();
+  const calls = status.mock.calls.length;
+  expect(screen.getByTestId('native-map').props.onRegionDidChange).toBeUndefined();
+  expect(screen.getByTestId('native-map').props.onDidFinishRenderingMapFully).toBeUndefined();
+  await act(async () => { jest.advanceTimersByTime(60_000); });
+  expect(status).toHaveBeenCalledTimes(calls); expect(failed).not.toHaveBeenCalled();
+});
+
+test('unavailable local resources have a finite readiness budget and honest deadline', async () => {
+  const status = jest.fn<() => Promise<{ tileHits: number }>>().mockResolvedValue({ tileHits: 0 });
+  NativeModules.PalMeshOfflineMaps = { renderDiagnosticsEnabled: false, localResourceStatus: status };
+  const failed = jest.fn(); await render(<OfflineMapView {...props} onUnavailable={failed} />);
+  for (let i=0;i<16;i++) await act(async () => { jest.advanceTimersByTime(2_000); });
+  expect(status.mock.calls.length).toBeLessThanOrEqual(12);
+  expect(mockQuery).not.toHaveBeenCalled(); expect(failed).toHaveBeenCalled();
+});

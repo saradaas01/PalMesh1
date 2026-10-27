@@ -17,7 +17,7 @@ export interface OfflineMapViewProps {
 
 /** The native renderer is a replaceable UI boundary. It never requests GPS,
  * starts discovery, downloads maps, or selects a default remote map style. */
-export function OfflineMapView({ descriptor, localLocation, peers, powerMode, onUnavailable }: OfflineMapViewProps): React.JSX.Element {
+function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, onUnavailable }: OfflineMapViewProps): React.JSX.Element {
   const { t } = useI18n();
   const map = useRef<MapRef>(null);
   const camera = useRef<CameraRef>(null);
@@ -32,10 +32,13 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
   const settled = useRef(false);
   const alive = useRef(false);
   const lastProbe = useRef(0);
+  const probeCount = useRef(0);
+  const diagnostics = NativeModules.PalMeshOfflineMaps?.renderDiagnosticsEnabled === true;
   useEffect(() => {
     generation.current += 1;
     alive.current = true;
     settled.current = false;
+    probeCount.current = 0; lastProbe.current = 0;
     lastCenter.current = null; cameraMoves.current = 0;
     ready.current = false;
     setRendered(false);
@@ -73,15 +76,24 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
   }), [peers, localLocation]);
   const inspectRendering = async (): Promise<void> => {
     const diagnostics = NativeModules.PalMeshOfflineMaps?.renderDiagnosticsEnabled === true;
-    if (settled.current && !diagnostics) return;
+    if (!diagnostics && (ready.current || probeCount.current >= 12)) return;
     const cycle = generation.current;
     if (!map.current || !mapStyle || busy.current === cycle || Date.now() - lastProbe.current < 1_000) return;
     busy.current = cycle;
     lastProbe.current = Date.now();
+    probeCount.current += 1;
     try {
       const geometryLayers = mapStyle.layers.filter(layer => ['fill', 'line', 'circle'].includes(layer.type)).map(layer => layer.id);
       const roadLayers = mapStyle.layers.filter(layer => layer.type === 'line' && /road|transport|street/i.test(layer['source-layer'] ?? '')).map(layer => layer.id);
       const labelLayers = mapStyle.layers.filter(layer => layer.type === 'symbol').map(layer => layer.id);
+      if (!diagnostics) {
+        // Read only small native counters while loading. Human-facing builds
+        // never serialize rendered geometries across the bridge.
+        const status = await NativeModules.PalMeshOfflineMaps?.localResourceStatus?.();
+        if (!alive.current || cycle !== generation.current) return;
+        if (status?.tileHits > 0) { ready.current = true; settled.current = true; setRendered(true); }
+        return;
+      }
       const geometry = await map.current.queryRenderedFeatures({ layers: geometryLayers });
       const roads = diagnostics && roadLayers.length ? await map.current.queryRenderedFeatures({ layers: roadLayers }) : [];
       const labels = diagnostics && labelLayers.length ? await map.current.queryRenderedFeatures({ layers: labelLayers }) : [];
@@ -105,7 +117,7 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
   };
   useEffect(() => {
     const diagnostics = NativeModules.PalMeshOfflineMaps?.renderDiagnosticsEnabled === true;
-    const timer = setInterval(() => { if (!settled.current || diagnostics) void inspectRendering(); }, 1_000);
+    const timer = setInterval(() => { if ((!ready.current && probeCount.current < 12) || diagnostics) void inspectRendering(); }, diagnostics ? 1_000 : 2_000);
     const stop = setTimeout(() => clearInterval(timer), diagnostics ? 60_000 : 30_000);
     return () => { clearInterval(timer); clearTimeout(stop); };
   }, [mapStyle]);
@@ -133,8 +145,9 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
     <Map key={descriptor.tileUrlTemplate} ref={map} style={styles.map} mapStyle={mapStyle} attribution={false} logo={false}
       compass={false} dragPan={true} touchZoom={true} doubleTapZoom={true} touchRotate={false} touchPitch={false}
       preferredFramesPerSecond={powerMode === 'conserve' ? 15 : 30}
-      onDidFailLoadingMap={onUnavailable} onDidFinishRenderingMapFully={() => { void inspectRendering(); }}
-      onRegionDidChange={() => { void inspectRendering(); }}>
+      onDidFailLoadingMap={onUnavailable}
+      {...(rendered && !diagnostics ? {} : { onDidFinishRenderingMapFully: () => { void inspectRendering(); } })}
+      {...(diagnostics ? { onRegionDidChange: () => { void inspectRendering(); } } : {})}>
       <Camera ref={camera} initialViewState={initialViewState} maxBounds={bounds}
         minZoom={descriptor.minZoom} maxZoom={maxZoom} />
       <GeoJSONSource id="palmesh-location-reports" data={points}>
@@ -158,6 +171,8 @@ export function OfflineMapView({ descriptor, localLocation, peers, powerMode, on
     </View>
   );
 }
+
+export const OfflineMapView = React.memo(OfflineMapViewComponent);
 
 const styles = StyleSheet.create({ map: { flex: 1, backgroundColor: '#172430' },
   status: { position: 'absolute', top: 4, left: 4, right: 4, color: '#ffffff', backgroundColor: '#172430', fontSize: 12 },

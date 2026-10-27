@@ -76,8 +76,28 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
     @Override public String getName() { return "PalMeshOfflineMaps"; }
     @Override public Map<String, Object> getConstants() {
         Map<String, Object> constants = new HashMap<>();
-        constants.put("renderDiagnosticsEnabled", (getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+        constants.put("renderDiagnosticsEnabled", renderDiagnosticsEnabled());
         return constants;
+    }
+
+    private boolean renderDiagnosticsEnabled() {
+        try {
+            ApplicationInfo info = getReactApplicationContext().getPackageManager().getApplicationInfo(getReactApplicationContext().getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
+            return (info.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0 && info.metaData != null && info.metaData.getBoolean("com.palmesh.MAP_DIAGNOSTICS", false);
+        } catch (Exception ignored) { return false; }
+    }
+
+    /** Small loading-only status, not geometry enumeration. */
+    @ReactMethod public void localResourceStatus(Promise promise) {
+        try {
+            lifecycle.execute(() -> {
+                WritableMap status = Arguments.createMap();
+                if ((getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) Log.i("PalMeshOfflineMap", "readiness_poll");
+                status.putDouble("tileHits", host == null ? 0 : host.tileHits.get());
+                status.putDouble("glyphHits", host == null ? 0 : host.glyphHits.get());
+                promise.resolve(status);
+            });
+        } catch (RejectedExecutionException error) { promise.reject("E_MAP_CLOSED", "Offline map host closed"); }
     }
 
     @ReactMethod public synchronized void open(ReadableMap options, Promise promise) {
@@ -102,7 +122,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
                     File file = prepareAsset(assetName, expected, operation);
                     checkCurrent(operation);
                     candidate = new TileHost(file, cancellation, getReactApplicationContext().getAssets(),
-                        (getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+                        renderDiagnosticsEnabled());
                     checkCurrent(operation);
                     pruneCopies(file);
                     host = candidate;
@@ -123,7 +143,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
 
     /** Debug-only aggregate evidence; no resource URLs, keys, feature text or coordinates. */
     @ReactMethod public void recordRenderEvidence(double geometry, double roads, double labels, double arabic, double zoom, double cameraMoves, Promise promise) {
-        if ((getReactApplicationContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) { promise.resolve(null); return; }
+        if (!renderDiagnosticsEnabled()) { promise.resolve(null); return; }
         for (double value : new double[] { geometry, roads, labels, arabic, cameraMoves }) {
             if (!Double.isFinite(value) || value < 0 || value > 1000000 || value != Math.floor(value)) {
                 promise.reject("E_MAP_EVIDENCE", "Invalid bounded render counts"); return;

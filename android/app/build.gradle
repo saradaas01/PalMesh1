@@ -89,6 +89,7 @@ if (!(releaseVersionCode ==~ /[1-9][0-9]{0,8}/)) {
     throw new GradleException('PALMESH_VERSION_CODE must be a positive Android version code')
 }
 def releaseVersionName = System.getenv('PALMESH_VERSION_NAME') ?: '0.1.0'
+def mapPerformanceTest = providers.gradleProperty('palmeshMapPerformanceTest').orNull == 'true'
 def isolatedMapTest = providers.gradleProperty('palmeshIsolatedMapTest').orNull == 'true'
 if (!(releaseVersionName ==~ /[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?/)) {
     throw new GradleException('PALMESH_VERSION_NAME must be a semantic version')
@@ -102,7 +103,7 @@ android {
     namespace "org.palmesh"
     defaultConfig {
         applicationId "org.palmesh"
-        manifestPlaceholders = [palmeshApplicationLabel: '@string/app_name']
+        manifestPlaceholders = [palmeshApplicationLabel: '@string/app_name', palmeshMapDiagnostics: 'false']
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode releaseVersionCode.toInteger()
@@ -120,9 +121,15 @@ android {
     }
     buildTypes {
         debug {
+            manifestPlaceholders.palmeshMapDiagnostics = providers.gradleProperty('palmeshMapDiagnostics').orNull == 'true' ? 'true' : 'false'
             if (isolatedMapTest) {
                 applicationIdSuffix '.maptest'
-                manifestPlaceholders = [palmeshApplicationLabel: 'PalMesh Map Test']
+                manifestPlaceholders.palmeshApplicationLabel = 'PalMesh Map Test'
+            }
+            if (mapPerformanceTest) {
+                if (isolatedMapTest) throw new GradleException('Choose one test identity')
+                applicationIdSuffix '.mapperftest'
+                manifestPlaceholders.palmeshApplicationLabel = 'PalMesh Map Performance Test'
             }
         }
         release {

@@ -1,5 +1,19 @@
 # Current progress checkpoint
 
+## Physical map-performance follow-up — October 27, 2026
+
+The user confirms that offline maps render on TECNO POVA 5 / LH7n, Android 14,
+but severe lag lasts roughly one minute. Acceptance diagnostics had been shipped
+in ordinary debug APKs: repeated full geometry/road queries lasted 60 seconds.
+Ordinary builds now perform zero rendered-feature queries and stop lightweight
+local-resource readiness polling after success. Full tracing is an explicit
+acceptance-only build flag. [Performance diagnosis and verification](milestones/map-performance.md)
+records the distinction between emulator profiling and physical retesting.
+Local checks pass: 380 core, 87 UI, 53 Android-tool and 53 map-tool tests;
+ARM64 performance APK signature/ABI/bundle/map/alignment and sealed diagnostics
+metadata checks pass. The new package `org.palmesh.mapperftest` preserves both
+existing app installations. Hosted ordinary-APK profiling is tracked in PR #9.
+
 ## Priority offline-map correction — October 26, 2026
 
 The user reports a real phone rendering maps only while internet is available.
