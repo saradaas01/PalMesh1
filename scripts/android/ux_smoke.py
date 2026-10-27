@@ -65,6 +65,7 @@ class UxSmoke(MapSmoke):
    self.tap('More');self.tap('My profile');self.wait_ui(lambda x:smoke.has_text(x,'Sara UX'),'profile after restart','retained-profile.xml');self.capture('profile')
    self.tap('More');self.tap('Settings');self.tap('العربية');self.capture('arabic-settings');self.tap('الرسائل');self.capture('arabic-messages')
    self.command('shell','wm','size','480x800');self.command('shell','settings','put','system','font_scale','1.3');self.capture('arabic-small-screen');self.command('shell','wm','size','reset');self.command('shell','settings','put','system','font_scale','1.0')
+   self.wait_ui(lambda x:smoke.find_control(x,'المزيد') is not None,'Arabic navigation after display/font recreation','layout-restored.xml')
    self.tap('المزيد');self.tap('الإعدادات');self.tap('English')
    self.output.joinpath('ux-acceptance.json').write_text(json.dumps(dict(passed=True,actualCameraFrames=True,syntheticCameraImage=True,physicalCameraTested=False,permissionDeniedHandled=True,explicitQrSave=True,privateMessagePersisted=True,onboardingPersisted=True,profilePersisted=True,rtlAndSmallScreenExercised=True),indent=2)+'\n')
    print('UX_ACCEPTANCE camera QR, permission denial, private queue/restart, onboarding, Arabic and small-screen passed',flush=True)
