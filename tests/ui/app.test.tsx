@@ -173,6 +173,7 @@ describe('PalMesh app shell', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Map' }));
     expect(runtime.chat.setVisible).toHaveBeenLastCalledWith(false);
     expect(runtime.locations.setVisible).toHaveBeenLastCalledWith(true);
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     expect(screen.getByText('Your last GPS fix')).toBeOnTheScreen();
     expect(screen.getAllByRole('button', { name: 'I Need Help · SOS' })).toHaveLength(1);
     await fireEvent.press(screen.getByRole('tab', { name: 'Messages' }));
@@ -276,16 +277,19 @@ describe('PalMesh app shell', () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);
     expect(runtime.requestPermissions).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByRole('button', { name: 'Enable nearby connections' }));
+    await fireEvent.press(screen.getByRole('tab',{name:'More'}));
+    await fireEvent.press(screen.getByRole('button',{name:'Settings'}));
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect nearby' }));
     expect(runtime.requestPermissions).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Wi-Fi Direct: ready · Bluetooth: ready')).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Enable nearby connections' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Connect nearby' })).toBeNull();
   });
 
   test('routes map low-battery mode through the runtime to both routing and location services', async () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);
     await fireEvent.press(screen.getByRole('tab', { name: 'Map' }));
+    await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
     await fireEvent(screen.getByRole('switch', { name: 'Low battery mode' }), 'change', { nativeEvent: { value: true } });
     expect(runtime.setPowerMode).toHaveBeenLastCalledWith('conserve');
     expect(runtime.resources.node.engine.setPowerMode).toHaveBeenLastCalledWith('conserve');
@@ -330,7 +334,7 @@ describe('PalMesh app shell', () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);
     await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Close new message' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(runtime.sendSos).toHaveBeenCalledTimes(1);
     expect(runtime.locations.sendSos).toHaveBeenCalledTimes(1);
@@ -357,7 +361,7 @@ describe('integrated emergency, identity and offline settings', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Open SOS inbox' }));
     expect(screen.getByText('Need water')).toBeOnTheScreen();
     expect(screen.queryByText('New incoming SOS')).toBeNull();
-    for (const route of ['Identity and contacts', 'Map', 'Messages', 'SOS inbox']) {
+    for (const route of ['Contacts', 'Map', 'Messages', 'More']) {
       await fireEvent.press(screen.getByRole('tab', { name: route }));
       expect(screen.getAllByRole('button', { name: 'I Need Help · SOS' })).toHaveLength(1);
     }
@@ -370,7 +374,7 @@ describe('integrated emergency, identity and offline settings', () => {
     await render(<PalMeshApp runtime={runtime} />);
     expect(runtime.requestAlerts).not.toHaveBeenCalled();
     expect(runtime.setBackgroundEnabled).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Contacts' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Enable SOS notifications' }));
     expect(runtime.requestAlerts).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'SOS notifications enabled' })).toBeDisabled();
@@ -387,7 +391,7 @@ describe('integrated emergency, identity and offline settings', () => {
   test('keeps unsupported background execution unavailable and still offers notification opt-in', async () => {
     const runtime = new RuntimeDouble(); runtime.patch({ backgroundSupported: false });
     await render(<PalMeshApp runtime={runtime} />);
-    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Contacts' }));
     expect(screen.queryByRole('button', { name: 'Keep mesh active in background' })).toBeNull();
     expect(screen.getByText('Background mesh is unavailable. Keep PalMesh open for nearby connections.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Enable SOS notifications' })).toBeEnabled();
@@ -398,7 +402,7 @@ describe('integrated emergency, identity and offline settings', () => {
     const own = await identity(1); const peer = await identity(10);
     runtime.resources = { ...runtime.resources, security: own };
     await render(<PalMeshApp runtime={runtime} />);
-    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Contacts' }));
     expect(screen.getByLabelText('Your identity fingerprint')).toHaveTextContent(own.deviceId);
     expect(screen.getByLabelText('Your public identity JSON')).toHaveTextContent(JSON.stringify(own.publicIdentity));
     expect(screen.queryByText(/signingSecret|encryptionSecret/)).toBeNull();
@@ -416,11 +420,7 @@ describe('integrated emergency, identity and offline settings', () => {
     expect(screen.getByLabelText('Contact public identity JSON')).toHaveDisplayValue('');
     await fireEvent.press(screen.getByRole('tab', { name: 'Messages' }));
     await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
-    expect(screen.getByText('Saved contact identities')).toBeOnTheScreen();
-    expect(screen.getByText(/Saved keys identify a device/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: `Use contact ${shortIdentity(peer.deviceId)}` }));
-    expect(screen.getByLabelText('Recipient peer ID')).toHaveDisplayValue(peer.deviceId);
-    await fireEvent.press(screen.getByRole('button', { name: 'Open conversation' }));
+    await fireEvent.press(screen.getByRole('button', { name: shortIdentity(peer.deviceId) }));
     expect(runtime.chat.openConversation).toHaveBeenLastCalledWith(peer.deviceId);
 
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
@@ -443,7 +443,7 @@ describe('integrated emergency, identity and offline settings', () => {
   test('offers setup guidance without requesting permissions and keeps SOS reachable', async () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);
-    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Contacts' }));
     const guide = screen.getByRole('button', { name: 'Offline messaging setup guide' });
     expect(guide.props.accessibilityState).toEqual({ expanded: false });
     await fireEvent.press(guide);
@@ -459,14 +459,14 @@ describe('integrated emergency, identity and offline settings', () => {
     await render(<PalMeshApp runtime={runtime} />);
     for (const tab of screen.getAllByRole('tab')) expect(tab).toHaveStyle({ flexBasis: '50%' });
     expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
-    await fireEvent.press(screen.getByRole('tab', { name: 'Identity and contacts' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Contacts' }));
     expect(screen.getByRole('button', { name: 'Offline messaging setup guide' })).toBeEnabled();
   });
 
   test('renders all app routes in Arabic with one reachable localized SOS and translated SOS payload', async () => {
     const runtime = new RuntimeDouble();
     await render(<I18nProvider initialLanguage="ar"><PalMeshApp runtime={runtime} /></I18nProvider>);
-    for (const route of ['app.security', 'app.map', 'app.emergencies', 'app.messages'] as const) {
+    for (const route of ['ui.contacts', 'ui.map', 'ui.more', 'ui.messages'] as const) {
       await fireEvent.press(screen.getByRole('tab', { name: ar[route] }));
       expect(screen.getAllByRole('button', { name: ar['common.sos'] })).toHaveLength(1);
     }

@@ -1,6 +1,6 @@
 import { ContactNamesProvider } from '../../features/contacts/ContactNames';
-import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { ChatProvider, ChatScreen } from '../../features/chat/ui';
 import { MapsProvider, MapsScreen, type MapsUiService } from '../../features/maps/ui';
@@ -8,6 +8,11 @@ import type { RadioStatus } from '../../features/mesh';
 import { EmergencyBanner, EmergencyInbox } from '../../features/emergency/ui';
 import { LocalizedText as Text, useI18n, type Translate } from '../../shared/i18n';
 import { SecurityScreen } from './SecurityScreen';
+import { SettingsScreen } from './SettingsScreen';
+import { ContactsExperienceV2, ProfileExperience } from '../../features/contacts/IdentityExperience';
+import { useContactNames } from '../../features/contacts/ContactNames';
+import { FirstRun } from '../../features/onboarding/OnboardingScreen';
+import { Action, Avatar, Card, Icon, Screen, ui, palette } from '../../shared/ui/design';
 import type { AppRuntime } from '../application/AppRuntime';
 import type { AppRoute, RuntimeResources } from '../domain/types';
 
@@ -55,10 +60,13 @@ function useMapsService(resources: RuntimeResources | null, runtime: AppUiRuntim
 export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   const { t, rowStyle } = useI18n();
   const { width, fontScale } = useWindowDimensions();
-  const compactTabs = width < 380 || fontScale > 1.3;
+  const compactTabs = fontScale > 1.4;
   const subscribe = useCallback((listener: () => void) => runtime.subscribe(listener), [runtime]);
   const getSnapshot = useCallback(() => runtime.getSnapshot(), [runtime]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [keyboardVisible,setKeyboardVisible]=useState(false);
+  useEffect(()=>{const show=Keyboard.addListener('keyboardDidShow',()=>setKeyboardVisible(true));const hide=Keyboard.addListener('keyboardDidHide',()=>setKeyboardVisible(false));return()=>{show.remove();hide.remove();};},[]);
+  useEffect(()=>{const back=BackHandler.addEventListener('hardwareBackPress',()=>{if(['profile','settings','emergencies'].includes(snapshot.route)){runtime.navigate('more');return true;}return false;});return()=>back.remove();},[snapshot.route,runtime]);
   const sosInFlight = useRef(false);
   const mapsService = useMapsService(snapshot.resources, runtime);
   useEffect(() => {
@@ -80,34 +88,20 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   return <SafeAreaProvider initialMetrics={initialWindowMetrics}>
     <ContactNamesProvider service={snapshot.resources?.contacts}>
     <SafeAreaView style={[styles.safeArea, rowStyle]}>
+      <StatusBar barStyle="dark-content" backgroundColor={palette.surface}/>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <Text accessibilityRole="header" style={styles.brand}>PalMesh</Text>
-        <Text style={styles.secondary}>{t(snapshot.connectedPeers === 1 ? 'common.connectedPeer' : 'common.connectedPeers', { count: snapshot.connectedPeers })}</Text>
-        <Text style={styles.caption}>{t('common.securityNotice')}</Text>
+        <View style={ui.grow}><Text accessibilityRole="header" style={styles.brand}>PalMesh</Text><Text style={styles.caption}>{t('ui.offline')}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.sos')} accessibilityHint={t('ui.sosHint')}
+          accessibilityState={{disabled:!ready||snapshot.pendingSos,busy:snapshot.pendingSos}} disabled={!ready||snapshot.pendingSos} onPress={requestSos} style={styles.sos}>
+          <Text style={styles.sosText}>{t(snapshot.pendingSos?'common.queueingSos':'ui.sos')}</Text>
+        </Pressable>
       </View>
-      <View accessibilityRole="tablist" style={styles.tabs}>
-        {(['chat', 'maps', 'emergencies', 'contacts'] as const).map(route => <Pressable key={route} accessibilityRole="tab"
-          accessibilityLabel={t(route === 'chat' ? 'app.messages' : route === 'maps' ? 'app.map' : route === 'emergencies' ? 'app.emergencies' : 'app.security')}
-          accessibilityState={{ selected: snapshot.route === route, disabled: !ready }} disabled={!ready}
-          onPress={() => selectRoute(route)} style={({ pressed }) => [styles.tab, compactTabs && styles.tabCompact, snapshot.route === route && styles.selectedTab, pressed && styles.pressed]}>
-          <Text style={styles.tabText}>{t(route === 'chat' ? 'app.messages' : route === 'maps' ? 'app.map' : route === 'emergencies' ? 'app.emergencies' : 'app.security')}</Text>
-        </Pressable>)}
-      </View>
-      {ready && <View style={styles.connections}>
-        <Text style={styles.caption}>{t('app.radios', { wifi: radioLabel(snapshot.radios['wifi-direct'], t), bluetooth: radioLabel(snapshot.radios.ble, t) })}</Text>
-        {needsPermissions && snapshot.permissions?.canRequest !== false && <Button
-          label={t(snapshot.requestingPermissions ? 'app.enabling' : 'app.enable')}
-          disabled={snapshot.requestingPermissions} onPress={() => { void runtime.requestPermissions(); }} />}
-        {needsPermissions && snapshot.permissions?.canRequest === false &&
-          <Text style={styles.caption}>{snapshot.permissions.platform === 'unsupported'
-            ? t('app.radiosUnsupported')
-            : t('app.permissionsSettings')}</Text>}
-      </View>}
       {ready && snapshot.resources?.emergency !== undefined && snapshot.route !== 'emergencies' &&
         <EmergencyBanner service={snapshot.resources.emergency} onOpen={() => selectRoute('emergencies')} />}
 
       <View style={styles.content}>
+        <FirstRun preferences={ready?snapshot.resources?.onboarding:undefined}>
         {ready && snapshot.resources !== null && mapsService !== null ? snapshot.route === 'chat' ?
           <ChatProvider service={snapshot.resources.chat} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>
@@ -120,6 +114,10 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
           </MapsProvider> : snapshot.route === 'emergencies' ?
             snapshot.resources.emergency !== undefined ? <EmergencyInbox service={snapshot.resources.emergency} /> :
               <Text style={styles.body}>{t('emergency.problem')}</Text> :
+            snapshot.route === 'contacts' && snapshot.resources.contacts ? <ContactsExperienceV2 onOpen={async id=>{await snapshot.resources!.chat.openConversation(id);selectRoute('chat');}} onProfile={()=>selectRoute('profile')}/> :
+            snapshot.route === 'profile' && snapshot.resources.security ? <ProfileExperience security={snapshot.resources.security}/> :
+            snapshot.route === 'settings' ? <SettingsScreen runtime={runtime} snapshot={snapshot}/> :
+            snapshot.route === 'more' ? <MoreScreen snapshot={snapshot} navigate={selectRoute}/> :
             <SecurityScreen runtime={runtime} snapshot={snapshot} /> :
           <ScrollView contentContainerStyle={styles.startup}>
             {snapshot.status === 'starting' || snapshot.status === 'idle' ? <>
@@ -134,6 +132,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
               <Button label={t('app.retry')} onPress={() => { void runtime.start(); }} />
             </>}
           </ScrollView>}
+        </FirstRun>
       </View>
 
       {(snapshot.issue !== null || snapshot.notice !== null) && <ScrollView style={styles.feedback} keyboardShouldPersistTaps="handled">
@@ -146,43 +145,16 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
           <Button label={t('app.dismissSos')} onPress={() => runtime.dismissNotice()} />
         </>}
       </ScrollView>}
-      <View style={styles.sosContainer}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('common.sos')}
-          accessibilityHint={t('app.cachedGpsHint')}
-          accessibilityState={{ disabled: !ready || snapshot.pendingSos, busy: snapshot.pendingSos }} disabled={!ready || snapshot.pendingSos}
-          onPress={requestSos} style={({ pressed }) => [styles.sos, (!ready || snapshot.pendingSos) && styles.disabled, pressed && styles.pressed]}>
-          <Text style={styles.sosText}>{t(snapshot.pendingSos ? 'common.queueingSos' : 'common.sos')}</Text>
-        </Pressable>
-        <Text style={styles.caption}>{t('app.cachedGps')}</Text>
-      </View>
+      {!keyboardVisible && <View accessibilityRole="tablist" style={styles.tabs}>
+        {(['chat','contacts','maps','more'] as const).map((route,index)=><Pressable key={route} accessibilityRole="tab" accessibilityLabel={t((['ui.messages','ui.contacts','ui.map','ui.more'] as const)[index]!)} disabled={!ready} accessibilityState={{disabled:!ready,selected:snapshot.route===route||route==='more'&&['profile','settings','emergencies'].includes(snapshot.route)}} onPress={()=>selectRoute(route)} style={[styles.tab,compactTabs&&styles.tabCompact,(snapshot.route===route||route==='more'&&['profile','settings','emergencies'].includes(snapshot.route))&&styles.selectedTab]}><Icon name={(['message','people','map','more'] as const)[index]!} color={snapshot.route===route?palette.primary:palette.muted}/><Text style={styles.tabText}>{t((['ui.messages','ui.contacts','ui.map','ui.more'] as const)[index]!)}</Text></Pressable>)}
+      </View>}
       </KeyboardAvoidingView>
     </SafeAreaView>
     </ContactNamesProvider>
   </SafeAreaProvider>;
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0a1118' },
-  screen: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, flexShrink: 0 },
-  brand: { color: '#ffffff', fontSize: 25, fontWeight: '800', writingDirection: 'auto' },
-  body: { color: '#ffffff', fontSize: 16, lineHeight: 24, writingDirection: 'auto' },
-  secondary: { color: '#d2dde8', fontSize: 15, lineHeight: 23, writingDirection: 'auto' },
-  caption: { color: '#c2d1df', fontSize: 12, lineHeight: 18, writingDirection: 'auto' },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#405264' },
-  tab: { flex: 1, minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  tabCompact: { flexBasis: '50%', flexGrow: 0, flexShrink: 0 },
-  tabText: { color: '#ffffff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  selectedTab: { borderBottomColor: '#6bceff', backgroundColor: '#15364b' },
-  connections: { paddingHorizontal: 16, paddingVertical: 6, flexShrink: 0 },
-  content: { flex: 1, minHeight: 0 },
-  startup: { flexGrow: 1, justifyContent: 'center', padding: 20, gap: 18 },
-  button: { minHeight: 48, minWidth: 48, padding: 12, marginVertical: 4, borderRadius: 8, justifyContent: 'center', alignItems: 'center', backgroundColor: '#164c74' },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '700', textAlign: 'center', writingDirection: 'auto' },
-  feedback: { maxHeight: 150, flexGrow: 0, flexShrink: 1, paddingHorizontal: 16, backgroundColor: '#3d2a20' },
-  sosContainer: { padding: 12, borderTopWidth: 1, borderTopColor: '#405264', backgroundColor: '#0a1118', flexShrink: 0, zIndex: 1 },
-  sos: { minHeight: 68, padding: 14, backgroundColor: '#b91525', borderWidth: 2, borderColor: '#ff919c', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  sosText: { color: '#ffffff', fontSize: 23, fontWeight: '800', textAlign: 'center', writingDirection: 'auto' },
-  disabled: { opacity: 0.55 },
-  pressed: { opacity: 0.75 },
-});
+function MoreScreen({snapshot,navigate}:{readonly snapshot:ReturnType<AppUiRuntime['getSnapshot']>;readonly navigate:(route:AppRoute)=>void}) {
+ const {t}=useI18n();const {state}=useContactNames();return <Screen title={t('ui.more')}><Card><View style={ui.row}><Avatar name={state.profileName}/><View style={ui.grow}><Text style={ui.heading}>{state.profileName||t('ui.profile')}</Text><Text style={ui.muted}>{t('ui.offline')}</Text></View></View><Action label={t('ui.profile')} icon="profile" onPress={()=>navigate('profile')}/></Card><Action label={t('ui.settings')} icon="settings" onPress={()=>navigate('settings')}/><Action label={t('ui.helpInbox')} icon="help" onPress={()=>navigate('emergencies')}/><Card><Text style={ui.heading}>{t('ui.sosInfo')}</Text><Text style={ui.muted}>{t('ui.sosHint')}</Text></Card></Screen>;
+}
+const styles=StyleSheet.create({safeArea:{flex:1,backgroundColor:palette.background},screen:{flex:1},header:{paddingHorizontal:20,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:16,borderBottomWidth:1,borderColor:palette.line,backgroundColor:palette.surface},brand:{fontSize:20,fontWeight:'800',color:palette.ink},caption:{fontSize:12,lineHeight:18,color:palette.primary},body:{fontSize:16,lineHeight:24,color:palette.ink},secondary:{fontSize:15,lineHeight:23,color:palette.muted},content:{flex:1,minHeight:0},startup:{flexGrow:1,justifyContent:'center',padding:24,gap:18},sos:{minHeight:48,minWidth:64,justifyContent:'center',alignItems:'center',paddingHorizontal:16,paddingVertical:10,borderRadius:14,backgroundColor:palette.danger},sosText:{fontSize:16,fontWeight:'800',color:'#FFFFFF',textAlign:'center'},tabs:{flexDirection:'row',flexWrap:'wrap',borderTopWidth:1,borderColor:palette.line,backgroundColor:palette.surface},tab:{flex:1,minHeight:64,paddingVertical:10,paddingHorizontal:4,gap:4,alignItems:'center',justifyContent:'center'},tabCompact:{flexBasis:'50%',flexGrow:0,flexShrink:0,flexDirection:'row'},tabText:{fontSize:13,fontWeight:'600',color:palette.ink,textAlign:'center'},selectedTab:{backgroundColor:palette.soft},button:{minHeight:48,padding:12,borderRadius:12,backgroundColor:palette.primary},buttonText:{fontSize:16,color:'#FFFFFF',fontWeight:'700',textAlign:'center'},feedback:{maxHeight:160,flexShrink:1,padding:12,backgroundColor:palette.warningSoft},disabled:{opacity:0.5},pressed:{opacity:0.75}});

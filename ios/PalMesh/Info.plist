@@ -73,6 +73,8 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a public PalMesh identity QR code to add a contact offline. No photos are saved.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>PalMesh uses Bluetooth to exchange emergency messages directly with nearby phones, without internet.</string>
 	<key>UIBackgroundModes</key>

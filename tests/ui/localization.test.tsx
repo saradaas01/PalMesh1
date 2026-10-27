@@ -104,8 +104,8 @@ describe('offline English and Arabic language selection', () => {
       dismissIssue: () => {}, dismissNotice: () => {},
     };
     await render(<I18nProvider initialLanguage="ar"><PalMeshChatApp service={service} /></I18nProvider>);
-    await fireEvent.press(screen.getByRole('button', { name: ar['chat.new'] }));
-    await fireEvent.press(screen.getByRole('button', { name: ar['chat.closeNew'] }));
+    await fireEvent.press(screen.getByRole('button', { name: ar['ui.newChat'] }));
+    await fireEvent.press(screen.getByRole('button', { name: ar['ui.back'] }));
     const sos = screen.getByRole('button', { name: ar['common.sos'] });
     expect(sos).toHaveStyle({ minHeight: 68 });
     await fireEvent.press(sos);

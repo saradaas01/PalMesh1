@@ -19,6 +19,7 @@ import java.util.concurrent.*;
 /** Explicit, scoped image selection; no camera/storage permission or network API. */
 public final class PalMeshPublicQrModule extends ReactContextBaseJavaModule implements ActivityEventListener {
     private static final int REQUEST = 0x504d;
+    private static final int CAMERA_REQUEST = 0x504e;
     private final ExecutorService worker = new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1));
     private final Handler ui = new Handler(Looper.getMainLooper());
     private Promise pending;
@@ -38,7 +39,21 @@ public final class PalMeshPublicQrModule extends ReactContextBaseJavaModule impl
             catch (Exception error) { finish(null,"QR_UNAVAILABLE"); }
         });
     }
+    @ReactMethod public void scanCamera(String language,Promise promise) {
+        ui.post(()->{
+            Activity activity=getReactApplicationContext().getCurrentActivity();
+            if(invalid||pending!=null||activity==null){promise.reject("QR_CAMERA_UNAVAILABLE","Camera unavailable or busy");return;}
+            pending=promise;generation++;
+            try{activity.startActivityForResult(new Intent(activity,PublicQrCameraActivity.class).putExtra("language","ar".equals(language)?"ar":"en"),CAMERA_REQUEST);}
+            catch(Exception error){finish(null,"QR_CAMERA_UNAVAILABLE");}
+        });
+    }
+    @ReactMethod public void copyFingerprint(String fingerprint,Promise promise) {
+        if(fingerprint==null||!fingerprint.matches("pm1:[0-9a-f]{64}")){promise.reject("INVALID_FINGERPRINT","Invalid public fingerprint");return;}
+        ui.post(()->{try{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getReactApplicationContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);clipboard.setPrimaryClip(android.content.ClipData.newPlainText("PalMesh public fingerprint",fingerprint));promise.resolve(null);}catch(Exception error){promise.reject("COPY_UNAVAILABLE","Copy unavailable");}});
+    }
     @Override public void onActivityResult(Activity activity, int request, int result, Intent data) {
+        if(request==CAMERA_REQUEST){ui.post(()->{if(pending==null)return;if(result!=Activity.RESULT_OK||data==null){finish(null,null);return;}String error=data.getStringExtra("error");String value=data.getStringExtra("publicQr");if(error!=null){finish(null,error);return;}if(value==null||value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length>2048){finish(null,"QR_CAMERA_INVALID");return;}finish(value,null);});return;}
         if (request != REQUEST) return;
         ui.post(() -> {
             if (pending == null) return;

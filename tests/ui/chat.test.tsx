@@ -88,8 +88,8 @@ describe('PalMesh chat UI', () => {
     const service = new ReactiveChatService();
     const view = await render(<PalMeshChatApp service={service} />);
     expect(service.start).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('1 unread')).toBeOnTheScreen();
-    expect(screen.getByText('Your peer ID: local-device')).toBeOnTheScreen();
+    expect(screen.getByRole('button',{name:'Open conversation with peer-alice, 1 unread'})).toBeOnTheScreen();
+    expect(screen.queryByText('Your peer ID: local-device')).toBeNull();
     expect(screen.getByText('Direct chats are encrypted. Nearby broadcasts, SOS and locations are public.')).toBeOnTheScreen();
     await view.unmount();
     expect(service.stop).toHaveBeenCalledTimes(1);
@@ -109,7 +109,7 @@ describe('PalMesh chat UI', () => {
     expect(service.send).toHaveBeenCalledTimes(1);
     expect(screen.getByText('نحن هنا 🕊️')).toBeOnTheScreen();
     expect(screen.getByLabelText('Message')).toHaveDisplayValue('');
-    expect(screen.getByText(/Queued locally/)).toBeOnTheScreen();
+    expect(screen.getByText(/Waiting to connect/)).toBeOnTheScreen();
     expect(screen.getByText('Message queued on this device. Delivery is not confirmed.')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Back to messages' }));
     expect(service.closeConversation).toHaveBeenCalledTimes(1);
@@ -146,10 +146,11 @@ describe('PalMesh chat UI', () => {
       });
     });
     expect(screen.getByText('1 connected mesh peer')).toBeOnTheScreen();
-    expect(screen.getByText(/Relay connections do not confirm/)).toBeOnTheScreen();
-    expect(screen.getByText(/Received on this device/)).toBeOnTheScreen();
-    expect(screen.getByText(/Queued locally/)).toBeOnTheScreen();
-    expect(screen.getByText(/Stored by a peer/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button',{name:'Details'}));
+    expect(screen.getByText(/A relay receipt does not confirm delivery/)).toBeOnTheScreen();
+    expect(screen.getByText(/Received/)).toBeOnTheScreen();
+    expect(screen.getByText(/Waiting to connect/)).toBeOnTheScreen();
+    expect(screen.getByText(/Saved by another phone/)).toBeOnTheScreen();
     expect(screen.getByText(/Forwarding ended/)).toBeOnTheScreen();
     expect(screen.queryByText(/read by|recipient received|delivered to recipient/i)).toBeNull();
   });
@@ -158,6 +159,7 @@ describe('PalMesh chat UI', () => {
     const service = new ReactiveChatService();
     await render(<PalMeshChatApp service={service} />);
     await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
+    await fireEvent.press(screen.getByRole('button',{name:'Enter an identity manually'}));
     await fireEvent.changeText(screen.getByLabelText('Recipient peer ID'), 'bad peer');
     await fireEvent.press(screen.getByRole('button', { name: 'Open conversation' }));
     expect(service.openConversation).not.toHaveBeenCalled();
@@ -175,7 +177,7 @@ describe('PalMesh chat UI', () => {
     const sos = screen.getByRole('button', { name: 'I Need Help · SOS' });
     expect(sos).toBeEnabled();
     await fireEvent.press(screen.getByRole('button', { name: 'New message' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Close new message' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(service.sendSos).toHaveBeenCalledTimes(1);
   });
@@ -224,6 +226,8 @@ describe('PalMesh chat UI', () => {
     await render(<PalMeshChatApp service={service} />);
     await fireEvent.press(screen.getByRole('button', { name: 'Nearby broadcasts · Public' }));
     expect(service.openConversation).toHaveBeenLastCalledWith('*');
+    expect(screen.getByText('Public · Not encrypted · Can be relayed')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button',{name:'Details'}));
     expect(screen.getByText('Public and not encrypted: mesh participants can read and relay these messages beyond nearby devices. Do not share private information.')).toBeOnTheScreen();
     expect(screen.getByPlaceholderText('Public message to the mesh')).toBeOnTheScreen();
     await act(async () => { service.patch({ hasOlderMessages: true }); });
