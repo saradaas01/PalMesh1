@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Disposable offline Android: signed simulated SOS archive, map pixels, real OS GPS provider injection."""
-import json,re,time
+import json,re,time,xml.etree.ElementTree as ET
 import smoke
 from map_smoke import MapSmoke,map_pixels
 from ux_smoke import UxSmoke
 BaseSmoke=smoke.Smoke
+REPORT_ID='80222222-2222-4222-8222-222222222222'
+def report_control(xml,report_id,label):
+ card=next((n for n in smoke.nodes(xml) if n.get('resource-id','').split('/')[-1]=='sos-entry-'+report_id),None)
+ return None if card is None else smoke.find_control(ET.tostring(card,encoding='unicode'),label)
+
 def scroll_surface(xml):
  surfaces=[]
  for node in smoke.nodes(xml):
@@ -20,8 +25,15 @@ class EmergencySmoke(MapSmoke):
  def finish_guide(self,name):
   if name!='first':return
   self.wait_ui(lambda x:smoke.find_control(x,'Skip for now') is not None,'first-run guide after resource readiness','guide-ready.xml')
-  self.tap('Skip for now')
-  self.wait_ui(lambda x:smoke.find_control(x,'Skip for now') is None,'explicitly completed skippable guide','guide-complete.xml')
+  attempts=0
+  def complete(xml):
+   nonlocal attempts
+   node=smoke.find_control(xml,'Skip for now')
+   if node is None:return True
+   if attempts<6:
+    x,y=smoke.center(node);self.command('shell','input','tap',str(x),str(y));attempts+=1
+   return False
+  self.wait_ui(complete,'explicitly completed skippable guide','guide-complete.xml')
  capture=UxSmoke.capture
  def press(self,label):
   for _ in range(18):
@@ -37,6 +49,17 @@ class EmergencySmoke(MapSmoke):
  def top(self):
   left,top,right,bottom=scroll_surface(self.dump());x=right-6
   for _ in range(5):self.command('shell','input','swipe',str(x),str(top+(bottom-top)//4),str(x),str(bottom-30),'100')
+ def press_report(self,report_id,label):
+  for _ in range(18):
+   xml=self.dump();node=report_control(xml,report_id,label)
+   if node is not None:
+    try:
+     x,y=smoke.center(node)
+     if 100<y<1080:self.command('shell','input','tap',str(x),str(y));return
+    except RuntimeError:pass
+   left,top,right,bottom=scroll_surface(xml);x=right-6
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
+  raise RuntimeError('Original SOS control missing: '+report_id+' / '+label)
  def map_image(self,name,red=False,blue=False):
   from PIL import Image
   self.capture(name);xml=self.last_xml
@@ -88,8 +111,8 @@ class EmergencySmoke(MapSmoke):
    print('EMERGENCY_MARKER_TAP native zoom increased from '+str(initial_zoom),flush=True)
    self.map_image('marker-tap-focused',red=True)
    self.open_inbox();self.top()
-   # Oldest report is lower in the original-ID inbox; scroll to its View action.
-   self.press('View on map')
+   # Select the original report even when another SOS has the same sender or a newer outgoing SOS exists.
+   self.press_report(REPORT_ID,'View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'local offline renderer','map-ready.xml')
    self.top();self.map_image('red-sos-map',red=True)
    # Native notification deep-link opens the inbox; it cannot supply coordinates or a trusted identity.
@@ -105,6 +128,10 @@ class EmergencySmoke(MapSmoke):
    self.command('shell','cmd','location','set-location-enabled','false')
    self.press('My location');self.wait_ui(lambda x:smoke.has_text(x,'Device location is off. Turn on Location in Android settings, then try again. Your last fix is kept.'),'device-location disabled error','gps-disabled.xml');self.press('Dismiss map error')
    self.command('shell','cmd','location','set-location-enabled','true');self.top();self.press('My location')
+   self.wait_ui(lambda x:smoke.find_control(x,'Cancel GPS request') is not None,'GPS before background cancellation','gps-before-background.xml')
+   self.command('shell','input','keyevent','KEYCODE_HOME');self.command('shell','am','start','-W','-n',smoke.PACKAGE+'/org.palmesh.MainActivity')
+   self.wait_ui(lambda x:smoke.find_control(x,'My location') is not None and smoke.find_control(x,'Cancel GPS request') is None,'GPS stopped after backgrounding','gps-background-cancelled.xml')
+   self.top();self.press('My location')
    self.wait_ui(lambda x:smoke.find_control(x,'Cancel GPS request') is not None,'bounded cancellable GPS','gps-waiting.xml')
    # SOS must queue while the real native request is still waiting for a fix.
    self.tap(smoke.SOS);self.wait_ui(lambda x:smoke.has_text(x,smoke.QUEUED),'SOS independent of GPS','gps-waiting-sos.xml');self.tap('Dismiss SOS notice');self.press('Cancel GPS request')
@@ -119,9 +146,9 @@ class EmergencySmoke(MapSmoke):
   else:
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')
    self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
-   self.open_inbox();self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'retained no-location SOS','retained-missing-location.xml');self.press('View on map')
-   self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED SOS new location') or smoke.has_text(x,'SIMULATED SOS old location'),'original SOS focused after restart','retained-sos-focus.xml');self.top();self.map_image('restart-sos-map',red=True)
-   self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,externalNetworkBlocked=True,nativeGpsInjected=True,actualNotificationTapAfterProcessDeath=True,actualMarkerTapFocusedCamera=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))
+   self.open_inbox();self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'retained no-location SOS','retained-missing-location.xml');self.press_report(REPORT_ID,'View on map')
+   self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED SOS new location'),'original SOS focused after restart','retained-sos-focus.xml');self.top();self.map_image('restart-sos-map',red=True)
+   self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,externalNetworkBlocked=True,nativeGpsInjected=True,actualNotificationTapAfterProcessDeath=True,actualMarkerTapFocusedCamera=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,backgroundCancellation=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))
    print('EMERGENCY_ACCEPTANCE offline signed SOS, original-ID focus/red pixels, no-location/restart, native GPS/disabled/cancel/blue pixels and nonblocking SOS passed',flush=True)
   return xml
 if __name__=='__main__':smoke.Smoke=EmergencySmoke;smoke.main()

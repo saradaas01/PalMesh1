@@ -53,7 +53,7 @@ function EmergencyCard({ entry, now, pending, service,onViewMap }: {
   const { t,language } = useI18n();
   const names=useContactNames();
   const expired = entry.expiresAt <= now;
-  return <View style={styles.card}>
+  return <View style={styles.card} testID={`sos-entry-${entry.id}`}>
     <LocalizedText accessibilityRole="header" style={styles.cardTitle}>{t(entry.outgoing ? 'emergency.outgoing' : 'emergency.incoming')}</LocalizedText>
     <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: names.label(entry.source) })}</LocalizedText>
     <LocalizedText style={styles.dim}>{t('emergency.age', { age: reportAge(entry.receivedAt, now, t) })}</LocalizedText>

@@ -78,6 +78,16 @@ class EmergencyGpsSmoke(EmergencySmoke):
             self.top()
             self.press('My location')
             self.wait_ui(lambda x: smoke.find_control(x, 'Cancel GPS request') is not None,
+                         'GPS before background cancellation', 'gps-before-background.xml')
+            self.command('shell', 'input', 'keyevent', 'KEYCODE_HOME')
+            self.command('shell', 'am', 'start', '-W', '-n', smoke.PACKAGE + '/org.palmesh.MainActivity')
+            self.wait_ui(lambda x: smoke.find_control(x, 'My location') is not None
+                         and smoke.find_control(x, 'Cancel GPS request') is None,
+                         'GPS stopped after backgrounding', 'gps-background-cancelled.xml')
+            self.progress('manual-cancel', backgroundCancellation=True)
+            self.top()
+            self.press('My location')
+            self.wait_ui(lambda x: smoke.find_control(x, 'Cancel GPS request') is not None,
                          'pending cancellable GPS request', 'gps-waiting.xml')
             self.tap(smoke.SOS)
             self.wait_ui(lambda x: smoke.has_text(x, smoke.QUEUED),
