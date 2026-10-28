@@ -106,6 +106,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)) and smoke.find_control(x,'My location') is not None,'native offline GPS fix','gps-fixed.xml')
    self.top();self.map_image('blue-local-map',blue=True)
    self.press('Location & sharing');self.press('Share location once')
+   for _ in range(3):self.command('emu','geo','fix','34.47','31.5');time.sleep(1)
    self.wait_ui(lambda x:smoke.has_text(x,'Location report queued locally. Delivery is not confirmed.'),'explicit one-time share','shared-once.xml');self.press('Dismiss map notice')
   else:
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')

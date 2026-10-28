@@ -43,7 +43,7 @@ live presence, connection, rescue or a safe route. Out-of-coverage focus gives a
 honest message and keeps the original coordinates in optional details.
 
 SOS markers and list actions select the report. Inbox View on map passes its ID;
-Android notification taps use ACTION_VIEW to open the inbox through a fixed, content-free URI, including cold process recreation.
+Android notification taps use ACTION_VIEW to open the inbox through a fixed, content-free URI, including cold process recreation. MainActivity retains the latest intent before forwarding it, so a singleTask restoration cannot lose it while ReactHost is starting.
 Coordinates are optional details. Sharing remains opt-in, public to mesh peers,
 and foreground-only. SOS uses its existing cached-fix behavior immediately and
 never waits for acquisition. Incoming SOS lists are virtualized to keep a large

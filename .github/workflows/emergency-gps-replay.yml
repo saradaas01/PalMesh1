@@ -1,0 +1,83 @@
+name: Replay sealed Emergency Map foreground GPS acceptance
+on:
+  push:
+    branches: ['feat/emergency-map-gps']
+    paths:
+      - 'scripts/android/emergency_gps_smoke.py'
+      - '.github/workflows/emergency-gps-replay.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: emergency-gps-sealed-replay
+  cancel-in-progress: true
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Refuse stale GPS evidence if relevant application or native source changed
+        run: |
+          git diff --exit-code 5a57409dfdc7f97e5834a1295aeed973883c094e HEAD -- src/features/maps src/features/emergency native/palmesh-runtime/android/src/main/java/com/palmesh/runtime/PalMeshLocationModule.java native/palmesh-runtime/android/src/main/java/com/palmesh/runtime/LocationPolicy.java tests/android/emergency-entry.tsx 'package*'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify pinned APK producer and artifact identity
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = {owner: context.repo.owner, repo: context.repo.repo};
+            const {data: run} = await github.rest.actions.getWorkflowRun({...repo, run_id: 40656050690});
+            if (run.head_sha !== '5a57409dfdc7f97e5834a1295aeed973883c094e') throw new Error('Unexpected APK source');
+            const {data} = await github.rest.actions.listWorkflowRunArtifacts({...repo, run_id: run.id});
+            if (!data.artifacts.some(a => a.id === 12802355716 && a.name === 'android-emergency-synthetic-emulator-apk' && !a.expired)) throw new Error('Pinned sealed APK artifact unavailable');
+            console.log('Replaying GPS only: the prior APK built successfully; its full acceptance failed on cold notification routing.');
+      - uses: actions/download-artifact@v5
+        with:
+          artifact-ids: '12802355716'
+          run-id: 40656050690
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: sealed-apk
+      - name: Verify immutable sealed APK bytes
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+          apk = Path('sealed-apk/palmesh-emergency-map-test.apk')
+          with apk.open('rb') as source:
+              assert hashlib.file_digest(source, 'sha256').hexdigest() == '9ceb827b1ccf6537e4d7f6cd1fd54ecc7fc2e949af5efaf56b2799bbd1f3d43d'
+      - uses: ./.github/actions/setup-android
+      - name: Install isolated emulator runtime and screenshot analysis dependency
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Verify isolated synthetic packaging and diagnostic map mode
+        run: |
+          python3 scripts/android/verify-apk.py sealed-apk/palmesh-emergency-map-test.apk --isolated-emergency-test --synthetic-emergency-fixture --architectures x86_64 --report sealed-apk/verification.json
+          python3 scripts/android/verify-map-mode.py sealed-apk/palmesh-emergency-map-test.apk --enabled
+      - name: Exercise foreground GPS and retained local fix offline
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+        run: python3 scripts/android/emergency_gps_smoke.py --emergency-test --gpu swangle --apk sealed-apk/palmesh-emergency-map-test.apk --output "$RUNNER_TEMP/emergency-gps-results" --state "$RUNNER_TEMP/private-emergency-gps-emulator"
+      - name: Retain targeted GPS replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-emergency-gps-sealed-replay-evidence
+          path: |
+            ${{ runner.temp }}/emergency-gps-results/
+            sealed-apk/verification.json
+          if-no-files-found: ignore
+          retention-days: 14
