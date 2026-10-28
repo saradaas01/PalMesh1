@@ -72,6 +72,21 @@ def report_control(xml,report_id,label):
   card=parents.get(card)
  return None
 
+def report_label_visible(xml,report_id,label):
+ root=ET.fromstring(xml);nodes=list(root.iter('node'));parents={child:parent for parent in root.iter() for child in parent}
+ cards=[n for n in nodes if n.get('resource-id','').split('/')[-1]=='sos-entry-'+report_id]
+ if len(cards)!=1:return False
+ bounds=smoke.BOUNDS.fullmatch(cards[0].get('bounds',''))
+ if bounds is None:return False
+ left,top,right,bottom=map(int,bounds.groups())
+ for node in nodes:
+  if label not in (node.get('text'),node.get('content-desc')):continue
+  box=smoke.BOUNDS.fullmatch(node.get('bounds',''))
+  if box is None or not visible_node(node,parents):continue
+  a,b,c,d=map(int,box.groups())
+  if left<=a<c<=right and top<=b<d<=bottom:return True
+ return False
+
 def scroll_surface(xml):
  surfaces=[]
  for node in smoke.nodes(xml):
@@ -132,15 +147,15 @@ class EmergencySmoke(MapSmoke):
    # 50 px/sec stays below the guest's fling threshold; inspect every small shift.
    self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(max(top+45,bottom-145)),'2000')
   raise RuntimeError('Original SOS control missing: '+report_id+' / '+label)
- def show_report_text(self,report_id,name):
+ def show_report_text(self,report_id,name,required_label=None):
   body=REPORT_BODIES[report_id]
-  for _ in range(18):
+  for _ in range(36):
    xml=self.dump(name);root=ET.fromstring(xml);parents={child:parent for parent in root.iter() for child in parent}
    for node in root.iter('node'):
     if body in (node.get('text'),node.get('content-desc')) and visible_node(node,parents):
-     if 100<smoke.center(node)[1]<1080:return
+     if 100<smoke.center(node)[1]<1080 and (required_label is None or report_label_visible(xml,report_id,required_label)):return
    left,top,right,bottom=scroll_surface(xml);x=right-6
-   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(max(top+45,bottom-145)),'2000')
   raise RuntimeError('Original SOS text not visible after focus: '+report_id)
  def map_image(self,name,red=False,blue=False):
   from PIL import Image
@@ -161,6 +176,12 @@ class EmergencySmoke(MapSmoke):
   try:
    self.capture('emergency-final');print('EMERGENCY_LAST_UI '+json.dumps([dict(text=n.get('text','')[:200],label=n.get('content-desc',''),resourceId=n.get('resource-id',''),bounds=n.get('bounds','')) for n in smoke.nodes(self.last_xml) if n.get('text') or n.get('content-desc') or n.get('resource-id')][:80]),flush=True)
    print('EMERGENCY_GPS_LOG '+self.command('logcat','-d','-v','brief','PalMeshGps:I','AndroidRuntime:E','ReactNativeJS:E','*:S')[-8000:],flush=True)
+   exits=self.command('shell','dumpsys','activity','exit-info',smoke.PACKAGE,check=False)[-10000:]
+   self.output.joinpath('process-exits.txt').write_text(exits);print('EMERGENCY_PROCESS_EXITS '+exits,flush=True)
+   crash=self.command('logcat','-b','crash','-d','-v','brief',check=False)
+   # Symbols/reasons identify native crashes without exporting register or memory dumps.
+   summary='\n'.join(line for line in crash.splitlines() if re.search(r'Fatal signal|signal \d+|Abort message:|backtrace:|#\d{2} pc |FATAL EXCEPTION|Process:|pid: \d+',line))[-12000:]
+   self.output.joinpath('native-crash-summary.txt').write_text(summary);print('EMERGENCY_NATIVE_CRASH '+summary,flush=True)
   finally:super().diagnostics()
  def launch(self,name):
   if name=='first':self.command('shell','pm','grant',smoke.PACKAGE,'android.permission.POST_NOTIFICATIONS')
@@ -180,7 +201,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'SOS inbox'),'actual cold notification inbox route','cold-notification-inbox.xml')
    # Review reports explicitly so the global urgent banner does not obscure the viewport.
    for _ in range(3):self.press('Mark reviewed')
-   self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'SOS without coordinates','sos-no-location.xml');self.capture('inbox-no-location')
+   self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','sos-no-location.xml','Location unavailable');self.capture('inbox-no-location')
    self.tap('Map');self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline marker overview','marker-overview-ready.xml');self.top();self.map_image('marker-overview',red=True)
    records=self.evidence()
    if not records:raise RuntimeError('Native camera evidence absent before marker tap')
@@ -228,7 +249,7 @@ class EmergencySmoke(MapSmoke):
   else:
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')
    self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
-   self.open_inbox();self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'retained no-location SOS','retained-missing-location.xml');self.press_report(REPORT_ID,'View on map')
+   self.open_inbox();self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','retained-missing-location.xml','Location unavailable');self.press_report(REPORT_ID,'View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline map after original SOS focus','retained-map-ready.xml');self.top();self.map_image('restart-sos-map',red=True)
    self.show_report_text(REPORT_ID,'retained-sos-focus.xml')
    self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,gpsSource='Explicit synthetic Android OS test-provider injection',externalNetworkBlocked=True,nativeGpsInjected=True,actualNotificationTapAfterProcessDeath=True,actualMarkerTapFocusedCamera=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,backgroundCancellation=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))

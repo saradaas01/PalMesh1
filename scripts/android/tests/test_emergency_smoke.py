@@ -2,7 +2,7 @@
 import json,sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from emergency_smoke import scroll_surface, report_control, EmergencySmoke, REPORT_ID, REPORT_BODIES
+from emergency_smoke import scroll_surface, report_control, report_label_visible, EmergencySmoke, REPORT_ID, REPORT_BODIES
 from unittest.mock import Mock,patch
 
 def native_card(body,heading='Incoming SOS',button=True,button_bounds='[48,780][672,852]',resource_id=''):
@@ -19,6 +19,14 @@ def native_inbox(*cards):
  return '<hierarchy><node class="android.view.ViewGroup" bounds="[0,0][720,1280]"><node class="android.widget.TextView" text="SOS inbox" bounds="[24,230][696,290]"/><node class="androidx.recyclerview.widget.RecyclerView" scrollable="true" bounds="[24,480][696,1109]">'+''.join(cards)+'</node></node></hierarchy>'
 
 class EmergencyScrollTests(unittest.TestCase):
+ def test_missing_location_label_is_bound_to_its_original_card_among_outgoing_reports(self):
+  missing_id='80333333-3333-4333-8333-333333333333'
+  xml=native_inbox('<node resource-id="sos-entry-outgoing" bounds="[24,480][696,650]"/><node text="Location unavailable" bounds="[48,550][672,582]"/><node resource-id="sos-entry-'+missing_id+'" bounds="[24,674][696,1000]"/><node text="SIMULATED SOS no location" bounds="[48,700][672,740]"/>')
+  self.assertFalse(report_label_visible(xml,missing_id,'Location unavailable'))
+  shown=xml.replace('</hierarchy>','<node text="Location unavailable" bounds="[48,800][672,832]"/></hierarchy>')
+  self.assertTrue(report_label_visible(shown,missing_id,'Location unavailable'))
+  self.assertFalse(report_label_visible(shown.replace('[48,800][672,832]','[48,980][672,1012]'),missing_id,'Location unavailable'))
+
  def test_fabric_leaf_card_owns_only_its_geometrically_contained_action(self):
   xml=native_inbox('<node resource-id="sos-entry-outgoing" bounds="[24,480][696,650]"/><node content-desc="View on map" enabled="true" clickable="true" bounds="[48,550][672,622]"/><node resource-id="sos-entry-'+REPORT_ID+'" bounds="[24,674][696,1000]"/><node text="SIMULATED SOS new location" bounds="[48,700][672,740]"/><node content-desc="View on map" enabled="true" clickable="true" bounds="[48,900][672,972]"/>')
   self.assertEqual(report_control(xml,REPORT_ID,'View on map').get('bounds'),'[48,900][672,972]')
@@ -88,7 +96,7 @@ class EmergencyScrollTests(unittest.TestCase):
   harness=object.__new__(EmergencySmoke);harness.dump=Mock(return_value=xml);harness.command=Mock()
   with self.assertRaisesRegex(RuntimeError,'Original SOS text not visible'):
    harness.show_report_text(REPORT_ID,'retained-sos-focus.xml')
-  self.assertEqual(harness.command.call_count,18)
+  self.assertEqual(harness.command.call_count,36)
 
  def test_report_action_search_uses_small_slow_bounded_scroll_steps(self):
   clipped=native_inbox(native_card(REPORT_BODIES[REPORT_ID],button_bounds='[48,1120][672,1192]'))
