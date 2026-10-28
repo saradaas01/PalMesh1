@@ -7,8 +7,8 @@ import smoke
 from emergency_smoke import BaseSmoke, EmergencySmoke
 
 
-APK_SOURCE = '5a57409dfdc7f97e5834a1295aeed973883c094e'
-APK_SHA256 = '9ceb827b1ccf6537e4d7f6cd1fd54ecc7fc2e949af5efaf56b2799bbd1f3d43d'
+APK_SOURCE = '68afa7bb3e5ae9a5362e4e6125b086e58de44ff0'
+APK_SHA256 = 'edd60d53fb59844764bc2170248f24c73b6f0bd41d67a58d2ff304a37722292b'
 
 
 class EmergencyGpsSmoke(EmergencySmoke):

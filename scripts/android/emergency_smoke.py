@@ -6,9 +6,55 @@ from map_smoke import MapSmoke,map_pixels
 from ux_smoke import UxSmoke
 BaseSmoke=smoke.Smoke
 REPORT_ID='80222222-2222-4222-8222-222222222222'
+REPORT_BODIES={
+ '80111111-1111-4111-8111-111111111111':'SIMULATED SOS old location',
+ REPORT_ID:'SIMULATED SOS new location',
+ '80333333-3333-4333-8333-333333333333':'SIMULATED SOS no location',
+}
+def is_list(node):
+ return node.get('scrollable')=='true' or any(kind in node.get('class','') for kind in ('ScrollView','RecyclerView','ListView'))
+
+def visible_node(node,parents):
+ try:x,y=smoke.center(node)
+ except RuntimeError:return False
+ parent=parents.get(node)
+ while parent is not None:
+  if is_list(parent):
+   bounds=smoke.BOUNDS.fullmatch(parent.get('bounds',''))
+   if bounds:
+    left,top,right,bottom=map(int,bounds.groups())
+    if not left<x<right or not top<y<bottom:return False
+  parent=parents.get(parent)
+ return True
+
 def report_control(xml,report_id,label):
- card=next((n for n in smoke.nodes(xml) if n.get('resource-id','').split('/')[-1]=='sos-entry-'+report_id),None)
- return None if card is None else smoke.find_control(ET.tostring(card,encoding='unicode'),label)
+ root=ET.fromstring(xml);nodes=list(root.iter('node'));parents={child:parent for parent in root.iter() for child in parent}
+ cards=[n for n in nodes if n.get('resource-id','').split('/')[-1]=='sos-entry-'+report_id]
+ body=REPORT_BODIES.get(report_id)
+ if len(cards)>1:return None
+ if cards:card=cards[0]
+ else:
+  if body is None:return None
+  bodies=[n for n in nodes if body in (n.get('text'),n.get('content-desc'))]
+  if len(bodies)!=1:return None
+  card=parents.get(bodies[0])
+ while card is not None and card.tag=='node' and not is_list(card):
+  descendants=list(card.iter('node'))
+  ids=[n.get('resource-id','').split('/')[-1] for n in descendants if n.get('resource-id','').split('/')[-1].startswith('sos-entry-')]
+  bodies=[n for n in descendants if any(text in (n.get('text'),n.get('content-desc')) for text in REPORT_BODIES.values())]
+  headings=[n for n in descendants if any(text in (n.get('text'),n.get('content-desc')) for text in ('Incoming SOS','Your SOS'))]
+  report_metadata=any(value=='Location unavailable' or value.startswith(('Reported:','From:')) for n in descendants for value in (n.get('text',''),n.get('content-desc','')))
+  # Never climb from a missing/clipped card into a sibling report's action.
+  if any(value!='sos-entry-'+report_id for value in ids) or len(bodies)>1 or len(headings)>1:return None
+  if body and any(body not in (n.get('text'),n.get('content-desc')) for n in bodies):return None
+  if not cards and any('Your SOS' in (n.get('text'),n.get('content-desc')) for n in headings):return None
+  control=smoke.find_control(ET.tostring(card,encoding='unicode'),label)
+  if control is not None:
+   original=next(n for n in descendants if n.attrib==control.attrib)
+   return original if visible_node(original,parents) else None
+  if cards or ids or headings or report_metadata:return None
+  card=parents.get(card)
+ return None
 
 def scroll_surface(xml):
  surfaces=[]
@@ -50,7 +96,7 @@ class EmergencySmoke(MapSmoke):
   left,top,right,bottom=scroll_surface(self.dump());x=right-6
   for _ in range(5):self.command('shell','input','swipe',str(x),str(top+(bottom-top)//4),str(x),str(bottom-30),'100')
  def press_report(self,report_id,label):
-  for _ in range(18):
+  for _ in range(36):
    xml=self.dump();node=report_control(xml,report_id,label)
    if node is not None:
     try:
@@ -58,8 +104,18 @@ class EmergencySmoke(MapSmoke):
      if 100<y<1080:self.command('shell','input','tap',str(x),str(y));return
     except RuntimeError:pass
    left,top,right,bottom=scroll_surface(xml);x=right-6
-   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(max(top+45,bottom-195)),'200')
   raise RuntimeError('Original SOS control missing: '+report_id+' / '+label)
+ def show_report_text(self,report_id,name):
+  body=REPORT_BODIES[report_id]
+  for _ in range(18):
+   xml=self.dump(name);root=ET.fromstring(xml);parents={child:parent for parent in root.iter() for child in parent}
+   for node in root.iter('node'):
+    if body in (node.get('text'),node.get('content-desc')) and visible_node(node,parents):
+     if 100<smoke.center(node)[1]<1080:return
+   left,top,right,bottom=scroll_surface(xml);x=right-6
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
+  raise RuntimeError('Original SOS text not visible after focus: '+report_id)
  def map_image(self,name,red=False,blue=False):
   from PIL import Image
   self.capture(name);xml=self.last_xml
@@ -77,7 +133,7 @@ class EmergencySmoke(MapSmoke):
    print('EMERGENCY_MAP_PIXELS '+json.dumps(dict(**pixels,redMarkerPixels=red_count,blueMarkerPixels=blue_count)),flush=True)
  def diagnostics(self):
   try:
-   self.capture('emergency-final');print('EMERGENCY_LAST_UI '+json.dumps([dict(text=n.get('text','')[:200],label=n.get('content-desc',''),bounds=n.get('bounds','')) for n in smoke.nodes(self.last_xml) if n.get('text') or n.get('content-desc')][:80]),flush=True)
+   self.capture('emergency-final');print('EMERGENCY_LAST_UI '+json.dumps([dict(text=n.get('text','')[:200],label=n.get('content-desc',''),resourceId=n.get('resource-id',''),bounds=n.get('bounds','')) for n in smoke.nodes(self.last_xml) if n.get('text') or n.get('content-desc') or n.get('resource-id')][:80]),flush=True)
    print('EMERGENCY_GPS_LOG '+self.command('logcat','-d','-v','brief','PalMeshGps:I','AndroidRuntime:E','ReactNativeJS:E','*:S')[-8000:],flush=True)
   finally:super().diagnostics()
  def launch(self,name):
@@ -147,7 +203,8 @@ class EmergencySmoke(MapSmoke):
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')
    self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
    self.open_inbox();self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'retained no-location SOS','retained-missing-location.xml');self.press_report(REPORT_ID,'View on map')
-   self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED SOS new location'),'original SOS focused after restart','retained-sos-focus.xml');self.top();self.map_image('restart-sos-map',red=True)
+   self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline map after original SOS focus','retained-map-ready.xml');self.top();self.map_image('restart-sos-map',red=True)
+   self.show_report_text(REPORT_ID,'retained-sos-focus.xml')
    self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,externalNetworkBlocked=True,nativeGpsInjected=True,actualNotificationTapAfterProcessDeath=True,actualMarkerTapFocusedCamera=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,backgroundCancellation=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))
    print('EMERGENCY_ACCEPTANCE offline signed SOS, original-ID focus/red pixels, no-location/restart, native GPS/disabled/cancel/blue pixels and nonblocking SOS passed',flush=True)
   return xml
