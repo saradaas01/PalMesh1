@@ -19,6 +19,23 @@ def native_inbox(*cards):
  return '<hierarchy><node class="android.view.ViewGroup" bounds="[0,0][720,1280]"><node class="android.widget.TextView" text="SOS inbox" bounds="[24,230][696,290]"/><node class="androidx.recyclerview.widget.RecyclerView" scrollable="true" bounds="[24,480][696,1109]">'+''.join(cards)+'</node></node></hierarchy>'
 
 class EmergencyScrollTests(unittest.TestCase):
+ def test_fabric_leaf_card_owns_only_its_geometrically_contained_action(self):
+  xml=native_inbox('<node resource-id="sos-entry-outgoing" bounds="[24,480][696,650]"/><node content-desc="View on map" enabled="true" clickable="true" bounds="[48,550][672,622]"/><node resource-id="sos-entry-'+REPORT_ID+'" bounds="[24,674][696,1000]"/><node text="SIMULATED SOS new location" bounds="[48,700][672,740]"/><node content-desc="View on map" enabled="true" clickable="true" bounds="[48,900][672,972]"/>')
+  self.assertEqual(report_control(xml,REPORT_ID,'View on map').get('bounds'),'[48,900][672,972]')
+  self.assertIsNone(report_control(xml.replace('[48,900][672,972]','[48,980][672,1052]'),REPORT_ID,'View on map'))
+  missing=xml.replace('sos-entry-'+REPORT_ID,'sos-entry-80333333-3333-4333-8333-333333333333').replace('<node content-desc="View on map" enabled="true" clickable="true" bounds="[48,900][672,972]"/>','')
+  self.assertIsNone(report_control(missing,'80333333-3333-4333-8333-333333333333','View on map'))
+  ambiguous=xml.replace('</hierarchy>','<node content-desc="View on map" enabled="true" clickable="true" bounds="[48,800][672,872]"/></hierarchy>')
+  self.assertIsNone(report_control(ambiguous,REPORT_ID,'View on map'))
+
+ def test_general_controls_use_slow_scrolling_without_skipping_disclosures(self):
+  hidden=native_inbox('<node content-desc="Location &amp; sharing" enabled="true" clickable="true" bounds="[48,1150][672,1222]"/>')
+  visible=native_inbox('<node content-desc="Location &amp; sharing" enabled="true" clickable="true" bounds="[48,950][672,1022]"/>')
+  harness=object.__new__(EmergencySmoke);harness.dump=Mock(side_effect=[hidden,visible]);harness.command=Mock()
+  harness.press('Location & sharing')
+  self.assertEqual(harness.command.call_args_list[0].args,('shell','input','swipe','690','1064','690','964','2000'))
+  self.assertEqual(harness.command.call_args_list[1].args[:3],('shell','input','tap'))
+
  def test_view_action_is_scoped_to_the_original_report(self):
   xml='<hierarchy><node resource-id="sos-entry-outgoing"><node content-desc="View on map" enabled="true" clickable="true" bounds="[0,100][100,150]"/></node><node resource-id="org.palmesh.emergencytest:id/sos-entry-incoming"><node content-desc="View on map" enabled="true" clickable="true" bounds="[0,200][100,250]"/></node><node resource-id="sos-entry-no-fix"/></hierarchy>'
   self.assertEqual(report_control(xml,'incoming','View on map').get('bounds'),'[0,200][100,250]')

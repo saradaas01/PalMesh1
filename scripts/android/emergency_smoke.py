@@ -33,7 +33,22 @@ def report_control(xml,report_id,label):
  cards=[n for n in nodes if n.get('resource-id','').split('/')[-1]=='sos-entry-'+report_id]
  body=REPORT_BODIES.get(report_id)
  if len(cards)>1:return None
- if cards:card=cards[0]
+ if cards:
+  card=cards[0]
+  # Fabric's accessibility tree can expose the test-ID background as a leaf
+  # and its controls as siblings. Its clipped native rectangle still owns
+  # those controls; accept only one enabled action wholly inside that card.
+  bounds=smoke.BOUNDS.fullmatch(card.get('bounds',''))
+  if bounds and not any(n.get('clickable')=='true' for n in card.iter('node')):
+   left,top,right,bottom=map(int,bounds.groups());matches=[]
+   for node in nodes:
+    if node.get('enabled')!='true' or node.get('clickable')!='true':continue
+    if label not in (node.get('text'),node.get('content-desc')) and not node.get('content-desc','').startswith(label+', '):continue
+    action_bounds=smoke.BOUNDS.fullmatch(node.get('bounds',''))
+    if action_bounds is None or not visible_node(node,parents):continue
+    a,b,c,d=map(int,action_bounds.groups())
+    if left<=a<c<=right and top<=b<d<=bottom:matches.append(node)
+   return matches[0] if len(matches)==1 else None
  else:
   if body is None:return None
   bodies=[n for n in nodes if body in (n.get('text'),n.get('content-desc'))]
@@ -87,7 +102,7 @@ class EmergencySmoke(MapSmoke):
   self.wait_ui(complete,'explicitly completed skippable guide','guide-complete.xml')
  capture=UxSmoke.capture
  def press(self,label):
-  for _ in range(18):
+  for _ in range(36):
    xml=self.dump();node=smoke.find_control(xml,label)
    if node is not None:
     try:
@@ -95,7 +110,7 @@ class EmergencySmoke(MapSmoke):
      if 100<y<1080:self.command('shell','input','tap',str(x),str(y));return
     except RuntimeError:pass
    left,top,right,bottom=scroll_surface(xml);x=right-6
-   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(max(top+45,bottom-145)),'2000')
   raise RuntimeError('Emergency control missing: '+label)
  def top(self):
   left,top,right,bottom=scroll_surface(self.dump());x=right-6
