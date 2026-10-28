@@ -5,20 +5,32 @@ import smoke
 from map_smoke import MapSmoke,map_pixels
 from ux_smoke import UxSmoke
 BaseSmoke=smoke.Smoke
+def scroll_surface(xml):
+ surfaces=[]
+ for node in smoke.nodes(xml):
+  match=smoke.BOUNDS.fullmatch(node.get('bounds',''))
+  if node.get('scrollable')=='true' and match:
+   left,top,right,bottom=map(int,match.groups())
+   if right>left and bottom>top:surfaces.append((left,top,right,bottom))
+ if not surfaces:raise RuntimeError('No visible scrollable surface')
+ return max(surfaces,key=lambda b:(b[2]-b[0])*(b[3]-b[1]))
+
 class EmergencySmoke(MapSmoke):
  capture=UxSmoke.capture
  def press(self,label):
   for _ in range(18):
-   node=smoke.find_control(self.dump(),label)
+   xml=self.dump();node=smoke.find_control(xml,label)
    if node is not None:
     try:
      x,y=smoke.center(node)
      if 100<y<1080:self.command('shell','input','tap',str(x),str(y));return
     except RuntimeError:pass
-   self.command('shell','input','swipe','710','950','710','440','200')
+   left,top,right,bottom=scroll_surface(xml);x=right-6
+   self.command('shell','input','swipe',str(x),str(bottom-45),str(x),str(top+(bottom-top)//3),'200')
   raise RuntimeError('Emergency control missing: '+label)
  def top(self):
-  for _ in range(5):self.command('shell','input','swipe','710','650','710','1000','100')
+  left,top,right,bottom=scroll_surface(self.dump());x=right-6
+  for _ in range(5):self.command('shell','input','swipe',str(x),str(top+(bottom-top)//4),str(x),str(bottom-30),'100')
  def map_image(self,name,red=False,blue=False):
   from PIL import Image
   self.capture(name);xml=self.last_xml
