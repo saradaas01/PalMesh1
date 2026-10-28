@@ -7,4 +7,5 @@ final class LocationPolicy {
   List<String> result=new ArrayList<>();if(fine&&gps)result.add("gps");if((fine||coarse)&&network)result.add("network");return result;
  }
  static boolean fresh(long elapsedNanos,long fixElapsedNanos,long maximumAgeMs){return fixElapsedNanos>0&&elapsedNanos>=fixElapsedNanos&&(elapsedNanos-fixElapsedNanos)/1000000L<=maximumAgeMs;}
+ static boolean prefer(float currentAccuracy,long currentTime,float nextAccuracy,long nextTime){return nextAccuracy<currentAccuracy||(nextAccuracy==currentAccuracy&&nextTime>currentTime);}
 }

@@ -336,6 +336,7 @@ export const en = {
   "emMap.acquiring": "Finding a location… Offline GPS can take up to 90 seconds. Try outdoors with a clear sky. SOS can still be sent now.",
   "emMap.cancel": "Cancel GPS request",
 
+  "emMap.public": "SOS and shared locations are public to mesh participants.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

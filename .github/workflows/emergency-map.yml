@@ -74,12 +74,14 @@ jobs:
       - name: Build separate Emergency Map app with genuine offline maps
         run: |
           options=()
-          if [ '${{ matrix.architecture }}' = x86_64 ]; then options+=(-I ../scripts/android/emergency-acceptance.init.gradle); fi
+          if [ '${{ matrix.architecture }}' = x86_64 ]; then options+=(-I ../scripts/android/emergency-acceptance.init.gradle -PpalmeshMapDiagnostics=true); fi
           python3 scripts/android/gradle.py --bundle-debug --architectures ${{ matrix.architecture }} -PpalmeshEmergencyTest=true "${options[@]}" :palmesh_runtime:testDebugUnitTest :app:assembleDebug
           verify=()
           if [ '${{ matrix.architecture }}' = x86_64 ]; then verify+=(--synthetic-emergency-fixture); fi
           python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --isolated-emergency-test --architectures ${{ matrix.architecture }} "${verify[@]}" --report dist/android/emergency-verification.json
-          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk
+          mode=()
+          if [ '${{ matrix.architecture }}' = x86_64 ]; then mode+=(--enabled); fi
+          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk "${mode[@]}"
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/android/palmesh-emergency-map-test.apk
       - name: Exercise original SOS reports and foreground GPS offline
         if: matrix.architecture == 'x86_64'

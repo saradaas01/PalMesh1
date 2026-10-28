@@ -338,4 +338,5 @@ export const ar = {
   "emMap.acquiring": "جارٍ تحديد الموقع… قد يستغرق GPS دون إنترنت ٩٠ ثانية. جرّب في مكان مفتوح بسماء واضحة. يمكنك إرسال الاستغاثة الآن.",
   "emMap.cancel": "إلغاء طلب الموقع",
 
+  "emMap.public": "الاستغاثة والمواقع المشتركة علنية للمشاركين في الشبكة.",
 } satisfies Readonly<Record<TranslationKey, string>>;

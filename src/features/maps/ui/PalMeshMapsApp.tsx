@@ -94,7 +94,7 @@ export function MapsScreen({ embedded = false, showSos = true, emergency, focusS
       renderItem={({item})=>item.kind==='sos'?<SosMapDetails entry={item.entry} now={snapshot.now} onView={viewSos}/>:item.kind==='peers-title'?<Text accessibilityRole="header" style={ui.heading}>{t('maps.peerReports')}</Text>:<PeerReport peer={item.peer} now={snapshot.now} onView={()=>{setSelectedSos(null);focusPoint('peer:'+item.peer.messageId,item.peer.location);}}/>}
       contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled"
       ListHeaderComponent={<>
-        <Text accessibilityRole="header" style={ui.title}>{t('emMap.title')}</Text>
+        <Text accessibilityRole="header" style={ui.title}>{t('emMap.title')}</Text><Text style={ui.muted}>{t('emMap.public')}</Text>
         <Action label={t(snapshot.locating?'maps.updatingGps':'emMap.mine')} variant="primary" disabled={snapshot.locating} onPress={()=>{void myLocation();}}/>
         {snapshot.locating&&<><Text accessibilityLiveRegion="polite" style={ui.muted}>{t('emMap.acquiring')}</Text><Action label={t('emMap.cancel')} onPress={cancelLocation}/></>}
         {snapshot.localLocation?<LocationDetails location={snapshot.localLocation} now={snapshot.now} quality={snapshot.localQuality}/>:<Text style={ui.muted}>{t('maps.noFix')}</Text>}

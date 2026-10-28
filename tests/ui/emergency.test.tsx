@@ -18,6 +18,7 @@ function service(entries: readonly EmergencyEntry[]): EmergencyUiService {
 test('incoming SOS can be reviewed or answered without implying rescue or opening a modal', async () => {
   const inbox = service([incoming]); await render(<EmergencyInbox service={inbox} />);
   expect(screen.getByText('Please send water')).toBeOnTheScreen();
+  expect(screen.getByText('SOS and shared locations are public to mesh participants.')).toBeOnTheScreen();
   expect(renderedContrast(screen.getByText('Please send water'))).toBeGreaterThanOrEqual(4.5);
   await fireEvent.press(screen.getByRole('button',{name:'How SOS works'}));
   expect(screen.getByText('A response is a statement of intent. Assistance is not confirmed.')).toBeOnTheScreen();

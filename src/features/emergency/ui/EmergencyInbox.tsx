@@ -17,7 +17,7 @@ export function EmergencyInbox({ service,onViewMap }: { readonly service: Emerge
   const { t, rowStyle } = useI18n();
   return <View style={[styles.container, rowStyle]}>
     <LocalizedText accessibilityRole="header" style={styles.title}>{t('emergency.title')}</LocalizedText>
-    <LocalizedText style={styles.explanation}>{t('ui.sosHint')}</LocalizedText>
+    <LocalizedText style={styles.explanation}>{t('ui.sosHint')}</LocalizedText><LocalizedText style={ui.muted}>{t('emMap.public')}</LocalizedText>
     <Disclosure title={t('ui.sosInfo')}><LocalizedText style={ui.muted}>{t('emergency.noGuarantee')}</LocalizedText></Disclosure>
     {snapshot.status === 'loading' && <LocalizedText accessibilityLiveRegion="polite" style={styles.text}>{t('emergency.loading')}</LocalizedText>}
     {snapshot.issue !== null && <View style={styles.issue}>

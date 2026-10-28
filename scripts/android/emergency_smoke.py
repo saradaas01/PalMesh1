@@ -15,10 +15,10 @@ class EmergencySmoke(MapSmoke):
      x,y=smoke.center(node)
      if 100<y<1080:self.command('shell','input','tap',str(x),str(y));return
     except RuntimeError:pass
-   self.command('shell','input','swipe','350','950','350','440','200')
+   self.command('shell','input','swipe','710','950','710','440','200')
   raise RuntimeError('Emergency control missing: '+label)
  def top(self):
-  for _ in range(5):self.command('shell','input','swipe','350','400','350','930','100')
+  for _ in range(5):self.command('shell','input','swipe','710','650','710','1000','100')
  def map_image(self,name,red=False,blue=False):
   from PIL import Image
   self.capture(name);xml=self.last_xml
@@ -31,6 +31,7 @@ class EmergencySmoke(MapSmoke):
    blue_count=sum(c for c,(r,g,b) in colors if b>140 and r<80 and g<150)
    if red and red_count<30:raise RuntimeError('SOS red marker pixels absent')
    if blue and blue_count<30:raise RuntimeError('My-location blue marker pixels absent')
+   if red:self.red_pixel=next((area[0]+x,area[1]+y) for y in range(crop.height) for x in range(crop.width) if (lambda c:c[0]>150 and c[1]<100 and c[2]<140)(crop.getpixel((x,y))))
    self.output.joinpath(name+'-pixels.json').write_text(json.dumps(dict(**pixels,redMarkerPixels=red_count,blueMarkerPixels=blue_count)))
    print('EMERGENCY_MAP_PIXELS '+json.dumps(dict(**pixels,redMarkerPixels=red_count,blueMarkerPixels=blue_count)),flush=True)
  def diagnostics(self):
@@ -39,13 +40,35 @@ class EmergencySmoke(MapSmoke):
    print('EMERGENCY_GPS_LOG '+self.command('logcat','-d','-v','brief','PalMeshGps:I','AndroidRuntime:E','ReactNativeJS:E','*:S')[-8000:],flush=True)
   finally:super().diagnostics()
  def launch(self,name):
+  if name=='first':self.command('shell','pm','grant',smoke.PACKAGE,'android.permission.POST_NOTIFICATIONS')
   xml=BaseSmoke.launch(self,name)
   self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED EMERGENCY ACCEPTANCE'),'explicit synthetic-only banner','synthetic-banner.xml')
   if name=='first':
-   self.open_inbox()
+   # Exercise the actual PendingIntent after process death, not a hand-built ACTION_VIEW.
+   self.command('shell','input','keyevent','KEYCODE_HOME');self.command('shell','am','kill',smoke.PACKAGE)
+   for _ in range(5):
+    if not self.command('shell','pidof',smoke.PACKAGE,check=False):break
+    time.sleep(1);self.command('shell','am','kill',smoke.PACKAGE)
+   else:raise RuntimeError('Application process was not killed before notification acceptance')
+   self.command('shell','cmd','statusbar','expand-notifications')
+   tray=self.wait_ui(lambda x:smoke.has_text(x,'Emergency SOS received'),'native emergency notification','notification-tray.xml')
+   title=next(n for n in smoke.nodes(tray) if n.get('text')=='Emergency SOS received');x,y=smoke.center(title);self.command('shell','input','tap',str(x),str(y))
+   self.wait_ui(lambda x:smoke.has_text(x,'SOS inbox'),'actual cold notification inbox route','cold-notification-inbox.xml')
    # Review reports explicitly so the global urgent banner does not obscure the viewport.
    for _ in range(3):self.press('Mark reviewed')
    self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'SOS without coordinates','sos-no-location.xml');self.capture('inbox-no-location')
+   self.tap('Map');self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline marker overview','marker-overview-ready.xml');self.top();self.map_image('marker-overview',red=True)
+   records=self.evidence()
+   if not records:raise RuntimeError('Native camera evidence absent before marker tap')
+   initial_zoom=records[-1]['zoom'];x,y=self.red_pixel;self.command('shell','input','tap',str(x),str(y))
+   end=time.monotonic()+20
+   while time.monotonic()<end:
+    if any(r.get('zoom',0)>initial_zoom+0.5 for r in self.evidence()):break
+    time.sleep(1)
+   else:raise RuntimeError('Actual SOS marker tap did not focus native camera')
+   print('EMERGENCY_MARKER_TAP native zoom increased from '+str(initial_zoom),flush=True)
+   self.map_image('marker-tap-focused',red=True)
+   self.open_inbox();self.top()
    # Oldest report is lower in the original-ID inbox; scroll to its View action.
    self.press('View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'local offline renderer','map-ready.xml')
@@ -77,7 +100,7 @@ class EmergencySmoke(MapSmoke):
    self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
    self.open_inbox();self.top();self.wait_ui(lambda x:smoke.has_text(x,'Location unavailable'),'retained no-location SOS','retained-missing-location.xml');self.press('View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED SOS new location') or smoke.has_text(x,'SIMULATED SOS old location'),'original SOS focused after restart','retained-sos-focus.xml');self.top();self.map_image('restart-sos-map',red=True)
-   self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,externalNetworkBlocked=True,nativeGpsInjected=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))
+   self.output.joinpath('emergency-acceptance.json').write_text(json.dumps(dict(passed=True,syntheticSignedSos=True,physicalGpsTested=False,externalNetworkBlocked=True,nativeGpsInjected=True,actualNotificationTapAfterProcessDeath=True,actualMarkerTapFocusedCamera=True,permissionDenialHandled=True,disabledGpsHandled=True,cancelledGps=True,sosQueuedWhileWaitingForGps=True,redAndBlueMarkerPixels=True,originalSosAndNoLocationPersisted=True),indent=2))
    print('EMERGENCY_ACCEPTANCE offline signed SOS, original-ID focus/red pixels, no-location/restart, native GPS/disabled/cancel/blue pixels and nonblocking SOS passed',flush=True)
   return xml
 if __name__=='__main__':smoke.Smoke=EmergencySmoke;smoke.main()

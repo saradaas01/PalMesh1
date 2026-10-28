@@ -1,4 +1,4 @@
-import type {FeatureCollection,Point} from 'geojson';
+import type {Feature,FeatureCollection,Point} from 'geojson';
 import type {LocationFix} from '../../dtn/domain/types';
 import type {EmergencyEntry} from '../../emergency/domain/types';
 import {validLocationFix} from './locations';
@@ -17,4 +17,10 @@ export function emergencyMapPoints(local:LocationFix|null,peers:readonly PeerLoc
   ...entries.flatMap(e=>{const fix=sosLocation(e,now);return fix?[point('sos:'+e.id,fix,'sos')]:[];}),
   ...(local&&validLocationFix(local)?[point('local',local,'local')]:[]),
  ]};
+}
+
+/** Native vector tiling can omit string feature IDs; keep the stable key in properties. */
+export function pressedReportId(feature:Pick<Feature,'id'|'properties'>|undefined):string|null {
+ for(const value of [feature?.properties?.reportId,feature?.id])if(typeof value==='string'&&value.length<=160&&(value==='local'||value.startsWith('sos:')||value.startsWith('peer:')))return value;
+ return null;
 }

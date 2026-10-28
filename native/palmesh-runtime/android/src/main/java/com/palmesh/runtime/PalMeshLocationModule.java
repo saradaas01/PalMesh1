@@ -12,13 +12,17 @@ public final class PalMeshLocationModule extends ReactContextBaseJavaModule impl
  private final Handler main=new Handler(Looper.getMainLooper());
  private final LocationManager manager;
  private Promise pending;private int token;private Location candidate;private boolean precise;private long maximumAge;
- private final Runnable deadline=()->{if(candidate!=null)success(candidate);else fail("GPS_TIMEOUT");};
- private final Runnable fallback=()->{if(candidate!=null)success(candidate);};
+ private final Runnable deadline=()->{if(!deliverCandidate())fail("GPS_TIMEOUT");};
+ private final Runnable fallback=()->{deliverCandidate();};
  private final LocationListener listener=new LocationListener(){
   @Override public void onLocationChanged(Location location){
    if(pending==null||!valid(location)||!LocationPolicy.fresh(SystemClock.elapsedRealtimeNanos(),location.getElapsedRealtimeNanos(),maximumAge))return;
    if(LocationManager.GPS_PROVIDER.equals(location.getProvider()))success(location);
-   else {boolean first=candidate==null;if(first||location.getAccuracy()<candidate.getAccuracy())candidate=new Location(location);if(first)main.postDelayed(fallback,10000);}
+   else {
+    if(candidate!=null&&!LocationPolicy.fresh(SystemClock.elapsedRealtimeNanos(),candidate.getElapsedRealtimeNanos(),maximumAge)){candidate=null;main.removeCallbacks(fallback);}
+    boolean first=candidate==null;if(first||LocationPolicy.prefer(candidate.getAccuracy(),candidate.getElapsedRealtimeNanos(),location.getAccuracy(),location.getElapsedRealtimeNanos()))candidate=new Location(location);
+    if(first)main.postDelayed(fallback,10000);
+   }
   }
   @Override public void onProviderDisabled(String provider){if(pending==null)return;try{if(!deviceEnabled())fail("GPS_DISABLED");else if(enabledProviders().isEmpty())fail("GPS_PROVIDER");}catch(Exception e){fail("GPS_PROVIDER");}}
   @Override public void onProviderEnabled(String provider){}
@@ -52,10 +56,15 @@ public final class PalMeshLocationModule extends ReactContextBaseJavaModule impl
     }catch(SecurityException denied){if(!allowed(Manifest.permission.ACCESS_FINE_LOCATION)&&!allowed(Manifest.permission.ACCESS_COARSE_LOCATION)){fail("GPS_DENIED");return;}}
     catch(RuntimeException unavailable){/* Try the other permitted OS provider. */}
    }
-   if(watching==0){if(candidate!=null)success(candidate);else fail("GPS_PROVIDER");}
+   if(watching==0&&!deliverCandidate())fail("GPS_PROVIDER");
   }catch(SecurityException denied){fail("GPS_DENIED");}catch(RuntimeException unavailable){fail("GPS_PROVIDER");}
  });}
  @ReactMethod public void cancel(int requestId){main.post(()->{if(pending!=null&&token==requestId)fail("GPS_CANCELLED");});}
+ private boolean deliverCandidate(){
+  Location value=candidate;
+  if(value!=null&&valid(value)&&LocationPolicy.fresh(SystemClock.elapsedRealtimeNanos(),value.getElapsedRealtimeNanos(),maximumAge)){success(value);return true;}
+  candidate=null;return false;
+ }
  private boolean valid(Location l){return Double.isFinite(l.getLatitude())&&Math.abs(l.getLatitude())<=90&&Double.isFinite(l.getLongitude())&&Math.abs(l.getLongitude())<=180&&l.getTime()>0&&l.getTime()<=System.currentTimeMillis()+300000&&l.hasAccuracy()&&Float.isFinite(l.getAccuracy())&&l.getAccuracy()>=0;}
  private void success(Location l){Promise p=pending;if(p==null)return;WritableMap coords=Arguments.createMap();coords.putDouble("latitude",l.getLatitude());coords.putDouble("longitude",l.getLongitude());coords.putDouble("accuracy",l.getAccuracy());WritableMap result=Arguments.createMap();result.putMap("coords",coords);result.putDouble("timestamp",l.getTime());result.putBoolean("approximate",!precise||!LocationManager.GPS_PROVIDER.equals(l.getProvider())||l.getAccuracy()>100);android.util.Log.i("PalMeshGps","fix_received provider="+l.getProvider());cleanup();p.resolve(result);}
  private void fail(String code){Promise p=pending;if(p==null)return;android.util.Log.i("PalMeshGps",code);cleanup();p.reject(code,"Foreground location could not complete");}

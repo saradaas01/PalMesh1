@@ -43,7 +43,7 @@ live presence, connection, rescue or a safe route. Out-of-coverage focus gives a
 honest message and keeps the original coordinates in optional details.
 
 SOS markers and list actions select the report. Inbox View on map passes its ID;
-Android notification taps open the inbox through a fixed, content-free URI.
+Android notification taps use ACTION_VIEW to open the inbox through a fixed, content-free URI, including cold process recreation.
 Coordinates are optional details. Sharing remains opt-in, public to mesh peers,
 and foreground-only. SOS uses its existing cached-fix behavior immediately and
 never waits for acquisition. Incoming SOS lists are virtualized to keep a large
@@ -55,15 +55,15 @@ unchanged; no online map is added.
 Core tests use signed realistic synthetic packets, actual DTN validation, SQLite
 reopening, duplicate/tamper rejection and original-ID map projection. UI tests cover
 missing/old locations, focus, cancellation, error guidance and SOS availability.
-Native JVM tests cover permitted provider selection and monotonic cache freshness.
-The hosted workflow records actual screenshots/map pixels and native GPS injection
+Native JVM tests cover permitted provider selection, monotonic cache freshness at delayed fallback/deadline delivery, and newer equal-accuracy candidates.
+The hosted workflow checks an actual notification tap after confirmed process death, native marker-tap camera focus, screenshots/map pixels and native GPS injection
 in a fresh externally blocked AOSP guest. Only completed results count as passed;
 exact source, job results, checksum and APK links are recorded in PR #12.
 
 The ARM64 human APK is **org.palmesh.emergencytest / PalMesh Emergency Map Test**,
 separate from every earlier app, with a fresh test identity. It contains no synthetic
-SOS injection. An alternate x86-only entry point seeds explicitly SIMULATED signed
-SOS reports through the normal DTN receiver for emulator acceptance. Gradle refuses
+SOS injection and runs without map diagnostics. An alternate x86-only entry point seeds explicitly SIMULATED signed
+SOS reports through the normal DTN receiver for emulator acceptance, with acceptance-only native camera counters. Gradle refuses
 that entry for ARM64/release; APK verification refuses a synthetic marker in a human
 build. Neither test path bypasses message authentication or changes a real app's
 identity. The simulator/emulator do not establish physical GNSS or radio behavior.

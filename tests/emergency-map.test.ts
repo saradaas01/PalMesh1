@@ -9,7 +9,7 @@ import {createMessage} from '../src/features/dtn/domain/validation';
 import {SecurityService} from '../src/features/security/application/SecurityService';
 import {SqliteDtnStore} from '../src/features/dtn/infrastructure/sqlite/SqliteDtnStore';
 import {EmergencyService,SqliteEmergencyRepository} from '../src/features/emergency';
-import {emergencyMapPoints,sosLocation,insideCoverage} from '../src/features/maps/domain/emergencyMap';
+import {emergencyMapPoints,sosLocation,insideCoverage,pressedReportId} from '../src/features/maps/domain/emergencyMap';
 import {TestSqliteDatabase} from './helpers/sqlite';
 import {until} from './helpers/chat';
 class Vault {records=new Map<string,string>();async read(k:string){return this.records.get(k)??null;}async write(k:string,v:string){this.records.set(k,v);}async randomBytes(n:number){return randomBytes(n);}}
@@ -34,3 +34,5 @@ test('invalid/future emergency coordinates never create a marker; unrelated peer
  for(const location of [undefined,{latitude:91,longitude:0,timestamp:NOW},{latitude:31,longitude:34,timestamp:NOW+300001}]){const report={...entry,...(location?{location}:{})};assert.equal(sosLocation(report,NOW),null);assert.equal(emergencyMapPoints(null,[{deviceId:'peer',origin:'sos',messageId:randomUUID(),receivedAt:NOW,location:{latitude:1,longitude:2,timestamp:NOW}}],[report],NOW).features.length,0);}
  assert.equal(insideCoverage({latitude:31.5,longitude:34.47,timestamp:NOW},{bounds:[34,31,35,32],minZoom:0,maxZoom:14,sourceLayers:[],attribution:'OSM',tileUrlTemplate:''}),true);
 });
+
+test('native marker selection keeps original report association even when numeric tiling drops its ID',()=>{assert.equal(pressedReportId({id:42,properties:{reportId:'sos:original-report'}}),'sos:original-report');assert.equal(pressedReportId({id:'local',properties:null}),'local');assert.equal(pressedReportId({id:0,properties:{reportId:5}}),null);});

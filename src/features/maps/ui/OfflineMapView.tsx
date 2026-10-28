@@ -3,7 +3,7 @@ import { NativeModules, Platform, Pressable, StyleSheet, View } from 'react-nati
 import { Camera, GeoJSONSource, Layer, Map, NetworkManager, type CameraRef, type MapRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { LocalizedText as Text, useI18n } from '../../../shared/i18n';
 import type {EmergencyEntry} from '../../emergency/domain/types';
-import {emergencyMapPoints, type MapFocus} from '../domain/emergencyMap';
+import {emergencyMapPoints, pressedReportId, type MapFocus} from '../domain/emergencyMap';
 import type { LocationFix, PowerMode } from '../../dtn/domain/types';
 import { buildOfflineStyle } from '../domain/offlineStyle';
 import type { OfflineMapDescriptor, PeerLocation } from '../domain/types';
@@ -151,7 +151,7 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
       {...(diagnostics ? { onRegionDidChange: () => { void inspectRendering(); } } : {})}>
       <Camera ref={camera} initialViewState={initialViewState} maxBounds={bounds}
         minZoom={descriptor.minZoom} maxZoom={maxZoom} />
-      <GeoJSONSource id="palmesh-location-reports" data={points} onPress={event=>{const id=event.nativeEvent.features[0]?.id;if(typeof id==='string')onSelect?.(id);}}>
+      <GeoJSONSource id="palmesh-location-reports" data={points} onPress={event=>{const id=pressedReportId(event.nativeEvent.features[0]);if(id!==null)onSelect?.(id);}}>
         <Layer id="palmesh-location-markers" type="circle" paint={{
           'circle-radius': ['match', ['get', 'origin'], 'sos', 10, 'local', 8, 6],
           'circle-color': ['match', ['get', 'origin'], 'local', '#1769D2', 'sos', '#D22D42', '#CF8300'],

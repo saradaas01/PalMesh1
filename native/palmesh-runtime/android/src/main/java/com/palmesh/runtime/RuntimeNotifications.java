@@ -84,7 +84,7 @@ final class RuntimeNotifications {
     private static PendingIntent openApp(Context context, boolean emergency) {
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (launch == null) throw new IllegalStateException("No launcher activity is registered");
-        if (emergency) launch.setData(android.net.Uri.parse("palmesh://emergencies"));
+        if (emergency) launch.setAction(Intent.ACTION_VIEW).setData(android.net.Uri.parse("palmesh://emergencies"));
         launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         return PendingIntent.getActivity(context, emergency ? 27004 : 27003, launch,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
