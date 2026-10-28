@@ -1,7 +1,7 @@
 import React from 'react';
 import {renderedContrast} from './contrast';
 import { expect, jest, test } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { EmergencyBanner, EmergencyInbox, type EmergencyUiService } from '../../src/features/emergency/ui';
 import type { EmergencyEntry, EmergencySnapshot } from '../../src/features/emergency';
 import { I18nProvider } from '../../src/shared/i18n';
@@ -18,6 +18,7 @@ function service(entries: readonly EmergencyEntry[]): EmergencyUiService {
 test('incoming SOS can be reviewed or answered without implying rescue or opening a modal', async () => {
   const inbox = service([incoming]); await render(<EmergencyInbox service={inbox} />);
   expect(screen.getByText('Please send water')).toBeOnTheScreen();
+  expect(screen.getByText('SOS and shared locations are public to mesh participants.')).toBeOnTheScreen();
   expect(renderedContrast(screen.getByText('Please send water'))).toBeGreaterThanOrEqual(4.5);
   await fireEvent.press(screen.getByRole('button',{name:'How SOS works'}));
   expect(screen.getByText('A response is a statement of intent. Assistance is not confirmed.')).toBeOnTheScreen();
@@ -45,4 +46,13 @@ test('urgent banner exposes navigation and Arabic inbox is available with RTL te
   await render(<I18nProvider initialLanguage="ar"><EmergencyInbox service={inbox} /></I18nProvider>);
   expect(screen.queryByText('SOS inbox')).toBeNull();
   expect(screen.getByText('Please send water')).toHaveStyle({ writingDirection: 'rtl' });
+});
+
+test('View on map carries the original SOS ID and never appears for a coordinate-free report',async()=>{
+ const view=jest.fn();const located={...incoming,id:'located',location:{latitude:31.5,longitude:34.47,timestamp:1000}};
+ await render(<EmergencyInbox service={service([{...located,id:'outgoing',outgoing:true},located,{...incoming,id:'no-fix'}])} onViewMap={view}/>);
+ expect(within(screen.getByTestId('sos-entry-no-fix')).getByText('Location unavailable')).toBeOnTheScreen();
+ expect(within(screen.getByTestId('sos-entry-no-fix')).queryByRole('button',{name:'View on map'})).toBeNull();
+ await fireEvent.press(within(screen.getByTestId('sos-entry-located')).getByRole('button',{name:'View on map'}));
+ expect(view).toHaveBeenCalledWith('located');expect(screen.getAllByRole('button',{name:'View on map'})).toHaveLength(2);
 });

@@ -204,13 +204,46 @@ class Smoke:
         self.wait_ui(lambda xml: has_text(xml, CHAT_QUEUED),
                      'the durable local public chat queue notice', 'chat-queued.xml')
         self.tap('Dismiss notice')
-        self.wait_ui(public_chat_visible,
-                     'the outgoing public message with local custody status', 'chat-history.xml')
+        # Reopen the archive instead of assuming a resized, populated thread
+        # automatically follows the appended bubble after the notice closes.
+        self.tap('Back to messages')
+        self.public_thread('first-reloaded')
+        self.wait_public_history('chat-history.xml')
+
+    def wait_public_history(self, name: str) -> None:
+        attempts = 0
+        def visible(xml):
+            nonlocal attempts
+            if public_chat_visible(xml):
+                return True
+            if attempts >= 12 or not has_text(xml, PUBLIC_WARNING):
+                return False
+            composer = find_control(xml, 'Message')
+            box = BOUNDS.fullmatch(composer.get('bounds', '')) if composer is not None else None
+            if box is None:
+                return False
+            composer_top = int(box.group(2))
+            areas = []
+            for node in nodes(xml):
+                bounds = BOUNDS.fullmatch(node.get('bounds', ''))
+                if node.get('scrollable') != 'true' or bounds is None:
+                    continue
+                left, top, right, bottom = map(int, bounds.groups())
+                if right > left and bottom - top > 90 and bottom <= composer_top:
+                    areas.append((left, top, right, bottom))
+            if areas:
+                left, top, right, bottom = max(areas, key=lambda b: (b[2]-b[0])*(b[3]-b[1]))
+                x = (left + right) // 2
+                start = bottom - 30
+                self.command('shell', 'input', 'swipe', str(x), str(start), str(x),
+                             str(max(top+30, start-100)), '2000')
+                attempts += 1
+            return False
+        self.wait_ui(visible, 'the retained outgoing public message with local custody status', name)
 
     def retained_public_chat(self) -> None:
         self.public_thread('second')
-        self.wait_ui(public_chat_visible,
-                     'retained public chat after restart', 'retained-chat.xml')
+        self.wait_public_history('retained-chat.xml')
 
     def identity(self, name: str) -> str:
         self.tap('More');self.tap('My profile');self.tap('Advanced identity details')
@@ -244,12 +277,13 @@ def main() -> None:
     parser.add_argument('--gpu', choices=('swiftshader', 'swangle'), default='swiftshader',
                         help='Official emulator software graphics backend; no host GPU required')
     parser.add_argument('--isolated-map-test', action='store_true', help='Launch only the separately identified PalMesh map-test app')
+    parser.add_argument('--emergency-test',action='store_true')
     parser.add_argument('--ux-test',action='store_true',help='Separate redesign app')
     parser.add_argument('--camera-image',type=Path,help='Explicit synthetic image-backed emulator camera')
     parser.add_argument('--contacts-test', action='store_true', help='Separate offline contacts app')
     parser.add_argument('--map-performance-test', action='store_true', help='Launch the separately identified map performance app')
     args = parser.parse_args()
-    PACKAGE = 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
+    PACKAGE = 'org.palmesh.emergencytest' if args.emergency_test else 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')

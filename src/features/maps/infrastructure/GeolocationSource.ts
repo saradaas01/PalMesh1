@@ -4,7 +4,7 @@ import { validLocationFix } from '../domain/locations';
 
 export interface GeolocationBridge {
   watchPosition(
-    success: (position: { readonly coords: { readonly latitude: number; readonly longitude: number }; readonly timestamp: number }) => void,
+    success: (position: { readonly coords: { readonly latitude: number; readonly longitude: number; readonly accuracy?: number }; readonly approximate?: boolean; readonly timestamp: number }) => void,
     error: (error: { readonly code: number }) => void,
     options: { readonly enableHighAccuracy: boolean; readonly maximumAge: number; readonly timeout: number; readonly distanceFilter: number },
   ): number;
@@ -14,6 +14,7 @@ export interface GeolocationBridge {
 export interface GeolocationSourceOptions {
   readonly bridge: GeolocationBridge;
   readonly requestPermission: () => Promise<'granted' | 'denied'>;
+  readonly requestAuthorization?: () => Promise<'granted' | 'denied'>;
   readonly timeoutMs?: number;
   readonly maximumAgeMs?: number;
 }
@@ -22,12 +23,14 @@ export interface GeolocationSourceOptions {
  * It is cleared after the first fix, failure or deadline, including a callback
  * delivered synchronously before watchPosition returns its watch ID. */
 export class GeolocationSource implements LocationSource {
+  readonly requestAuthorization?: () => Promise<'granted' | 'denied'>;
   private readonly timeoutMs: number;
   private readonly maximumAgeMs: number;
   private reading = false;
 
   constructor(private readonly options: GeolocationSourceOptions) {
-    this.timeoutMs = options.timeoutMs ?? 20_000;
+    if (options.requestAuthorization) this.requestAuthorization = () => options.requestAuthorization!();
+    this.timeoutMs = options.timeoutMs ?? 90_000;
     this.maximumAgeMs = options.maximumAgeMs ?? 60_000;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 120_000
       || !Number.isSafeInteger(this.maximumAgeMs) || this.maximumAgeMs < 0 || this.maximumAgeMs > 3_600_000) {
@@ -58,7 +61,7 @@ export class GeolocationSource implements LocationSource {
         resolve(result);
       };
       const onAbort = (): void => finish({ status: 'cancelled' });
-      const timer = setTimeout(() => finish({ status: 'unavailable' }), this.timeoutMs);
+      let timer = setTimeout(() => finish({ status: 'timeout' }), Math.min(30_000, this.timeoutMs));
       signal.addEventListener('abort', onAbort, { once: true });
       if (signal.aborted) { onAbort(); return; }
       // Permission prompts may outlive the action. Late authorization must not
@@ -66,6 +69,7 @@ export class GeolocationSource implements LocationSource {
       void Promise.resolve().then(() => settled ? undefined : this.options.requestPermission()).then(permission => {
         if (settled) return;
         if (permission !== 'granted') { finish({ status: 'denied' }); return; }
+        clearTimeout(timer); timer = setTimeout(() => finish({ status: 'timeout' }), this.timeoutMs);
         try {
           watch = this.options.bridge.watchPosition(position => {
             if (settled) return;
@@ -74,9 +78,11 @@ export class GeolocationSource implements LocationSource {
                 latitude: position.coords.latitude, longitude: position.coords.longitude,
                 timestamp: position.timestamp,
               };
-              finish(validLocationFix(location) ? { status: 'fix', location: Object.freeze(location) } : { status: 'unavailable' });
+              const accuracy = position.coords.accuracy;
+              const quality = typeof accuracy === 'number' && Number.isFinite(accuracy) && accuracy >= 0 ? { timestamp: location.timestamp, approximate: position.approximate === true || accuracy > 100, accuracyMeters: accuracy } : undefined;
+              finish(validLocationFix(location) ? { status: 'fix', location: Object.freeze(location), ...(quality ? {quality} : {}) } : { status: 'unavailable' });
             } catch { finish({ status: 'unavailable' }); }
-          }, error => finish({ status: error.code === 1 ? 'denied' : 'unavailable' }), {
+          }, error => finish({ status: error.code === 1 ? 'denied' : error.code === 3 ? 'timeout' : error.code === 4 ? 'disabled' : error.code === 5 ? 'cancelled' : 'unavailable' }), {
             enableHighAccuracy: true, maximumAge: this.maximumAgeMs,
             timeout: this.timeoutMs, distanceFilter: 0,
           });

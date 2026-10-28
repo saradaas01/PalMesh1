@@ -39,14 +39,14 @@ class ApkVerificationTests(unittest.TestCase):
         self.fingerprint = 'ab' * 32
         self.badging = "package: name='org.palmesh' versionCode='1' versionName='0.1.0'\nlaunchable-activity: name='org.palmesh.MainActivity'\n"
 
-    def apk(self, *, bundle=True, map_data=False, elf_alignment=16384):
+    def apk(self, *, bundle=True, map_data=False, elf_alignment=16384, synthetic=False, architecture='arm64-v8a'):
         path = self.root / 'app.apk'
         with zipfile.ZipFile(path, 'w') as archive:
             for entry in ['AndroidManifest.xml', 'classes.dex', 'resources.arsc']:
                 archive.writestr(entry, b'fixture')
             for library in ['libreactnative.so', 'libhermesvm.so', 'libmaplibre.so', 'libop-sqlite.so']:
-                archive.writestr('lib/arm64-v8a/' + library, elf(alignment=elf_alignment))
-            if bundle: archive.writestr('assets/index.android.bundle', b'fixture-js')
+                archive.writestr('lib/'+architecture+'/' + library, elf(alignment=elf_alignment))
+            if bundle: archive.writestr('assets/index.android.bundle', b'PALMESH_SYNTHETIC_EMERGENCY_ONLY' if synthetic else b'fixture-js')
             if map_data:
                 archive.writestr('assets/palmesh/palestine.mbtiles', b'fixture-map')
                 archive.writestr('assets/palmesh/palestine.manifest.json', json.dumps({'sha256': hashlib.sha256(b'fixture-map').hexdigest()}))
@@ -99,6 +99,15 @@ class ApkVerificationTests(unittest.TestCase):
         self.assertFalse(report['existingIdentityMigrated'])
         for option in ('--isolated-contacts-test','--isolated-map-test','--isolated-map-performance-test','--require-bundle'):
             with self.assertRaisesRegex(ValueError,'Unexpected application ID'):self.verify(self.apk(map_data=True),option)
+
+    def test_emergency_apk_is_separate_and_rejects_synthetic_payload_in_a_human_build(self):
+        self.badging=self.badging.replace("name='org.palmesh'","name='org.palmesh.emergencytest'")+"application-label:'PalMesh Emergency Map Test'\napplication-debuggable\n"
+        report=self.verify(self.apk(map_data=True),'--isolated-emergency-test')
+        self.assertEqual(report['applicationId'],'org.palmesh.emergencytest')
+        self.assertFalse(report['existingIdentityMigrated'])
+        with self.assertRaisesRegex(ValueError,'Unexpected synthetic fixture'):self.verify(self.apk(map_data=True,synthetic=True),'--isolated-emergency-test')
+        with self.assertRaisesRegex(ValueError,'requires isolated x86_64'):self.verify(self.apk(map_data=True,synthetic=True),'--isolated-emergency-test','--synthetic-emergency-fixture')
+        self.verify(self.apk(map_data=True,synthetic=True,architecture='x86_64'),'--isolated-emergency-test','--synthetic-emergency-fixture')
 
     def test_contacts_apk_preserves_primary_and_all_map_test_ids(self):
         self.badging = self.badging.replace("name='org.palmesh'", "name='org.palmesh.contacttest'") + "application-label:'PalMesh Contacts Test'\napplication-debuggable\n"

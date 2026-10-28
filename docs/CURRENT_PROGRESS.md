@@ -1,5 +1,16 @@
 # Current progress checkpoint
 
+## Emergency Map and GPS follow-up
+
+The user confirms successful two-phone messages/SOS. TECNO POVA 5 / Android 14
+still failed GPS with Location on and Precise permission allowed. PR #12 adds
+bounded permission-aware native acquisition and connects Emergency Map to original
+SOS archive entries, with explicit missing/stale/unknown-accuracy states. It is
+stacked on the successful PR #11 UX without merging existing PRs. See
+[implementation and physical retest](milestones/emergency-map-gps.md). Exact
+completed automated results and the separate test APK are recorded in PR #12;
+physical GNSS acquisition and the new two-phone map flow still require retesting.
+
 ## Physical map-performance follow-up — October 27, 2026
 
 The user confirms that offline maps render on TECNO POVA 5 / LH7n, Android 14,

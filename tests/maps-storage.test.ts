@@ -171,3 +171,7 @@ test('enforces a reduced peer capacity while reopening an existing registry', as
   await smaller.initialize('alice');
   assert.deepEqual((await smaller.read()).peers.map(value => value.deviceId), ['david', 'carol']);
 });
+
+test('local accuracy metadata survives reopen and never attaches to a different fix or changes the wire contract',async t=>{
+ const {database,repository}=await fixture(t);const quality={timestamp:FIX.timestamp,approximate:true,accuracyMeters:400};await repository.saveLocal(FIX,quality);const restart=new SqliteLocationRepository(database);await restart.initialize('alice');assert.deepEqual((await restart.read()).localQuality,quality);await restart.saveLocal({...FIX,timestamp:999},{timestamp:999,approximate:false,accuracyMeters:3});assert.deepEqual((await restart.read()).localQuality,quality);await restart.saveLocal({...FIX,timestamp:2000});assert.equal((await restart.read()).localQuality,undefined);assert.deepEqual(Object.keys((await restart.read()).localLocation!).sort(),['latitude','longitude','timestamp']);
+});

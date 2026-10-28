@@ -28,6 +28,7 @@ class ControlledGeolocation implements GeolocationBridge {
 
 function fixture(options: {
   permission?: () => Promise<'granted' | 'denied'>;
+  authorization?: () => Promise<'granted' | 'denied'>;
   bridge?: ControlledGeolocation;
   timeoutMs?: number;
   maximumAgeMs?: number;
@@ -37,11 +38,48 @@ function fixture(options: {
   const source = new GeolocationSource({
     bridge,
     requestPermission: () => { permissions += 1; return options.permission?.() ?? Promise.resolve('granted'); },
+    ...(options.authorization ? { requestAuthorization: options.authorization } : {}),
     timeoutMs: options.timeoutMs ?? 1_000,
     maximumAgeMs: options.maximumAgeMs ?? 60_000,
   });
   return { source, bridge, permissions: () => permissions };
 }
+
+for (const permission of ['granted', 'denied'] as const) {
+  test(`explicit authorization delegates ${permission} without checking read permission or acquiring a fix`, async () => {
+    const authorization = deferred<'granted' | 'denied'>();
+    let calls = 0;
+    const { source, bridge, permissions } = fixture({ authorization: () => { calls += 1; return authorization.promise; } });
+    assert.equal(typeof source.requestAuthorization, 'function');
+    const requesting = source.requestAuthorization!();
+    assert.equal(calls, 1);
+    assert.equal(permissions(), 0);
+    assert.equal(bridge.watches.length, 0);
+    authorization.resolve(permission);
+    assert.equal(await requesting, permission);
+    assert.equal(permissions(), 0);
+    assert.equal(bridge.watches.length, 0);
+    assert.deepEqual(bridge.cleared, []);
+  });
+}
+
+test('a source without explicit authorization support leaves the optional action unavailable', () => {
+  const { source, bridge, permissions } = fixture();
+  assert.equal(source.requestAuthorization, undefined);
+  assert.equal(permissions(), 0);
+  assert.equal(bridge.watches.length, 0);
+});
+
+test('acquiring a fix checks read permission without invoking explicit authorization', async () => {
+  let authorizations = 0;
+  const { source, bridge, permissions } = fixture({ authorization: async () => { authorizations += 1; return 'granted'; } });
+  const reading = source.read(new AbortController().signal);
+  await until(() => bridge.watches.length === 1);
+  bridge.watches[0]!.success(position);
+  assert.equal((await reading).status, 'fix');
+  assert.equal(permissions(), 1);
+  assert.equal(authorizations, 0);
+});
 
 test('a denied permission never starts a native GPS watch', async () => {
   const { source, bridge, permissions } = fixture({ permission: async () => 'denied' });
@@ -113,7 +151,7 @@ test('the overall deadline includes permission wait and late authorization canno
   const reading = source.read(new AbortController().signal);
   await until(() => permissions() === 1);
   t.mock.timers.tick(500);
-  assert.deepEqual(await reading, { status: 'unavailable' });
+  assert.deepEqual(await reading, { status: 'timeout' });
   permission.resolve('granted');
   await new Promise<void>(resolve => setImmediate(resolve));
   assert.equal(bridge.watches.length, 0);
@@ -128,7 +166,7 @@ for (const ending of ['cancelled', 'timeout'] as const) {
     await until(() => bridge.watches.length === 1);
     if (ending === 'cancelled') controller.abort();
     else t.mock.timers.tick(500);
-    const expected = { status: ending === 'cancelled' ? 'cancelled' : 'unavailable' };
+    const expected = { status: ending === 'cancelled' ? 'cancelled' : 'timeout' };
     assert.deepEqual(await reading, expected);
     assert.deepEqual(bridge.cleared, [40]);
     bridge.watches[0]!.success(position);
@@ -180,7 +218,7 @@ test('native permission-denied errors remain distinguishable from unavailable GP
     const reading = source.read(new AbortController().signal);
     await until(() => bridge.watches.length === 1);
     bridge.watches[0]!.error({ code });
-    assert.deepEqual(await reading, { status: code === 1 ? 'denied' : 'unavailable' });
+    assert.deepEqual(await reading, { status: code === 1 ? 'denied' : code === 3 ? 'timeout' : 'unavailable' });
     assert.deepEqual(bridge.cleared, [40]);
   }
 });
@@ -262,4 +300,9 @@ test('a finished action removes its abort listener so cancelling it later cannot
   bridge.watches[1]!.success(position);
   assert.equal((await second).status, 'fix');
   assert.deepEqual(bridge.cleared, [40, 41]);
+});
+
+test('disabled device location and provider failure remain distinct; precision is local metadata only',async()=>{
+ for(const [code,status] of [[4,'disabled'],[2,'unavailable'],[5,'cancelled']] as const){const {source,bridge}=fixture();const reading=source.read(new AbortController().signal);await until(()=>bridge.watches.length===1);bridge.watches[0]!.error({code});assert.equal((await reading).status,status);assert.deepEqual(bridge.cleared,[40]);}
+ const {source,bridge}=fixture();const reading=source.read(new AbortController().signal);await until(()=>bridge.watches.length===1);bridge.watches[0]!.success({...position,coords:{...position.coords,accuracy:450},approximate:true});const result=await reading;assert.equal(result.status,'fix');if(result.status==='fix'){assert.deepEqual(result.quality,{timestamp:100000,approximate:true,accuracyMeters:450});assert.deepEqual(Object.keys(result.location).sort(),['latitude','longitude','timestamp']);}
 });

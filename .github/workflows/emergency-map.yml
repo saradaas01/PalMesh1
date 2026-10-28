@@ -1,0 +1,116 @@
+name: Emergency Map and offline GPS acceptance
+on:
+  pull_request:
+    paths: ['src/**', 'native/**', 'android/**', 'tests/**', 'scripts/android/**', '.github/workflows/emergency-map.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: emergency-map-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  emergency:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [arm64-v8a, x86_64]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run check
+      - run: python3 -m unittest discover -s scripts/android/tests -v
+      - name: Verify immutable genuine source artifact provenance
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = {owner: context.repo.owner, repo: context.repo.repo};
+            const {data: run} = await github.rest.actions.getWorkflowRun({...repo, run_id: 40352843627});
+            if (run.head_sha !== '84464a5b19387b3f0d0e8bbf1bf425329236ecfd' || run.conclusion !== 'success') throw new Error('Unexpected map producer');
+            const {data} = await github.rest.actions.listWorkflowRunArtifacts({...repo, run_id: run.id});
+            if (!data.artifacts.some(a => a.id === 12664512510 && a.name === 'palmesh-candidate-palestine-map' && !a.expired)) throw new Error('Pinned genuine map artifact unavailable');
+      - uses: actions/download-artifact@v5
+        with:
+          name: palmesh-candidate-palestine-map
+          run-id: 40352843627
+          github-token: ${{ github.token }}
+          path: mapdata
+      - name: Validate the unchanged genuine map and manifest
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/maps')
+          from mbtiles import checked_manifest
+          m = checked_manifest(Path('mapdata/palestine.manifest.json'), Path('mapdata/palestine.mbtiles'))
+          assert m['sha256'] == '16a88c49eb002bfc4729327bef4629e513f33069532b815c532316738aef06b8'
+          assert m['sourceSha256'] == 'bb28f83176b77d1b58701b8e2ebe4b241d37c7871e51f2739a9a684b47c5d44f'
+          assert m['dataTimestamp'] == '2026-10-25T21:21:21Z'
+          print('Preserved genuine map hash/date/provenance and complete coverage verified.')
+          PY
+          python3 scripts/maps/package.py
+      - uses: ./.github/actions/setup-android
+      - name: Install isolated emulator runtime and screenshot analysis dependency
+        if: matrix.architecture == 'x86_64'
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          "$ANDROID_HOME/emulator/emulator" -help-gpu
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Build separate Emergency Map app with genuine offline maps
+        run: |
+          options=()
+          if [ '${{ matrix.architecture }}' = x86_64 ]; then options+=(-I ../scripts/android/emergency-acceptance.init.gradle -PpalmeshMapDiagnostics=true); fi
+          python3 scripts/android/gradle.py --bundle-debug --architectures ${{ matrix.architecture }} -PpalmeshEmergencyTest=true "${options[@]}" :palmesh_runtime:testDebugUnitTest :app:assembleDebug
+          verify=()
+          if [ '${{ matrix.architecture }}' = x86_64 ]; then verify+=(--synthetic-emergency-fixture); fi
+          python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk --isolated-emergency-test --architectures ${{ matrix.architecture }} "${verify[@]}" --report dist/android/emergency-verification.json
+          mode=()
+          if [ '${{ matrix.architecture }}' = x86_64 ]; then mode+=(--enabled); fi
+          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk "${mode[@]}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/android/palmesh-emergency-map-test.apk
+      - name: Exercise original SOS reports and foreground GPS offline
+        if: matrix.architecture == 'x86_64'
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+        run: python3 scripts/android/emergency_smoke.py --emergency-test --gpu swangle --apk android/app/build/outputs/apk/debug/app-debug.apk --output "$RUNNER_TEMP/emergency-results" --state "$RUNNER_TEMP/private-emergency-emulator"
+      - name: Retain the sealed x86 APK for isolated acceptance reruns
+        if: always() && matrix.architecture == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-emergency-synthetic-emulator-apk
+          path: dist/android/palmesh-emergency-map-test.apk
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Retain synthetic acceptance evidence
+        if: always() && matrix.architecture == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-emergency-map-evidence
+          path: ${{ runner.temp }}/emergency-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish genuine-map ARM64 APK without synthetic fixtures
+        if: matrix.architecture == 'arm64-v8a'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-emergency-map-test-apk
+          path: |
+            dist/android/palmesh-emergency-map-test.apk
+            dist/android/emergency-verification.json
+            mapdata/palestine.manifest.json
+          retention-days: 14

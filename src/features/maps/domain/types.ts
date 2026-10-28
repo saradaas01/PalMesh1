@@ -9,7 +9,10 @@ export interface PeerLocation {
   readonly origin: 'location' | 'sos';
 }
 
+export interface LocationQuality { readonly timestamp: number; readonly approximate: boolean; readonly accuracyMeters?: number }
+
 export interface LocationArchive {
+  readonly localQuality?: LocationQuality | undefined;
   readonly localLocation: LocationFix | null;
   readonly peers: readonly PeerLocation[];
 }
@@ -27,11 +30,11 @@ export interface OfflineMapDescriptor {
 }
 
 export type GpsResult =
-  | { readonly status: 'fix'; readonly location: LocationFix }
-  | { readonly status: 'denied' | 'unavailable' | 'cancelled' };
+  | { readonly status: 'fix'; readonly location: LocationFix; readonly quality?: LocationQuality }
+  | { readonly status: 'denied' | 'disabled' | 'timeout' | 'unavailable' | 'cancelled' };
 
 export type LocationIssue = 'storage-unavailable' | 'gps-denied' | 'gps-unavailable'
-  | 'queue-full' | 'broadcast-unavailable' | 'routing-error';
+  | 'gps-disabled' | 'gps-timeout' | 'queue-full' | 'broadcast-unavailable' | 'routing-error';
 
 export interface MapsSnapshot extends LocationArchive {
   readonly status: 'idle' | 'loading' | 'ready' | 'error';

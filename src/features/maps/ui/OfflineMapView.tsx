@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NativeModules, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Camera, GeoJSONSource, Layer, Map, NetworkManager, type CameraRef, type MapRef, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import { LocalizedText as Text, useI18n } from '../../../shared/i18n';
-import type { FeatureCollection, Point } from 'geojson';
+import type {EmergencyEntry} from '../../emergency/domain/types';
+import {emergencyMapPoints, pressedReportId, type MapFocus} from '../domain/emergencyMap';
 import type { LocationFix, PowerMode } from '../../dtn/domain/types';
 import { buildOfflineStyle } from '../domain/offlineStyle';
 import type { OfflineMapDescriptor, PeerLocation } from '../domain/types';
@@ -12,12 +13,15 @@ export interface OfflineMapViewProps {
   readonly localLocation: LocationFix | null;
   readonly peers: readonly PeerLocation[];
   readonly powerMode: PowerMode;
+  readonly emergencies?: readonly EmergencyEntry[];
+  readonly focus?: MapFocus | null;
+  readonly onSelect?: (id:string)=>void;
   readonly onUnavailable: () => void;
 }
 
 /** The native renderer is a replaceable UI boundary. It never requests GPS,
  * starts discovery, downloads maps, or selects a default remote map style. */
-function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, onUnavailable }: OfflineMapViewProps): React.JSX.Element {
+function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, onUnavailable, emergencies = [], focus = null, onSelect }: OfflineMapViewProps): React.JSX.Element {
   const { t } = useI18n();
   const map = useRef<MapRef>(null);
   const camera = useRef<CameraRef>(null);
@@ -60,21 +64,8 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
     catch { return null; }
   }, [descriptor]);
   useEffect(() => { if (mapStyle === null) onUnavailable(); }, [mapStyle, onUnavailable]);
-  const points = useMemo<FeatureCollection<Point>>(() => ({
-    type: 'FeatureCollection',
-    features: [
-      ...peers.map(peer => ({
-        type: 'Feature' as const, id: peer.deviceId,
-        geometry: { type: 'Point' as const, coordinates: [peer.location.longitude, peer.location.latitude] },
-        properties: { origin: peer.origin },
-      })),
-      ...(localLocation === null ? [] : [{
-        type: 'Feature' as const, id: 'palmesh-local-location',
-        geometry: { type: 'Point' as const, coordinates: [localLocation.longitude, localLocation.latitude] },
-        properties: { origin: 'local' },
-      }]),
-    ],
-  }), [peers, localLocation]);
+  const points = useMemo(() => emergencyMapPoints(localLocation,peers,emergencies,Date.now()),[localLocation,peers,emergencies]);
+  useEffect(()=>{if(rendered&&focus)camera.current?.flyTo({center:[focus.location.longitude,focus.location.latitude],zoom:Math.min(14,descriptor.maxZoom),duration:350});},[rendered,focus?.id,focus?.revision,descriptor.maxZoom]);
   const inspectRendering = async (): Promise<void> => {
     const diagnostics = NativeModules.PalMeshOfflineMaps?.renderDiagnosticsEnabled === true;
     if (!diagnostics && (ready.current || probeCount.current >= 12)) return;
@@ -160,10 +151,10 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
       {...(diagnostics ? { onRegionDidChange: () => { void inspectRendering(); } } : {})}>
       <Camera ref={camera} initialViewState={initialViewState} maxBounds={bounds}
         minZoom={descriptor.minZoom} maxZoom={maxZoom} />
-      <GeoJSONSource id="palmesh-location-reports" data={points}>
+      <GeoJSONSource id="palmesh-location-reports" data={points} onPress={event=>{const id=pressedReportId(event.nativeEvent.features[0]);if(id!==null)onSelect?.(id);}}>
         <Layer id="palmesh-location-markers" type="circle" paint={{
-          'circle-radius': 7,
-          'circle-color': ['match', ['get', 'origin'], 'local', '#55c9ff', 'sos', '#ff6675', '#ffe071'],
+          'circle-radius': ['match', ['get', 'origin'], 'sos', 10, 'local', 8, 6],
+          'circle-color': ['match', ['get', 'origin'], 'local', '#1769D2', 'sos', '#D22D42', '#CF8300'],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2,
         }} />

@@ -1,6 +1,6 @@
 import { ContactNamesProvider } from '../../features/contacts/ContactNames';
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatProvider, ChatScreen } from '../../features/chat/ui';
 import { MapsProvider, MapsScreen, type MapsUiService } from '../../features/maps/ui';
@@ -49,7 +49,7 @@ function useMapsService(resources: RuntimeResources | null, runtime: AppUiRuntim
     subscribe: listener => locations.subscribe(listener),
     start: () => locations.start(), stop: () => locations.stop(),
     setVisible: visible => locations.setVisible(visible),
-    refresh: options => locations.refresh(options), refreshLocal: () => locations.refreshLocal(),
+    refresh: options => locations.refresh(options), refreshLocal: () => locations.refreshLocal(), cancelLocation: () => locations.cancelLocation?.(), requestLocationAccess: async () => { await locations.requestLocationAccess?.(); },
     shareOnce: () => locations.shareOnce(), setSharing: sharing => locations.setSharing(sharing),
     setPowerMode: mode => runtime.setPowerMode(mode),
     sendSos: () => locations.sendSos(), dismissIssue: () => locations.dismissIssue(),
@@ -64,6 +64,9 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   const subscribe = useCallback((listener: () => void) => runtime.subscribe(listener), [runtime]);
   const getSnapshot = useCallback(() => runtime.getSnapshot(), [runtime]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [focusSosId,setFocusSosId]=useState<string|null>(null);
+  const [emergencyLink,setEmergencyLink]=useState(false);
+  useEffect(()=>{const open=(url:string|null|undefined)=>{if(url==='palmesh://emergencies')setEmergencyLink(true);};void Promise.resolve(Linking.getInitialURL()).then(open).catch(()=>{});const link=Linking.addEventListener('url',event=>open(event.url));return()=>link.remove();},[]);
   const [keyboardVisible,setKeyboardVisible]=useState(false);
   useEffect(()=>{const show=Keyboard.addListener('keyboardDidShow',()=>setKeyboardVisible(true));const hide=Keyboard.addListener('keyboardDidHide',()=>setKeyboardVisible(false));return()=>{show.remove();hide.remove();};},[]);
   useEffect(()=>{const back=BackHandler.addEventListener('hardwareBackPress',()=>{if(['profile','settings','emergencies'].includes(snapshot.route)){runtime.navigate('more');return true;}return false;});return()=>back.remove();},[snapshot.route,runtime]);
@@ -76,6 +79,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
     return () => { subscription.remove(); void runtime.stop(); };
   }, [runtime]);
   const ready = snapshot.status === 'ready' && snapshot.resources !== null && mapsService !== null;
+  useEffect(()=>{if(ready&&emergencyLink){runtime.navigate('emergencies');setEmergencyLink(false);}},[ready,emergencyLink,runtime]);
   const requestSos = (): void => {
     if (!ready || sosInFlight.current || snapshot.pendingSos) return;
     sosInFlight.current = true;
@@ -110,9 +114,9 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
           </ChatProvider> : snapshot.route === 'maps' ?
           <MapsProvider service={mapsService} manageLifecycle={false} manageVisibility={false}
             visible={snapshot.foreground}>
-            <MapsScreen embedded showSos={false} />
+            <MapsScreen embedded showSos={false} emergency={snapshot.resources.emergency} focusSosId={focusSosId} />
           </MapsProvider> : snapshot.route === 'emergencies' ?
-            snapshot.resources.emergency !== undefined ? <EmergencyInbox service={snapshot.resources.emergency} /> :
+            snapshot.resources.emergency !== undefined ? <EmergencyInbox service={snapshot.resources.emergency} onViewMap={id=>{setFocusSosId(id);selectRoute('maps');}} /> :
               <Text style={styles.body}>{t('emergency.problem')}</Text> :
             snapshot.route === 'contacts' && snapshot.resources.contacts ? <ContactsExperienceV2 onOpen={async id=>{await snapshot.resources!.chat.openConversation(id);selectRoute('chat');}} onProfile={()=>selectRoute('profile')}/> :
             snapshot.route === 'profile' && snapshot.resources.security ? <ProfileExperience security={snapshot.resources.security}/> :

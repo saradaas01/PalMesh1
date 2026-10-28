@@ -22,6 +22,7 @@ export interface LocationServiceOptions {
  * delays SOS. One runtime owns this service and its native map source. */
 export class LocationService {
   readonly deviceId: PeerId;
+  readonly requestLocationAccess?: () => Promise<void>;
   private readonly engine: LocationEngine;
   private readonly repository: LocationRepository;
   private readonly source: LocationSource;
@@ -43,6 +44,7 @@ export class LocationService {
   private unsubscribe: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private gps: AbortController | null = null;
+  private authorization: Promise<void> | null = null;
   private maps: AbortController | null = null;
   private mapOpening = false;
   private nextBroadcastAt = 0;
@@ -56,6 +58,7 @@ export class LocationService {
     this.engine = options.engine;
     this.repository = options.repository;
     this.source = options.source;
+    if (this.source.requestAuthorization) this.requestLocationAccess = () => this.authorizeLocation();
     this.mapSource = options.mapSource;
     this.clock = options.clock ?? { now: () => Date.now() };
     this.broadcastIntervalMs = options.broadcastIntervalMs ?? 60_000;
@@ -152,10 +155,37 @@ export class LocationService {
     await this.enqueue(() => this.synchronize(generation), generation);
   };
 
+  cancelLocation = (): void => this.cancelGps();
   refreshLocal = (): Promise<LocationActionResult> => this.capture(false, false);
   shareOnce = (): Promise<LocationActionResult> => this.capture(true, false);
   dismissIssue = (): void => { this.patch({ issue: null }); };
   dismissNotice = (): void => { this.patch({ notice: null }); };
+
+  private authorizeLocation(): Promise<void> {
+    if (this.authorization) return this.authorization;
+    if (!this.active || !this.visible) return Promise.resolve();
+    const generation = this.generation;
+    const task = new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (issue: MapsSnapshot['issue']): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        // Permission dialogs can pause the Activity. Retain their explicit
+        // result in this session without resuming GPS when the dialog closes.
+        if (this.live(generation)) this.patch({ issue });
+        resolve();
+      };
+      const timer = setTimeout(() => finish('gps-denied'), 30_000);
+      void Promise.resolve().then(() => this.live(generation) ? this.source.requestAuthorization?.() : undefined).then(
+        result => finish(result === 'granted' ? null : 'gps-denied'),
+        () => finish('gps-denied'),
+      );
+    });
+    this.authorization = task;
+    void task.then(() => { if (this.authorization === task) this.authorization = null; });
+    return task;
+  }
 
   sendSos = async (text = this.sosText): Promise<LocationActionResult> => {
     if (!this.active) {
@@ -201,13 +231,13 @@ export class LocationService {
       const result = await this.source.read(controller.signal);
       if (!this.live(generation) || controller.signal.aborted || !this.visible) return { status: 'rejected', reason: 'unavailable' };
       if (result.status !== 'fix' || !this.safeLocal(result.location)) {
-        if (result.status !== 'cancelled') this.patch({ issue: result.status === 'denied' ? 'gps-denied' : 'gps-unavailable' });
+        if (result.status !== 'cancelled') this.patch({ issue: result.status === 'denied' ? 'gps-denied' : result.status === 'disabled' ? 'gps-disabled' : result.status === 'timeout' ? 'gps-timeout' : 'gps-unavailable' });
         return { status: 'rejected', reason: 'no-location' };
       }
       const fix = Object.freeze({ ...result.location });
       const current = this.state.localLocation;
       if (current === null || fix.timestamp > current.timestamp) {
-        this.patch({ localLocation: fix, now: this.now() });
+        this.patch({ localLocation: fix, localQuality: result.quality, now: this.now() });
         this.pendingLocal = fix;
         this.flushArchive(generation);
       }
@@ -275,7 +305,7 @@ export class LocationService {
         if (!this.initialized) return;
         const local = this.pendingLocal;
         const peers = [...this.pendingPeers.values()].slice(0, 100);
-        if (local) await this.repository.saveLocal(local);
+        if (local) await this.repository.saveLocal(local, this.state.localQuality?.timestamp === local.timestamp ? this.state.localQuality : undefined);
         if (peers.length) await this.repository.upsertPeers(peers);
         if (this.pendingLocal === local) this.pendingLocal = null;
         for (const peer of peers) if (this.pendingPeers.get(peer.deviceId) === peer) this.pendingPeers.delete(peer.deviceId);
@@ -296,7 +326,7 @@ export class LocationService {
     const current = this.state.localLocation;
     const localLocation = stored && this.safeLocal(stored) && (!current || stored.timestamp > current.timestamp) ? stored : current;
     this.patch({
-      localLocation, peers: Object.freeze([...archive.peers]),
+      localLocation, localQuality: archive.localQuality?.timestamp === localLocation?.timestamp ? archive.localQuality : this.state.localQuality?.timestamp === localLocation?.timestamp ? this.state.localQuality : undefined, peers: Object.freeze([...archive.peers]),
       status: this.unsubscribe === null ? 'error' : 'ready', now: this.now(),
       ...(this.unsubscribe === null ? { issue: 'storage-unavailable' as const }
         : this.state.issue === 'storage-unavailable' ? { issue: null } : {}),

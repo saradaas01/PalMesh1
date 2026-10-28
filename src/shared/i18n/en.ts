@@ -86,9 +86,9 @@ export const en = {
   "maps.unavailable": "Offline map unavailable. The bundled Palestine MBTiles asset is missing or could not be opened. Stored locations and SOS remain available.",
   "maps.retry": "Retry offline map",
   "maps.coverage": "Offline map of bundled coverage",
-  "maps.legend": "Blue: your stored fix · Yellow: peer report · Red: SOS report",
+  "maps.legend": "Blue: your stored fix · Amber: shared peer location · Red: SOS report",
   "maps.lastFix": "Your last GPS fix",
-  "maps.noFix": "No GPS fix stored. Update GPS to obtain one.",
+  "maps.noFix": "No GPS fix stored. Tap My location to try.",
   "maps.updatingGps": "Updating GPS",
   "maps.updateGps": "Update GPS",
   "maps.shareOnce": "Share location once",
@@ -109,8 +109,8 @@ export const en = {
   "maps.locationQueued": "Location report queued locally. Delivery is not confirmed.",
   "maps.dismissNotice": "Dismiss map notice",
   "maps.issue.storage-unavailable": "Stored locations are unavailable. Retry loading them.",
-  "maps.issue.gps-denied": "Location access was denied. Allow it in device settings to update GPS.",
-  "maps.issue.gps-unavailable": "GPS could not obtain a location. Your last stored fix is kept.",
+  "maps.issue.gps-denied": "Location access is needed. Tap Allow location access, or use device settings.",
+  "maps.issue.gps-unavailable": "No location provider could return a fix. Check device Location and app location permissions (Precise helps offline GPS), then try outdoors. Your last fix is kept.",
   "maps.issue.queue-full": "The local message queue is full. The broadcast was not queued.",
   "maps.issue.broadcast-unavailable": "The broadcast could not be queued. Please try again.",
   "maps.issue.routing-error": "The mesh reported a problem. Sharing may be delayed.",
@@ -314,6 +314,30 @@ export const en = {
   "ui.received": "Received",
   "ui.routingEnded": "Forwarding ended",
 
+  "maps.issue.gps-disabled": "Device location is off. Turn on Location in Android settings, then try again. Your last fix is kept.",
+  "maps.issue.gps-timeout": "No fix yet. Go outdoors with a clear sky and try again; offline GPS can take longer. Your last fix is kept.",
+
+
+  "emMap.title": "Emergency Map",
+  "emMap.mine": "My location",
+  "emMap.view": "View on map",
+  "emMap.sosList": "SOS reports",
+  "emMap.noSos": "No incoming SOS reports yet.",
+  "emMap.unavailable": "Location unavailable",
+  "emMap.reported": "Reported: {time} (Palestine time)",
+  "emMap.old": "Old location — the person may have moved.",
+  "emMap.approximate": "Approximate location · reported accuracy {meters} m",
+  "emMap.accuracy": "Reported accuracy: {meters} m",
+  "emMap.unknownAccuracy": "Accuracy not provided; this location may be approximate.",
+  "emMap.notLive": "Last reported location, not live tracking or connection status.",
+  "emMap.coordinates": "Coordinates (optional)",
+  "emMap.privacy": "Location sharing · Public to the mesh",
+  "emMap.outside": "This report is outside the bundled map coverage. Its original coordinates are available in Details.",
+  "emMap.acquiring": "Finding a location… Offline GPS can take up to 90 seconds. Try outdoors with a clear sky. SOS can still be sent now.",
+  "emMap.cancel": "Cancel GPS request",
+
+  "emMap.public": "SOS and shared locations are public to mesh participants.",
+  "emMap.allowLocation": "Allow location access",
 } as const;
 
 export type TranslationKey = keyof typeof en;

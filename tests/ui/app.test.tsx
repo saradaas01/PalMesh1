@@ -174,7 +174,7 @@ describe('PalMesh app shell', () => {
     expect(runtime.chat.setVisible).toHaveBeenLastCalledWith(false);
     expect(runtime.locations.setVisible).toHaveBeenLastCalledWith(true);
     await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
-    expect(screen.getByText('Your last GPS fix')).toBeOnTheScreen();
+    expect(screen.getByText('Emergency Map')).toBeOnTheScreen();
     expect(screen.getAllByRole('button', { name: 'I Need Help · SOS' })).toHaveLength(1);
     await fireEvent.press(screen.getByRole('tab', { name: 'Messages' }));
     expect(screen.getByLabelText('Message')).toHaveDisplayValue('Keep this offline draft');

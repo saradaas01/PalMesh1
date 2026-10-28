@@ -65,17 +65,19 @@ def main() -> None:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--release', action='store_true')
     mode.add_argument('--unsigned-preview', action='store_true', help='Inspect unsigned nondebuggable packaging; never install or distribute this artifact')
+    mode.add_argument('--isolated-emergency-test',action='store_true',help='Separate Emergency Map test app, never a release')
     mode.add_argument('--isolated-ux-test',action='store_true',help='Separate redesign test app; never a release')
     mode.add_argument('--isolated-contacts-test', action='store_true', help='Separate contact test app; never a release')
     mode.add_argument('--isolated-map-test', action='store_true', help='Verify the separately identified, debuggable map-test app; never a release')
     mode.add_argument('--isolated-map-performance-test', action='store_true', help='Separate map performance app, never a release')
+    parser.add_argument('--synthetic-emergency-fixture',action='store_true',help='Emulator-only alternate entry, refused in human/release APKs')
     parser.add_argument('--require-bundle', action='store_true')
     parser.add_argument('--architectures', help='Expected comma-separated ABI set')
     parser.add_argument('--version-name')
     parser.add_argument('--version-code')
     parser.add_argument('--report', type=Path)
     args = parser.parse_args()
-    is_test = args.isolated_ux_test or args.isolated_contacts_test or args.isolated_map_test or args.isolated_map_performance_test
+    is_test = args.isolated_emergency_test or args.isolated_ux_test or args.isolated_contacts_test or args.isolated_map_test or args.isolated_map_performance_test
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
     sdk = Path(sdk_value) if sdk_value else Path('/workspace/.palmesh-tools/android-sdk')
     tools = sdk / 'build-tools/37.0.0'
@@ -102,6 +104,9 @@ def main() -> None:
         native_alignment = {name: elf_load_alignment(archive.read(name)) for name in libraries}
         bundled = 'assets/index.android.bundle' in entries and archive.getinfo('assets/index.android.bundle').file_size > 0
         if (args.release or args.unsigned_preview or is_test or args.require_bundle) and not bundled: raise ValueError('Missing embedded JavaScript bundle')
+        fixture = bundled and b'PALMESH_SYNTHETIC_EMERGENCY_ONLY' in archive.read('assets/index.android.bundle')
+        if fixture != args.synthetic_emergency_fixture: raise ValueError('Unexpected synthetic fixture in APK')
+        if args.synthetic_emergency_fixture and (not args.isolated_emergency_test or architectures != ['x86_64']): raise ValueError('Synthetic fixture requires isolated x86_64 emergency test APK')
         has_map = 'assets/palmesh/palestine.mbtiles' in entries
         if args.release and not has_map: raise ValueError('Release APK is missing the reviewed Palestine map pack')
         if is_test and not has_map: raise ValueError('Isolated map test APK is missing its map pack')
@@ -117,14 +122,14 @@ def main() -> None:
     badging = subprocess.check_output([str(tools / 'aapt2'), 'dump', 'badging', str(apk)], text=True)
     package_line = next((line for line in badging.splitlines() if line.startswith('package: ')), '')
     package_fields = dict(re.findall(r"([A-Za-z][A-Za-z0-9]*)='([^']*)'", package_line))
-    expected_package = 'org.palmesh.uxtest' if args.isolated_ux_test else 'org.palmesh.contacttest' if args.isolated_contacts_test else 'org.palmesh.mapperftest' if args.isolated_map_performance_test else 'org.palmesh.maptest' if is_test else 'org.palmesh'
+    expected_package = 'org.palmesh.emergencytest' if args.isolated_emergency_test else 'org.palmesh.uxtest' if args.isolated_ux_test else 'org.palmesh.contacttest' if args.isolated_contacts_test else 'org.palmesh.mapperftest' if args.isolated_map_performance_test else 'org.palmesh.maptest' if is_test else 'org.palmesh'
     if package_fields.get('name') != expected_package: raise ValueError('Unexpected application ID')
     for expected, field in [(args.version_name, 'versionName'), (args.version_code, 'versionCode')]:
         if expected is not None and package_fields.get(field) != expected:
             raise ValueError('Unexpected Android ' + field)
     if "launchable-activity: name='org.palmesh.MainActivity'" not in badging: raise ValueError('Missing launcher activity')
     debuggable = 'application-debuggable' in badging
-    expected_label = "PalMesh UX Test" if args.isolated_ux_test else "PalMesh Contacts Test" if args.isolated_contacts_test else "PalMesh Map Performance Test" if args.isolated_map_performance_test else "PalMesh Map Test"
+    expected_label = "PalMesh Emergency Map Test" if args.isolated_emergency_test else "PalMesh UX Test" if args.isolated_ux_test else "PalMesh Contacts Test" if args.isolated_contacts_test else "PalMesh Map Performance Test" if args.isolated_map_performance_test else "PalMesh Map Test"
     if is_test and (not debuggable or f"application-label:'{expected_label}'" not in badging):
         raise ValueError('Isolated map test must be debuggable and clearly labelled')
     if (args.release or args.unsigned_preview) and debuggable: raise ValueError('Release or unsigned preview APK must not be debuggable')
@@ -148,7 +153,7 @@ def main() -> None:
               'applicationId': package_fields['name'], 'versionName': package_fields.get('versionName'), 'versionCode': package_fields.get('versionCode'),
               'embeddedJavaScriptBundle': bundled, 'bundledPalestineMap': has_map, 'debuggable': debuggable,
               'signingCertificateSha256': fingerprints, 'zipAlignment16KiB': True, 'elfAlignment16KiB': True, 'nativeLibraryLoadAlignment': native_alignment, 'deviceInstallationTested': False,
-              'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'isolated-ux-test' if args.isolated_ux_test else 'isolated-contacts-test' if args.isolated_contacts_test else 'isolated-map-performance-test' if args.isolated_map_performance_test else 'isolated-map-test' if is_test else 'development',
+              'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'isolated-emergency-test' if args.isolated_emergency_test else 'isolated-ux-test' if args.isolated_ux_test else 'isolated-contacts-test' if args.isolated_contacts_test else 'isolated-map-performance-test' if args.isolated_map_performance_test else 'isolated-map-test' if is_test else 'development',
               'signatureVerified': not args.unsigned_preview, 'installable': not args.unsigned_preview,
               'releaseEligible': args.release}
     if is_test:

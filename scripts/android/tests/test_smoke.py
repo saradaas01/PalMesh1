@@ -49,6 +49,44 @@ class SmokeRunnerTests(unittest.TestCase):
         self.assertFalse(smoke.public_chat_visible(xml.replace('Waiting to connect', 'Saved by another phone')))
         self.assertFalse(smoke.public_chat_visible(xml.replace('Waiting to connect', 'Not Waiting to connect')))
 
+    def test_retained_chat_search_scrolls_only_the_message_list_above_composer(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.command = Mock()
+        hidden = ('<hierarchy><node text="'+smoke.PUBLIC_WARNING+'"/>'
+                  '<node scrollable="true" bounds="[24,430][696,880]"/>'
+                  '<node scrollable="true" bounds="[0,950][720,1280]"/>'
+                  '<node content-desc="Message" clickable="true" enabled="true" bounds="[24,900][477,975]"/></hierarchy>')
+        shown = '<hierarchy><node text="'+smoke.PUBLIC_TEXT+'"/><node text="10:00 AM · Waiting to connect"/></hierarchy>'
+        def wait(predicate, _description, _name):
+            self.assertFalse(predicate(hidden))
+            self.assertTrue(predicate(shown))
+        runner.wait_ui = wait
+        runner.wait_public_history('history.xml')
+        runner.command.assert_called_once_with('shell','input','swipe','360','850','360','750','2000')
+
+    def test_retained_chat_search_is_bounded_and_missing_body_never_passes(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.command = Mock()
+        hidden = ('<hierarchy><node text="'+smoke.PUBLIC_WARNING+'"/>'
+                  '<node scrollable="true" bounds="[24,430][696,880]"/>'
+                  '<node text="10:00 AM · Waiting to connect"/>'
+                  '<node content-desc="Message" clickable="true" enabled="true" bounds="[24,900][477,975]"/></hierarchy>')
+        def wait(predicate, _description, _name):
+            for _ in range(15):
+                self.assertFalse(predicate(hidden))
+        runner.wait_ui = wait
+        runner.wait_public_history('history.xml')
+        self.assertEqual(runner.command.call_count,12)
+
+    def test_retained_chat_search_cannot_scroll_a_different_screen(self):
+        runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
+        runner.command = Mock()
+        def wait(predicate, _description, _name):
+            self.assertFalse(predicate('<hierarchy><node scrollable="true" bounds="[0,0][720,1000]"/><node content-desc="Message" clickable="true" enabled="true" bounds="[24,1020][477,1100]"/></hierarchy>'))
+        runner.wait_ui = wait
+        runner.wait_public_history('history.xml')
+        runner.command.assert_not_called()
+
     def test_public_warning_is_required_before_synthetic_chat_input(self):
         runner = smoke.Smoke(Path('/sdk'), Path('/results'), 'emulator-5554', 10)
         runner.tap = Mock()

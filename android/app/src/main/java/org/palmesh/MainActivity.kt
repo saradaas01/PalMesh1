@@ -1,5 +1,7 @@
 package org.palmesh
 
+import android.content.Intent
+
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -12,6 +14,13 @@ class MainActivity : ReactActivity() {
    * rendering of the component.
    */
   override fun getMainComponentName(): String = "PalMesh"
+
+  // A restored singleTask can receive VIEW before ReactHost exists. Keep it for
+  // Linking.getInitialURL as well as forwarding it to an already-running host.
+  override fun onNewIntent(intent: Intent) {
+    setIntent(intent)
+    super.onNewIntent(intent)
+  }
 
   /**
    * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
