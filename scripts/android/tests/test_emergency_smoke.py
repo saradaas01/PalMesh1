@@ -2,9 +2,17 @@
 import sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from emergency_smoke import scroll_surface
+from emergency_smoke import scroll_surface, EmergencySmoke
+from unittest.mock import Mock
 class EmergencyScrollTests(unittest.TestCase):
  def test_inbox_padding_and_map_margin_are_respected(self):
   for left,right in [(24,696),(0,720)]:
    xml=f'<hierarchy><node scrollable="true" bounds="[{left},480][{right},1109]"/><node scrollable="true" bounds="[24,900][696,1050]"/></hierarchy>'
    area=scroll_surface(xml);self.assertEqual(area,(left,480,right,1109));self.assertGreater(area[2]-6,left);self.assertLess(area[2]-6,right)
+
+ def test_guide_waits_for_the_child_before_skipping(self):
+  harness=object.__new__(EmergencySmoke);harness.wait_ui=Mock(return_value='');harness.tap=Mock();harness.finish_guide('first')
+  self.assertFalse(harness.skip_onboarding);self.assertEqual(harness.wait_ui.call_count,2);harness.tap.assert_called_once_with('Skip for now')
+  predicate=harness.wait_ui.call_args_list[0].args[0]
+  self.assertFalse(predicate('<hierarchy><node content-desc="Contacts" enabled="true" clickable="true"/></hierarchy>'))
+  self.assertTrue(predicate('<hierarchy><node content-desc="Skip for now" enabled="true" clickable="true" bounds="[0,0][100,100]"/></hierarchy>'))

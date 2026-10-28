@@ -16,6 +16,12 @@ def scroll_surface(xml):
  return max(surfaces,key=lambda b:(b[2]-b[0])*(b[3]-b[1]))
 
 class EmergencySmoke(MapSmoke):
+ skip_onboarding=False
+ def finish_guide(self,name):
+  if name!='first':return
+  self.wait_ui(lambda x:smoke.find_control(x,'Skip for now') is not None,'first-run guide after resource readiness','guide-ready.xml')
+  self.tap('Skip for now')
+  self.wait_ui(lambda x:smoke.find_control(x,'Skip for now') is None,'explicitly completed skippable guide','guide-complete.xml')
  capture=UxSmoke.capture
  def press(self,label):
   for _ in range(18):
@@ -54,6 +60,7 @@ class EmergencySmoke(MapSmoke):
  def launch(self,name):
   if name=='first':self.command('shell','pm','grant',smoke.PACKAGE,'android.permission.POST_NOTIFICATIONS')
   xml=BaseSmoke.launch(self,name)
+  self.finish_guide(name)
   self.wait_ui(lambda x:smoke.has_text(x,'SIMULATED EMERGENCY ACCEPTANCE'),'explicit synthetic-only banner','synthetic-banner.xml')
   if name=='first':
    # Exercise the actual PendingIntent after process death, not a hand-built ACTION_VIEW.

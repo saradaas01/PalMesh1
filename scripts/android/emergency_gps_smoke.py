@@ -38,6 +38,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
             self.command('shell', 'pm', 'grant', smoke.PACKAGE,
                          'android.permission.POST_NOTIFICATIONS')
         xml = BaseSmoke.launch(self, name)
+        self.finish_guide(name)
         self.wait_ui(lambda x: smoke.has_text(x, 'SIMULATED EMERGENCY ACCEPTANCE'),
                      'explicit synthetic-only banner', name + '-synthetic-banner.xml')
         if name == 'first':
