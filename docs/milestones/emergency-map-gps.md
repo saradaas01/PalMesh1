@@ -67,6 +67,15 @@ The hosted workflow checks an actual notification tap after confirmed process de
 in a fresh externally blocked AOSP guest. Only completed results count as passed;
 exact source, job results, checksum and APK links are recorded in PR #12.
 
+Hosted location injection uses shell-owned Android API 35 OS test providers for
+both GPS and network. They start empty, so cancellation cannot race the emulator's
+unsolicited default fix. Only explicit synthetic 31.5/34.47, 8 m injections drive
+the native provider-to-UI tests. These controls are Python harness code, never
+part of the human APK. They do not prove physical satellite acquisition.
+The populated broadcast-thread check reopens saved history and slowly scrolls its
+actual viewport to require the exact sent body and custody status, including after
+cold restart. It does not assume automatic scrolling after a feedback-panel resize.
+
 The ARM64 human APK is **org.palmesh.emergencytest / PalMesh Emergency Map Test**,
 separate from every earlier app, with a fresh test identity. It contains no synthetic
 SOS injection and runs without map diagnostics. An alternate x86-only entry point seeds explicitly SIMULATED signed

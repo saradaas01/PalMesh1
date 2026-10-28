@@ -204,13 +204,46 @@ class Smoke:
         self.wait_ui(lambda xml: has_text(xml, CHAT_QUEUED),
                      'the durable local public chat queue notice', 'chat-queued.xml')
         self.tap('Dismiss notice')
-        self.wait_ui(public_chat_visible,
-                     'the outgoing public message with local custody status', 'chat-history.xml')
+        # Reopen the archive instead of assuming a resized, populated thread
+        # automatically follows the appended bubble after the notice closes.
+        self.tap('Back to messages')
+        self.public_thread('first-reloaded')
+        self.wait_public_history('chat-history.xml')
+
+    def wait_public_history(self, name: str) -> None:
+        attempts = 0
+        def visible(xml):
+            nonlocal attempts
+            if public_chat_visible(xml):
+                return True
+            if attempts >= 12 or not has_text(xml, PUBLIC_WARNING):
+                return False
+            composer = find_control(xml, 'Message')
+            box = BOUNDS.fullmatch(composer.get('bounds', '')) if composer is not None else None
+            if box is None:
+                return False
+            composer_top = int(box.group(2))
+            areas = []
+            for node in nodes(xml):
+                bounds = BOUNDS.fullmatch(node.get('bounds', ''))
+                if node.get('scrollable') != 'true' or bounds is None:
+                    continue
+                left, top, right, bottom = map(int, bounds.groups())
+                if right > left and bottom - top > 90 and bottom <= composer_top:
+                    areas.append((left, top, right, bottom))
+            if areas:
+                left, top, right, bottom = max(areas, key=lambda b: (b[2]-b[0])*(b[3]-b[1]))
+                x = (left + right) // 2
+                start = bottom - 30
+                self.command('shell', 'input', 'swipe', str(x), str(start), str(x),
+                             str(max(top+30, start-100)), '2000')
+                attempts += 1
+            return False
+        self.wait_ui(visible, 'the retained outgoing public message with local custody status', name)
 
     def retained_public_chat(self) -> None:
         self.public_thread('second')
-        self.wait_ui(public_chat_visible,
-                     'retained public chat after restart', 'retained-chat.xml')
+        self.wait_public_history('retained-chat.xml')
 
     def identity(self, name: str) -> str:
         self.tap('More');self.tap('My profile');self.tap('Advanced identity details')
