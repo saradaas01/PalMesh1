@@ -14,6 +14,7 @@ export interface GeolocationBridge {
 export interface GeolocationSourceOptions {
   readonly bridge: GeolocationBridge;
   readonly requestPermission: () => Promise<'granted' | 'denied'>;
+  readonly requestAuthorization?: () => Promise<'granted' | 'denied'>;
   readonly timeoutMs?: number;
   readonly maximumAgeMs?: number;
 }
@@ -22,11 +23,13 @@ export interface GeolocationSourceOptions {
  * It is cleared after the first fix, failure or deadline, including a callback
  * delivered synchronously before watchPosition returns its watch ID. */
 export class GeolocationSource implements LocationSource {
+  readonly requestAuthorization?: () => Promise<'granted' | 'denied'>;
   private readonly timeoutMs: number;
   private readonly maximumAgeMs: number;
   private reading = false;
 
   constructor(private readonly options: GeolocationSourceOptions) {
+    if (options.requestAuthorization) this.requestAuthorization = () => options.requestAuthorization!();
     this.timeoutMs = options.timeoutMs ?? 90_000;
     this.maximumAgeMs = options.maximumAgeMs ?? 60_000;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 120_000

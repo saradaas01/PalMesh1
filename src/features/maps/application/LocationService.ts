@@ -22,6 +22,7 @@ export interface LocationServiceOptions {
  * delays SOS. One runtime owns this service and its native map source. */
 export class LocationService {
   readonly deviceId: PeerId;
+  readonly requestLocationAccess?: () => Promise<void>;
   private readonly engine: LocationEngine;
   private readonly repository: LocationRepository;
   private readonly source: LocationSource;
@@ -43,6 +44,7 @@ export class LocationService {
   private unsubscribe: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private gps: AbortController | null = null;
+  private authorization: Promise<void> | null = null;
   private maps: AbortController | null = null;
   private mapOpening = false;
   private nextBroadcastAt = 0;
@@ -56,6 +58,7 @@ export class LocationService {
     this.engine = options.engine;
     this.repository = options.repository;
     this.source = options.source;
+    if (this.source.requestAuthorization) this.requestLocationAccess = () => this.authorizeLocation();
     this.mapSource = options.mapSource;
     this.clock = options.clock ?? { now: () => Date.now() };
     this.broadcastIntervalMs = options.broadcastIntervalMs ?? 60_000;
@@ -157,6 +160,32 @@ export class LocationService {
   shareOnce = (): Promise<LocationActionResult> => this.capture(true, false);
   dismissIssue = (): void => { this.patch({ issue: null }); };
   dismissNotice = (): void => { this.patch({ notice: null }); };
+
+  private authorizeLocation(): Promise<void> {
+    if (this.authorization) return this.authorization;
+    if (!this.active || !this.visible) return Promise.resolve();
+    const generation = this.generation;
+    const task = new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (issue: MapsSnapshot['issue']): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        // Permission dialogs can pause the Activity. Retain their explicit
+        // result in this session without resuming GPS when the dialog closes.
+        if (this.live(generation)) this.patch({ issue });
+        resolve();
+      };
+      const timer = setTimeout(() => finish('gps-denied'), 30_000);
+      void Promise.resolve().then(() => this.live(generation) ? this.source.requestAuthorization?.() : undefined).then(
+        result => finish(result === 'granted' ? null : 'gps-denied'),
+        () => finish('gps-denied'),
+      );
+    });
+    this.authorization = task;
+    void task.then(() => { if (this.authorization === task) this.authorization = null; });
+    return task;
+  }
 
   sendSos = async (text = this.sosText): Promise<LocationActionResult> => {
     if (!this.active) {

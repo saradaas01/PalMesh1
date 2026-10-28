@@ -19,6 +19,8 @@ export interface LocationRepository {
 /** Implementations must settle promptly on abort and never keep a GPS watch. */
 export interface LocationSource {
   read(signal: AbortSignal): Promise<GpsResult>;
+  /** Explicit permission UI only; authorization must never start acquisition. */
+  readonly requestAuthorization?: () => Promise<'granted' | 'denied'>;
 }
 
 /** A native, read-only MBTiles host. Ownership belongs to one maps service. */

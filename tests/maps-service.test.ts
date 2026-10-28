@@ -51,6 +51,7 @@ class ControlledLocationEngine implements LocationEngine {
 
 class ControlledLocationSource implements LocationSource {
   readonly signals: AbortSignal[] = [];
+  requestAuthorization?: () => Promise<'granted' | 'denied'>;
   result: GpsResult = { status: 'fix', location: fix() };
   readNext: ((signal: AbortSignal) => Promise<GpsResult>) | undefined;
   read(signal: AbortSignal): Promise<GpsResult> {
@@ -147,6 +148,114 @@ test('never reads GPS or broadcasts by default, and refreshing a fix remains loc
   assert.equal(engine.records[0]?.message.ttl, 10);
   assert.equal(service.getSnapshot().notice, 'location-queued');
   assert.deepEqual(service.getSnapshot().peers, [], 'the local broadcast is not a peer marker');
+});
+
+test('sources without explicit authorization do not expose a permission action', t => {
+  const { service } = fixture(t);
+  assert.equal(service.requestLocationAccess, undefined);
+});
+
+test('explicit authorization remains single-flight through an OS pause, reports denial and never blocks SOS or acquires GPS', async t => {
+  const permission = deferred<'granted' | 'denied'>();
+  const source = new ControlledLocationSource();
+  let prompts = 0;
+  source.requestAuthorization = () => { prompts += 1; return permission.promise; };
+  const { service, engine, archive } = fixture(t, { source });
+  await service.start();
+  const requestAccess = service.requestLocationAccess;
+  assert.ok(requestAccess);
+  const first = requestAccess();
+  assert.equal(requestAccess(), first);
+  await until(() => prompts === 1);
+  service.setVisible(false);
+  assert.equal(requestAccess(), first, 'an OS pause must not create a second permission action');
+  assert.equal(service.getSnapshot().locating, false);
+  assert.equal((await service.sendSos()).status, 'queued');
+  assert.deepEqual(engine.publications, [{ kind: 'sos', payload: { text: 'I need help' } }]);
+  permission.resolve('denied');
+  await first;
+  assert.equal(service.getSnapshot().issue, 'gps-denied');
+  assert.equal(service.getSnapshot().locating, false);
+  assert.equal(source.signals.length, 0);
+  assert.equal((await archive.read()).localLocation, null);
+});
+
+test('granting explicit authorization clears denial and waits for a separate location action', async t => {
+  const source = new ControlledLocationSource();
+  source.result = { status: 'denied' };
+  source.requestAuthorization = async () => 'granted';
+  const { service, engine } = fixture(t, { source });
+  await service.start(); await service.refreshLocal();
+  assert.equal(service.getSnapshot().issue, 'gps-denied');
+  const requestAccess = service.requestLocationAccess;
+  assert.ok(requestAccess);
+  await requestAccess();
+  assert.equal(service.getSnapshot().issue, null);
+  assert.equal(service.getSnapshot().locating, false);
+  assert.equal(service.getSnapshot().localLocation, null);
+  assert.equal(source.signals.length, 1, 'permission grant cannot start another acquisition');
+  assert.equal(engine.publications.length, 0);
+});
+
+test('explicit authorization is bounded and a late grant cannot change its result, acquire GPS or share', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const permission = deferred<'granted' | 'denied'>();
+  const source = new ControlledLocationSource();
+  let prompts = 0;
+  source.requestAuthorization = () => { prompts += 1; return permission.promise; };
+  const { service, engine } = fixture(t, { source });
+  await service.start();
+  const requestAccess = service.requestLocationAccess;
+  assert.ok(requestAccess);
+  const authorizing = requestAccess();
+  await until(() => prompts === 1);
+  t.mock.timers.tick(30_000);
+  await authorizing;
+  assert.equal(service.getSnapshot().issue, 'gps-denied');
+  permission.resolve('granted'); await settle();
+  assert.equal(service.getSnapshot().issue, 'gps-denied');
+  assert.equal(service.getSnapshot().locating, false);
+  assert.equal(source.signals.length, 0);
+  assert.equal(engine.publications.length, 0);
+});
+
+for (const failure of ['throws', 'rejects'] as const) {
+  test(`an explicit authorization callback that ${failure} reports missing access and permits a separate retry`, async t => {
+    const source = new ControlledLocationSource();
+    source.requestAuthorization = () => {
+      if (failure === 'throws') throw new Error('Permission UI unavailable');
+      return Promise.reject(new Error('Permission UI failed'));
+    };
+    const { service, engine } = fixture(t, { source });
+    await service.start();
+    const requestAccess = service.requestLocationAccess;
+    assert.ok(requestAccess);
+    await requestAccess();
+    assert.equal(service.getSnapshot().issue, 'gps-denied');
+    source.requestAuthorization = async () => 'granted';
+    await requestAccess();
+    assert.equal(service.getSnapshot().issue, null);
+    assert.equal(source.signals.length, 0);
+    assert.equal(engine.publications.length, 0);
+  });
+}
+
+test('an authorization result from a stopped session cannot set a restarted session issue', async t => {
+  const permission = deferred<'granted' | 'denied'>();
+  const source = new ControlledLocationSource();
+  let prompts = 0;
+  source.requestAuthorization = () => { prompts += 1; return permission.promise; };
+  const { service, engine } = fixture(t, { source });
+  await service.start();
+  const requestAccess = service.requestLocationAccess;
+  assert.ok(requestAccess);
+  const authorizing = requestAccess();
+  await until(() => prompts === 1);
+  await service.stop(); await service.start();
+  permission.resolve('denied'); await authorizing;
+  assert.equal(service.getSnapshot().issue, null);
+  assert.equal(source.signals.length, 0);
+  assert.equal(engine.publications.length, 0);
 });
 
 for (const result of ['denied', 'disabled', 'timeout', 'unavailable'] as const) {

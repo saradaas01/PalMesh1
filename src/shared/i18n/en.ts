@@ -109,7 +109,7 @@ export const en = {
   "maps.locationQueued": "Location report queued locally. Delivery is not confirmed.",
   "maps.dismissNotice": "Dismiss map notice",
   "maps.issue.storage-unavailable": "Stored locations are unavailable. Retry loading them.",
-  "maps.issue.gps-denied": "Location access was denied. Allow it in device settings to update GPS.",
+  "maps.issue.gps-denied": "Location access is needed. Tap Allow location access, or use device settings.",
   "maps.issue.gps-unavailable": "No location provider could return a fix. Check device Location and app location permissions (Precise helps offline GPS), then try outdoors. Your last fix is kept.",
   "maps.issue.queue-full": "The local message queue is full. The broadcast was not queued.",
   "maps.issue.broadcast-unavailable": "The broadcast could not be queued. Please try again.",
@@ -337,6 +337,7 @@ export const en = {
   "emMap.cancel": "Cancel GPS request",
 
   "emMap.public": "SOS and shared locations are public to mesh participants.",
+  "emMap.allowLocation": "Allow location access",
 } as const;
 
 export type TranslationKey = keyof typeof en;

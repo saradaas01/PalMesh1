@@ -49,7 +49,7 @@ function useMapsService(resources: RuntimeResources | null, runtime: AppUiRuntim
     subscribe: listener => locations.subscribe(listener),
     start: () => locations.start(), stop: () => locations.stop(),
     setVisible: visible => locations.setVisible(visible),
-    refresh: options => locations.refresh(options), refreshLocal: () => locations.refreshLocal(), cancelLocation: () => locations.cancelLocation?.(),
+    refresh: options => locations.refresh(options), refreshLocal: () => locations.refreshLocal(), cancelLocation: () => locations.cancelLocation?.(), requestLocationAccess: async () => { await locations.requestLocationAccess?.(); },
     shareOnce: () => locations.shareOnce(), setSharing: sharing => locations.setSharing(sharing),
     setPowerMode: mode => runtime.setPowerMode(mode),
     sendSos: () => locations.sendSos(), dismissIssue: () => locations.dismissIssue(),

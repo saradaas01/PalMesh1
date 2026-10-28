@@ -111,7 +111,7 @@ export const ar = {
   "maps.locationQueued": "حُفظ تقرير الموقع محليًا. لم يتم تأكيد وصوله.",
   "maps.dismissNotice": "إغلاق تنبيه الخريطة",
   "maps.issue.storage-unavailable": "المواقع المحفوظة غير متاحة. أعد تحميلها.",
-  "maps.issue.gps-denied": "رُفض إذن الوصول إلى الموقع. اسمح به في إعدادات الجهاز لتحديث الموقع.",
+  "maps.issue.gps-denied": "يلزم السماح بالوصول إلى الموقع. اضغط السماح بالوصول إلى الموقع، أو استخدم إعدادات الجهاز.",
   "maps.issue.gps-unavailable": "تعذّر الحصول على موقع من الجهاز. تحقق من تشغيل الموقع وإذن التطبيق (الموقع الدقيق يساعد دون إنترنت)، ثم جرّب في مكان مفتوح. احتفظنا بآخر موقع.",
   "maps.issue.queue-full": "قائمة الإرسال ممتلئة. لم يُحفظ البث للإرسال.",
   "maps.issue.broadcast-unavailable": "تعذّر حفظ البث للإرسال. حاول مرة أخرى.",
@@ -339,4 +339,5 @@ export const ar = {
   "emMap.cancel": "إلغاء طلب الموقع",
 
   "emMap.public": "الاستغاثة والمواقع المشتركة علنية للمشاركين في الشبكة.",
+  "emMap.allowLocation": "السماح بالوصول إلى الموقع",
 } satisfies Readonly<Record<TranslationKey, string>>;

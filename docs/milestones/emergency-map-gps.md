@@ -15,6 +15,13 @@ callback did not notify the watch. Precise permission was granted in the reporte
 TECNO test, so the coarse-only defect does not establish that phone's exact cause.
 A short cold-acquisition budget is a limitation, not a proven hardware diagnosis.
 
+Android permission setup is a separate Allow location access action. A missing
+permission gives actionable guidance; authorization alone never starts GPS or
+sharing. This avoids Android's permission-dialog Activity pause cancelling and
+silently discarding the first acquisition/denial result. Authorization is bounded,
+single-flight and session-guarded, while real GPS retains background/abort guards.
+After allowing access, tap My location to acquire a fix.
+
 Android now uses scoped LocationManager requests, independent of Play Services or
 an app internet service. It checks foreground fine/coarse authorization and the
 device Location switch, subscribes only to permitted enabled GPS/network providers,
@@ -69,7 +76,7 @@ build. Neither test path bypasses message authentication or changes a real app's
 identity. The simulator/emulator do not establish physical GNSS or radio behavior.
 
 On both actual phones, keep Location enabled and allow foreground Precise location;
-try My location outdoors with a clear sky and allow the bounded cold-acquisition
+use Allow location access if prompted, then try My location outdoors with a clear sky and allow the bounded cold-acquisition
 wait. Confirm blue marker/accuracy and persistence after offline restart. Confirm
 Cancel and each relevant error leave SOS immediately sendable. Explicitly share
 once, then exchange two located SOS reports and one without a fix, checking the

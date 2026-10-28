@@ -163,7 +163,7 @@ describe('PalMesh offline maps UI', () => {
     service.patch({ issue: 'gps-denied', status: 'error' });
     await render(<PalMeshMapsApp service={service} />);
     await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
-    expect(screen.getByText(/Location access was denied/)).toBeOnTheScreen();
+    expect(screen.getByText(/Location access is needed/)).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'I Need Help · SOS' }));
     expect(service.sendSos).toHaveBeenCalledTimes(1);
     await fireEvent.press(screen.getByRole('button', { name: 'Dismiss map error' }));
@@ -267,3 +267,5 @@ test('GPS cancellation stays explicit and never blocks the prominent SOS action'
 });
 
 for(const issue of ['gps-disabled','gps-timeout'] as const)test(`GPS ${issue} keeps the last fix, shows actionable guidance and leaves SOS enabled`,async()=>{const service=new ReactiveMapsService();service.patch({issue,localLocation:{latitude:31.5,longitude:34.47,timestamp:NOW-10000}});await render(<PalMeshMapsApp service={service}/>);expect(screen.getByText(issue==='gps-disabled'?/Turn on Location/:/Go outdoors/).props.accessibilityRole).toBe('alert');expect(screen.getByRole('button',{name:'I Need Help · SOS'})).toBeEnabled();expect(service.shareOnce).not.toHaveBeenCalled();});
+
+test('permission setup is explicit and does not acquire or share a location',async()=>{const service=new ReactiveMapsService();service.patch({issue:'gps-denied'});const authorize=jest.fn(async()=>{});const supported=Object.assign(service,{requestLocationAccess:authorize});await render(<PalMeshMapsApp service={supported}/>);expect(screen.getByText('Location access is needed. Tap Allow location access, or use device settings.')).toBeOnTheScreen();await fireEvent.press(screen.getByRole('button',{name:'Allow location access'}));expect(authorize).toHaveBeenCalledTimes(1);expect(service.refreshLocal).not.toHaveBeenCalled();expect(service.shareOnce).not.toHaveBeenCalled();expect(screen.getByRole('button',{name:'I Need Help · SOS'})).toBeEnabled();});

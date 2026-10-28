@@ -53,7 +53,7 @@ const noSubscribe=()=>()=>{};const emptyEmergency=()=>EMPTY_EMERGENCY;
 export function MapsScreen({ embedded = false, showSos = true, emergency, focusSosId = null }: MapsScreenProps): React.JSX.Element {
   const { t, direction } = useI18n();
   const { snapshot, service, deviceId, visible, refresh, refreshLocal, shareOnce, setSharing, setPowerMode,
-    sendSos, dismissIssue, dismissNotice, cancelLocation } = useMaps();
+    sendSos, dismissIssue, dismissNotice, cancelLocation, requestLocationAccess } = useMaps();
   const emergencies=useSyncExternalStore(emergency?.subscribe??noSubscribe,emergency?.getSnapshot??emptyEmergency,emergency?.getSnapshot??emptyEmergency);
   const sharedPeers=useMemo(()=>snapshot.peers.filter(p=>p.origin==='location'),[snapshot.peers]);
   const incomingSos=useMemo(()=>emergencies.entries.filter(e=>!e.outgoing),[emergencies.entries]);
@@ -156,6 +156,7 @@ export function MapsScreen({ embedded = false, showSos = true, emergency, focusS
     {(snapshot.issue !== null || featureNotice !== null) && <ScrollView style={styles.feedback} keyboardShouldPersistTaps="handled">
       {snapshot.issue !== null && <>
         <Text accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.body}>{t(issueLabels[snapshot.issue])}</Text>
+        {snapshot.issue==='gps-denied'&&service.requestLocationAccess&&<Button label={t('emMap.allowLocation')} onPress={()=>{void requestLocationAccess();}}/>}
         <Button label={t('maps.dismissError')} onPress={dismissIssue} />
       </>}
       {featureNotice !== null && <>

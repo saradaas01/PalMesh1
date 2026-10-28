@@ -51,6 +51,8 @@ class EmergencyGpsSmoke(EmergencySmoke):
             self.top()
             self.progress('permission-denial')
             self.press('My location')
+            self.wait_ui(lambda x: smoke.has_text(x, 'Location access is needed. Tap Allow location access, or use device settings.'), 'explicit missing-access guidance', 'gps-access-needed.xml')
+            self.press('Allow location access')
             permission = self.wait_ui(
                 lambda x: any(n.get('resource-id', '').endswith('permission_deny_button')
                               for n in smoke.nodes(x)),
@@ -59,7 +61,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
                           if n.get('resource-id', '').endswith('permission_deny_button'))
             x, y = smoke.center(denial)
             self.command('shell', 'input', 'tap', str(x), str(y))
-            self.wait_ui(lambda x: smoke.has_text(x, 'Location access was denied. Allow it in device settings to update GPS.'),
+            self.wait_ui(lambda x: smoke.has_text(x, 'Location access is needed. Tap Allow location access, or use device settings.'),
                          'location permission denial', 'gps-denied.xml')
             self.press('Dismiss map error')
             self.progress('disabled-provider', permissionDenialHandled=True)

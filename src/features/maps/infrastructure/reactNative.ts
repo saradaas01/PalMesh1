@@ -11,25 +11,34 @@ export function createReactNativeLocationSource(): GeolocationSource {
     skipPermissionRequests: true, authorizationLevel: 'whenInUse',
     enableBackgroundLocationUpdates: false, locationProvider: 'android',
   });
+  const androidPermissionGranted = async (): Promise<boolean> =>
+    await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION)
+      || await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION);
+  const requestAuthorization = async (): Promise<'granted' | 'denied'> => {
+    if (Platform.OS === 'android') {
+      if (await androidPermissionGranted()) return 'granted';
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      return granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED
+        || granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ? 'granted' : 'denied';
+    }
+    if (Platform.OS === 'ios') {
+      return new Promise<'granted' | 'denied'>(resolve => {
+        Geolocation.requestAuthorization(() => resolve('granted'), () => resolve('denied'));
+      });
+    }
+    return 'denied';
+  };
   return new GeolocationSource({
     bridge: Platform.OS === 'android' ? androidGpsBridge() : Geolocation,
-    requestPermission: async () => {
-      if (Platform.OS === 'android') {
-        if (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION) || await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION)) return 'granted';
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ]);
-        return granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED
-          || granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ? 'granted' : 'denied';
-      }
-      if (Platform.OS === 'ios') {
-        return new Promise<'granted' | 'denied'>(resolve => {
-          Geolocation.requestAuthorization(() => resolve('granted'), () => resolve('denied'));
-        });
-      }
-      return 'denied';
-    },
+    requestAuthorization,
+    // Android acquisition only checks existing permission. Opening a prompt is
+    // an independent, explicit action and must never start GPS or sharing.
+    requestPermission: async () => Platform.OS === 'android'
+      ? await androidPermissionGranted() ? 'granted' : 'denied'
+      : requestAuthorization(),
   });
 }
 
