@@ -75,11 +75,14 @@ that entry for ARM64/release; APK verification refuses a synthetic marker in a h
 build. Neither test path bypasses message authentication or changes a real app's
 identity. The simulator/emulator do not establish physical GNSS or radio behavior.
 
+On a fresh test installation, send the coordinate-free SOS before first acquiring
+a fix. Disabling Location later does not erase a stored fix: SOS deliberately
+retains that original timestamped location rather than waiting for another fix.
 On both actual phones, keep Location enabled and allow foreground Precise location;
 use Allow location access if prompted, then try My location outdoors with a clear sky and allow the bounded cold-acquisition
 wait. Confirm blue marker/accuracy and persistence after offline restart. Confirm
 Cancel and each relevant error leave SOS immediately sendable. Explicitly share
-once, then exchange two located SOS reports and one without a fix, checking the
+once, then exchange two located SOS reports and check the earlier coordinate-free report, checking the
 original IDs/positions, names/times, red markers, inbox focus and unknown accuracy.
 Also retest offline gestures, Arabic/font sizes, notification taps, encrypted chat,
 SOS responses and radio delivery. Do not delete any original installation.
