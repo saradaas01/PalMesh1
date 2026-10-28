@@ -1,9 +1,9 @@
 """Scrollable geometry must come from the actual padded/native hierarchy."""
-import sys,unittest
+import json,sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from emergency_smoke import scroll_surface, report_control, EmergencySmoke, REPORT_ID, REPORT_BODIES
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 
 def native_card(body,heading='Incoming SOS',button=True,button_bounds='[48,780][672,852]',resource_id=''):
  return f'''<node class="android.view.ViewGroup" resource-id="{resource_id}" scrollable="false" bounds="[24,500][696,950]">
@@ -73,17 +73,30 @@ class EmergencyScrollTests(unittest.TestCase):
    harness.show_report_text(REPORT_ID,'retained-sos-focus.xml')
   self.assertEqual(harness.command.call_count,18)
 
- def test_report_action_search_uses_small_bounded_scroll_steps(self):
+ def test_report_action_search_uses_small_slow_bounded_scroll_steps(self):
   clipped=native_inbox(native_card(REPORT_BODIES[REPORT_ID],button_bounds='[48,1120][672,1192]'))
   visible=native_inbox(native_card(REPORT_BODIES[REPORT_ID],button_bounds='[48,970][672,1042]'))
   harness=object.__new__(EmergencySmoke);harness.dump=Mock(side_effect=[clipped,visible]);harness.command=Mock()
-  harness.press_report(REPORT_ID,'View on map')
-  self.assertEqual(harness.command.call_args_list[0].args,('shell','input','swipe','690','1064','690','914','200'))
+  with patch('builtins.print'):harness.press_report(REPORT_ID,'View on map')
+  swipe=harness.command.call_args_list[0].args
+  self.assertEqual(swipe,('shell','input','swipe','690','1064','690','964','2000'))
+  self.assertLessEqual(abs(int(swipe[4])-int(swipe[6]))/(int(swipe[7])/1000),50)
   self.assertEqual(harness.command.call_args_list[1].args[:3],('shell','input','tap'))
   harness.dump=Mock(return_value=clipped);harness.command=Mock()
-  with self.assertRaisesRegex(RuntimeError,'Original SOS control missing'):
+  with patch('builtins.print'),self.assertRaisesRegex(RuntimeError,'Original SOS control missing'):
    harness.press_report(REPORT_ID,'View on map')
   self.assertEqual(harness.command.call_count,36)
+
+ def test_report_search_logs_card_ids_and_target_button_bounds_without_xml(self):
+  target=native_card(REPORT_BODIES[REPORT_ID],resource_id='org.palmesh.emergencytest:id/sos-entry-'+REPORT_ID)
+  outgoing=native_card('I need help','Your SOS',resource_id='sos-entry-outgoing')
+  harness=object.__new__(EmergencySmoke);harness.dump=Mock(return_value=native_inbox(outgoing,target));harness.command=Mock()
+  with patch('builtins.print') as output:harness.press_report(REPORT_ID,'View on map')
+  message=output.call_args.args[0];evidence=json.loads(message.removeprefix('EMERGENCY_REPORT_SEARCH '))
+  self.assertEqual(evidence['attempt'],1)
+  self.assertEqual([n['id'] for n in evidence['cards']],['sos-entry-outgoing','sos-entry-'+REPORT_ID])
+  self.assertEqual(evidence['targetButtons'],[{'label':'View on map','bounds':'[48,780][672,852]','enabled':'true'}])
+  self.assertNotIn('<node',message);self.assertNotIn(REPORT_BODIES[REPORT_ID],message)
 
  def test_inbox_padding_and_map_margin_are_respected(self):
   for left,right in [(24,696),(0,720)]:

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Replay foreground GPS on a pinned synthetic x86 APK in a fresh offline guest."""
 import json
-import time
 
 import smoke
 from emergency_smoke import BaseSmoke, EmergencySmoke
@@ -20,6 +19,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
                 'apkSourceCommit': APK_SOURCE,
                 'apkSha256': APK_SHA256,
                 'physicalGpsTested': False,
+                'gpsSource': 'Explicit synthetic Android OS test-provider injection',
                 'freshEmulatorExternalNetworkBlocked': True,
             }
         self.gps_report.update(stage=stage, **results)
@@ -27,9 +27,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
             json.dumps(self.gps_report, indent=2) + '\n')
 
     def inject_fix(self):
-        for _ in range(3):
-            self.command('emu', 'geo', 'fix', '34.47', '31.5')
-            time.sleep(1)
+        self.gps_provider.inject_fix()
 
     def launch(self, name):
         self.progress(name + '-launch')

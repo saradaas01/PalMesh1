@@ -4,6 +4,7 @@ on:
     branches: ['feat/emergency-map-gps']
     paths:
       - 'scripts/android/emergency_gps_smoke.py'
+      - 'scripts/android/emergency_gps_provider.py'
       - 'scripts/android/emergency_smoke.py'
       - '.github/workflows/emergency-gps-replay.yml'
 permissions:
