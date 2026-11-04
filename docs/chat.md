@@ -74,6 +74,12 @@ accepts the message. A full queue or failed routing write retains the draft.
 New typing in another thread cannot be erased by completion of an older send.
 Unsent drafts do not survive process death; accepted messages do.
 
+## Message priority
+
+When the native runtime supplies its bundled classifier, each draft is assessed
+on the device. The send carries the estimated or manually chosen priority, and
+critical drafts can be escalated to SOS. See [on-device message priority](ai-priority.md).
+
 ## Delivery labels
 
 | Label | Meaning |

@@ -9,7 +9,8 @@ import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-nati
 import { LocalizedText as Text, useI18n, type TranslationKey } from '../../../shared/i18n';
 import { isPeerId } from '../../dtn/domain/validation';
 import { deliveryState } from '../domain/messages';
-import type { ChatDeliveryState, ChatIssue, ChatMessage, Conversation } from '../domain/types';
+import type { ChatDeliveryState, ChatIssue, ChatMessage, Conversation, UnreadUrgency } from '../domain/types';
+import type { MessagePriority } from '../../dtn/domain/types';
 import { ChatProvider, type ChatUiService, useChat } from './ChatProvider';
 
 const deliveryLabels: Readonly<Record<ChatDeliveryState, TranslationKey>> = {
@@ -30,6 +31,30 @@ const issueLabels: Readonly<Record<ChatIssue, TranslationKey>> = {
   'recipient-keys-unavailable': 'chat.issue.recipient-keys-unavailable',
 };
 
+const priorityLabels: Readonly<Record<MessagePriority, TranslationKey>> = {
+  critical: 'ai.priority.critical',
+  high: 'ai.priority.high',
+  normal: 'ai.priority.normal',
+  low: 'ai.priority.low',
+};
+
+const urgencyLabels: Readonly<Record<UnreadUrgency, TranslationKey>> = {
+  sos: 'ai.unread.sos',
+  critical: 'ai.unread.critical',
+  high: 'ai.unread.high',
+};
+
+// Manual choices cycle through every priority, then return to the AI estimate.
+const overrideCycle: readonly (MessagePriority | null)[] = [null, 'critical', 'high', 'normal', 'low'];
+
+function PriorityChip({ priority }: { readonly priority: MessagePriority | 'sos' }): React.JSX.Element {
+  const { t } = useI18n();
+  const urgent = priority === 'critical' || priority === 'sos';
+  return <Text style={[styles.chip, urgent ? styles.chipCritical : priority === 'high' ? styles.chipHigh : styles.chipRoutine]}>
+    {priority === 'sos' ? 'SOS' : t(priorityLabels[priority])}
+  </Text>;
+}
+
 function Button({ label, onPress, disabled = false, primary = false }: {
   readonly label: string; readonly onPress: () => void; readonly disabled?: boolean; readonly primary?: boolean;
 }): React.JSX.Element {
@@ -45,8 +70,9 @@ function ConversationRow({ item, onOpen }: {
   const entry=names.entries.get(item.id);
   const accessibleTitle=entry?.duplicateName?title+' · '+names.short(item.id):title;
   const unread = item.unreadCount > 0 ? `, ${t('chat.unread', { count: item.unreadCount })}` : '';
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat.openConversation',{title:accessibleTitle})}${unread}`} onPress={()=>onOpen(item.id)} style={styles.conversation}>
-    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text></View>
+  const urgency = item.unreadUrgency ? `, ${t(urgencyLabels[item.unreadUrgency])}` : '';
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat.openConversation',{title:accessibleTitle})}${unread}${urgency}`} onPress={()=>onOpen(item.id)} style={[styles.conversation, item.unreadUrgency && styles.urgentConversation]}>
+    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text></View>
   </Pressable>;
 }
 
@@ -58,13 +84,51 @@ function MessageBubble({ message, deviceId, now }: {
   const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-PS' : 'en', { hour: '2-digit', minute: '2-digit' });
   const names = useContactNames();
   const sender = message.outgoing ? t('chat.you') : names.label(message.source);
+  const elevated = message.kind === 'chat' && (message.priority === 'critical' || message.priority === 'high') ? message.priority : null;
   return (
-    <View style={[styles.message, message.outgoing ? styles.outgoing : styles.incoming, message.kind === 'sos' && styles.emergencyMessage]}>
-      <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+    <View style={[styles.message, message.outgoing ? styles.outgoing : styles.incoming,
+      (message.kind === 'sos' || elevated === 'critical') && styles.emergencyMessage, elevated === 'high' && styles.urgentMessage]}>
+      <View style={[styles.row, styles.wrap]}>
+        {elevated && <PriorityChip priority={elevated} />}
+        <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+      </View>
       <Text selectable style={styles.messageText}>{message.text}</Text>
       <Text style={styles.messageMeta}>{time} · {status}</Text>
     </View>
   );
+}
+
+function DraftPriority({ showSos }: { readonly showSos: boolean }): React.JSX.Element | null {
+  const { t, language } = useI18n();
+  const { snapshot, setPriorityOverride, sendDraftAsSos } = useChat();
+  const [sosDismissed, setSosDismissed] = useState(false);
+  const assessment = snapshot.draftAssessment;
+  const override = snapshot.priorityOverride;
+  useEffect(() => { if (snapshot.draft === '') setSosDismissed(false); }, [snapshot.draft]);
+  if (assessment === null && override === null) return null;
+  const priority = override ?? assessment!.priority;
+  const label = override !== null || assessment === null
+    ? t('ai.manualPriority', { priority: t(priorityLabels[priority]) })
+    : t('ai.draftPriority', { priority: t(priorityLabels[priority]), confidence: Math.round(assessment.confidence * 100) });
+  const signals = override === null && assessment !== null && assessment.signals.length > 0
+    ? t('ai.signals', { signals: assessment.signals.join(language === 'ar' ? '، ' : ', ') }) : null;
+  const next = overrideCycle[(overrideCycle.indexOf(override) + 1) % overrideCycle.length] ?? null;
+  return <View style={styles.aiPanel}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${t('ai.changePriority')}: ${label}`}
+      accessibilityHint={t('ai.changePriorityHint')} onPress={() => setPriorityOverride(next)}
+      style={({ pressed }) => [styles.row, styles.wrap, styles.aiRow, pressed && styles.pressed]}>
+      <PriorityChip priority={priority} />
+      <Text style={[styles.aiText, styles.grow]}>{label}</Text>
+    </Pressable>
+    {signals !== null && <Text style={styles.aiSignals}>{signals}</Text>}
+    {showSos && override === null && assessment?.suggestSos && !sosDismissed && <View accessibilityRole="alert" style={styles.sosSuggestion}>
+      <Text style={styles.bodyText}>{t('ai.sosSuggestion')}</Text>
+      <View style={[styles.row, styles.wrap]}>
+        <Action label={t('ai.sendAsSos')} variant="danger" disabled={snapshot.pendingSos} onPress={() => { void sendDraftAsSos(); }} />
+        <Action label={t('ai.keepMessage')} variant="ghost" onPress={() => setSosDismissed(true)} />
+      </View>
+    </View>}
+  </View>;
 }
 
 function NewConversation({onClose,savedRecipients,onAdd}:{readonly onClose:()=>void;readonly savedRecipients:readonly string[];readonly onAdd?:()=>void}) {
@@ -190,6 +254,7 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
             ListEmptyComponent={<Text style={styles.empty}>{t(isBroadcast ? 'chat.emptyBroadcasts' : 'chat.emptyMessages')}</Text>} />
           <View style={styles.composer}>
             {isBroadcast && <Text style={[ui.notice,{color:palette.warning,backgroundColor:palette.warningSoft}]}>{t('ui.publicHint')}</Text>}
+            <DraftPriority showSos={showSos} />
             {snapshot.draft.length>3500&&<Text accessibilityLabel={t('chat.length')} style={styles.composerCount}>{snapshot.draft.length}/4096</Text>}
             <View style={[styles.row, styles.wrap]}>
               <TextInput accessibilityLabel={t('chat.message')} accessibilityHint={t(isBroadcast ? 'chat.broadcastPrivacy' : 'chat.composeHint')}
@@ -261,6 +326,17 @@ const styles = StyleSheet.create({
   outgoing: { alignSelf: 'flex-end', backgroundColor: '#DCF1EC' },
   incoming: { alignSelf: 'flex-start', backgroundColor: palette.surface },
   emergencyMessage: { borderWidth: 2, borderColor: '#ff6a6a' },
+  urgentMessage: { borderWidth: 2, borderColor: '#E0A93B' },
+  urgentConversation: { borderColor: palette.danger, borderWidth: 2 },
+  chip: { fontSize: 12, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', writingDirection: 'auto' },
+  chipCritical: { color: '#FFFFFF', backgroundColor: palette.danger },
+  chipHigh: { color: palette.warning, backgroundColor: palette.warningSoft },
+  chipRoutine: { color: palette.muted, backgroundColor: palette.background, borderWidth: 1, borderColor: palette.line },
+  aiPanel: { gap: 4, paddingBottom: 6 },
+  aiRow: { minHeight: 44 },
+  aiText: { color: palette.ink, fontSize: 14, fontWeight: '600', writingDirection: 'auto' },
+  aiSignals: { color: palette.muted, fontSize: 13, writingDirection: 'auto' },
+  sosSuggestion: { backgroundColor: palette.dangerSoft, borderRadius: 10, padding: 10, gap: 6 },
   messageSender: { color: '#536B75', fontSize: 13, fontWeight: '700', writingDirection: 'auto' },
   messageText: { color: '#18343D', fontSize: 18, lineHeight: 27, writingDirection: 'auto' },
   messageMeta: { color: '#536B75', fontSize: 12, writingDirection: 'auto' },

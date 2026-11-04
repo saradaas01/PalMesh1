@@ -67,12 +67,16 @@ function handshakeBytes(peerId: PeerId, nonce: string, echo: string | undefined)
 }
 
 /** Explicit field order avoids depending on native object property order. TTL
- * and hopProof are excluded; the signed hash commitment constrains both. */
+ * and hopProof are excluded; the signed hash commitment constrains both. Chat
+ * priority is appended only when present, so a relay cannot add, strip or raise
+ * it, and packets without one keep their original signed encoding. */
 function signedBytes(message: MeshMessage, security: MessageSecurity): Uint8Array {
-  return utf8Encode(JSON.stringify(['PalMesh packet v1', message.version, message.id, message.source,
+  const fields: unknown[] = ['PalMesh packet v1', message.version, message.id, message.source,
     message.destination, message.createdAt, message.kind, message.payload, security.version,
     security.signingKey, security.encryptionKey, security.initialTtl, security.hopCommitment,
-    security.encryption ? [security.encryption.recipientKey, security.encryption.nonce] : null]));
+    security.encryption ? [security.encryption.recipientKey, security.encryption.nonce] : null];
+  if (message.kind === 'chat' && message.priority !== undefined) fields.push(['priority', message.priority]);
+  return utf8Encode(JSON.stringify(fields));
 }
 
 function additionalData(message: MeshMessage): Uint8Array {

@@ -7,6 +7,7 @@ import type {
 } from '../domain/types';
 
 export interface DtnConfig extends StorageLimits {
+  readonly maxElevatedPerSource: number;
   readonly messageRetentionMs: number;
   readonly dedupRetentionMs: number;
   readonly maxPacketBytes: number;
@@ -24,6 +25,7 @@ export const DEFAULT_DTN_CONFIG: Readonly<DtnConfig> = Object.freeze({
   maxSeenIds: 10_000,
   reservedEmergencySeenIds: 1_000,
   maxPeersPerMessage: 256,
+  maxElevatedPerSource: 20,
   messageRetentionMs: 24 * 60 * 60 * 1_000,
   dedupRetentionMs: 7 * 24 * 60 * 60 * 1_000,
   maxPacketBytes: 16 * 1_024,

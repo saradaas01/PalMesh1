@@ -95,12 +95,14 @@ describe('offline English and Arabic language selection', () => {
     const snapshot: ChatSnapshot = {
       status: 'ready', conversations: [], messages: [], selectedConversationId: null, connectedPeers: [],
       draft: '', pendingSend: false, pendingSos: false, hasOlderMessages: false, issue: null, notice: null, now: 1_800_000_000_000,
+      draftAssessment: null, priorityOverride: null,
     };
     const sendSos = jest.fn<ChatUiService['sendSos']>().mockResolvedValue({ status: 'queued', messageId: 'sos' });
     const service: ChatUiService = {
       deviceId: 'device-local', getSnapshot: () => snapshot, subscribe: () => () => {}, start: async () => {}, stop: async () => {},
-      setVisible: () => {}, openConversation: async () => {}, closeConversation: () => {}, setDraft: () => {},
-      send: async () => ({ status: 'rejected', reason: 'empty' }), sendSos, loadOlder: async () => {}, refresh: async () => {},
+      setVisible: () => {}, openConversation: async () => {}, closeConversation: () => {}, setDraft: () => {}, setPriorityOverride: () => {},
+      send: async () => ({ status: 'rejected', reason: 'empty' }), sendSos, sendDraftAsSos: async () => ({ status: 'rejected', reason: 'empty' }),
+      loadOlder: async () => {}, refresh: async () => {},
       dismissIssue: () => {}, dismissNotice: () => {},
     };
     await render(<I18nProvider initialLanguage="ar"><PalMeshChatApp service={service} /></I18nProvider>);

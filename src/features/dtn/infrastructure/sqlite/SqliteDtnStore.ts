@@ -1,4 +1,5 @@
 import type { DtnStore } from '../../domain/ports';
+import { EMERGENCY_RANK, NORMAL_RANK, priorityRank } from '../../domain/routing';
 import type {
   AcceptResult, DeliveryCandidate, DeliveryFailure, MessageId, MeshMessage,
   PeerId, RoutingHistoryEntry, StorageLimits, StoredMessage,
@@ -18,8 +19,9 @@ export interface SynchronousSqliteDatabase {
   };
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MAX_TRACKED_PEERS = 4096;
+const DEFAULT_MAX_ELEVATED_PER_SOURCE = 20;
 const MAX_CONNECTED_PEERS = 64;
 
 /** Durable, bounded store-and-forward storage. No React Native or Node imports:
@@ -40,7 +42,7 @@ export class SqliteDtnStore implements DtnStore {
       const version = this.database.execute(
         'SELECT version FROM palmesh_dtn_schema WHERE singleton = 1',
       ).rows[0]?.version;
-      if (version !== undefined && version !== 1 && version !== SCHEMA_VERSION) {
+      if (version !== undefined && version !== 1 && version !== 2 && version !== SCHEMA_VERSION) {
         throw new Error(`Unsupported PalMesh DTN schema version: ${String(version)}`);
       }
       if (version === undefined) {
@@ -55,7 +57,8 @@ export class SqliteDtnStore implements DtnStore {
           expires_at INTEGER NOT NULL,
           dedup_expires_at INTEGER NOT NULL,
           forwardable INTEGER NOT NULL CHECK (forwardable IN (0, 1)),
-          peer_limit INTEGER NOT NULL CHECK (peer_limit BETWEEN 1 AND 4096)
+          peer_limit INTEGER NOT NULL CHECK (peer_limit BETWEEN 1 AND 4096),
+          priority_rank INTEGER NOT NULL DEFAULT 3 CHECK (priority_rank BETWEEN 0 AND 4)
         )`);
         this.database.execute(`CREATE TABLE palmesh_dtn_seen (
           message_id TEXT PRIMARY KEY NOT NULL,
@@ -73,7 +76,7 @@ export class SqliteDtnStore implements DtnStore {
         )`);
         this.database.execute('CREATE INDEX palmesh_dtn_messages_expiry ON palmesh_dtn_messages (expires_at)');
         this.database.execute(`CREATE INDEX palmesh_dtn_messages_priority ON palmesh_dtn_messages
-          ((CASE WHEN kind IN ('sos', 'sos-response') THEN 0 ELSE 1 END), received_at, sequence)`);
+          (priority_rank, received_at, sequence)`);
         this.database.execute('CREATE INDEX palmesh_dtn_messages_fifo ON palmesh_dtn_messages (received_at, sequence)');
         this.database.execute('CREATE INDEX palmesh_dtn_seen_expiry ON palmesh_dtn_seen (expires_at)');
         this.database.execute('CREATE INDEX palmesh_dtn_deliveries_retry ON palmesh_dtn_deliveries (peer_id, acknowledged, next_attempt_at)');
@@ -97,6 +100,17 @@ export class SqliteDtnStore implements DtnStore {
         this.database.execute(`CREATE INDEX palmesh_dtn_messages_priority ON palmesh_dtn_messages
           ((CASE WHEN kind IN ('sos', 'sos-response') THEN 0 ELSE 1 END), received_at, sequence)`);
         this.database.execute('CREATE INDEX palmesh_dtn_messages_fifo ON palmesh_dtn_messages (received_at, sequence)');
+      }
+      if (version === 1 || version === 2) {
+        // Version three ranks chat priority below SOS. Earlier packets carried
+        // no chat priority, so only their emergency tier needs backfilling.
+        this.database.execute(`ALTER TABLE palmesh_dtn_messages ADD COLUMN
+          priority_rank INTEGER NOT NULL DEFAULT 3 CHECK (priority_rank BETWEEN 0 AND 4)`);
+        this.database.execute(`UPDATE palmesh_dtn_messages SET priority_rank = 0
+          WHERE kind IN ('sos', 'sos-response')`);
+        this.database.execute('DROP INDEX palmesh_dtn_messages_priority');
+        this.database.execute(`CREATE INDEX palmesh_dtn_messages_priority ON palmesh_dtn_messages
+          (priority_rank, received_at, sequence)`);
         this.database.execute('UPDATE palmesh_dtn_schema SET version = ? WHERE singleton = 1', [SCHEMA_VERSION]);
       }
     });
@@ -127,7 +141,14 @@ export class SqliteDtnStore implements DtnStore {
         return { status: 'duplicate' };
       }
 
-      const emergency = snapshot.kind === 'sos' || snapshot.kind === 'sos-response';
+      let rank = priorityRank(snapshot);
+      const emergency = rank === EMERGENCY_RANK;
+      // The signed packet keeps the sender's priority for later hops. Locally, a
+      // source that already queued its budget of elevated chats is ranked normal.
+      if (rank > EMERGENCY_RANK && rank < NORMAL_RANK && this.count(
+        `SELECT COUNT(*) AS count FROM palmesh_dtn_messages
+         WHERE source = ? AND priority_rank > 0 AND priority_rank < 3`, [snapshot.source],
+      ) >= (limits.maxElevatedPerSource ?? DEFAULT_MAX_ELEVATED_PER_SOURCE)) rank = NORMAL_RANK;
       const seenCount = this.count('SELECT COUNT(*) AS count FROM palmesh_dtn_seen');
       const seenCeiling = emergency ? limits.maxSeenIds : limits.maxSeenIds - limits.reservedEmergencySeenIds;
       // Live seen IDs are never evicted, even to make room for SOS traffic.
@@ -136,11 +157,12 @@ export class SqliteDtnStore implements DtnStore {
       const messageCount = this.count('SELECT COUNT(*) AS count FROM palmesh_dtn_messages');
       const messageCeiling = emergency ? limits.maxMessages : limits.maxMessages - limits.reservedEmergencyMessages;
       if (messageCount >= messageCeiling) {
-        if (!emergency) return { status: 'full', resource: 'messages' };
-        const needed = messageCount - limits.maxMessages + 1;
+        // Evict the lowest-priority ordinary packets first, oldest within a tier.
+        // SOS may displace any chat; chat displaces only strictly lower priority.
+        const needed = messageCount - messageCeiling + 1;
         const evictions = this.database.execute(
-          `SELECT id FROM palmesh_dtn_messages WHERE kind NOT IN ('sos', 'sos-response')
-           ORDER BY received_at, sequence LIMIT ?`, [needed],
+          `SELECT id FROM palmesh_dtn_messages WHERE priority_rank > ?
+           ORDER BY priority_rank DESC, received_at, sequence LIMIT ?`, [rank, needed],
         ).rows;
         if (evictions.length < needed) return { status: 'full', resource: 'messages' };
         for (const row of evictions) this.deleteMessage(stringField(row, 'id'));
@@ -148,10 +170,10 @@ export class SqliteDtnStore implements DtnStore {
 
       this.database.execute(
         `INSERT INTO palmesh_dtn_messages
-         (id, source, kind, ttl, packet, received_at, expires_at, dedup_expires_at, forwardable, peer_limit)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, source, kind, ttl, packet, received_at, expires_at, dedup_expires_at, forwardable, peer_limit, priority_rank)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [snapshot.id, snapshot.source, snapshot.kind, snapshot.ttl, packet, record.receivedAt,
-          record.expiresAt, record.dedupExpiresAt, record.forwardable ? 1 : 0, limits.maxPeersPerMessage],
+          record.expiresAt, record.dedupExpiresAt, record.forwardable ? 1 : 0, limits.maxPeersPerMessage, rank],
       );
       this.database.execute(
         'INSERT INTO palmesh_dtn_seen (message_id, expires_at, emergency) VALUES (?, ?, ?)',
@@ -205,7 +227,7 @@ export class SqliteDtnStore implements DtnStore {
     // Split due work from future retries. Combining both in one CASE-sorted
     // query materializes every message × peer pair before LIMIT, blocking the
     // native JS thread at high density. This index scan stops at the first
-    // deliverable message in SOS/FIFO order instead.
+    // deliverable message in priority-rank/FIFO order instead.
     let row = this.database.execute(
       `WITH connected(peer_id, peer_order) AS (VALUES ${placeholders})
        SELECT m.*, p.peer_id AS delivery_peer, COALESCE(d.attempts, 0) AS delivery_attempts,
@@ -223,8 +245,7 @@ export class SqliteDtnStore implements DtnStore {
          AND COALESCE(d.next_attempt_at, 0) <= ?
          AND (d.peer_id IS NOT NULL OR
            (SELECT COUNT(*) FROM palmesh_dtn_deliveries ledger WHERE ledger.message_id = m.id) < MIN(m.peer_limit, ?))
-       ORDER BY (CASE WHEN m.kind IN ('sos', 'sos-response') THEN 0 ELSE 1 END),
-         m.received_at, m.sequence, p.peer_order LIMIT 1`,
+       ORDER BY m.priority_rank, m.received_at, m.sequence, p.peer_order LIMIT 1`,
       [...peerParameters, now, emergencyOnly ? 1 : 0, maxPeersPerMessage, now, now, maxPeersPerMessage],
     ).rows[0];
     if (!row) {
@@ -338,8 +359,8 @@ export class SqliteDtnStore implements DtnStore {
     this.database.execute('DELETE FROM palmesh_dtn_messages WHERE id = ?', [id]);
   }
 
-  private count(sql: string): number {
-    const row = this.database.execute(sql).rows[0];
+  private count(sql: string, parameters: readonly SqliteValue[] = []): number {
+    const row = this.database.execute(sql, parameters).rows[0];
     if (!row) throw new Error('SQLite did not return a count');
     return numberField(row, 'count');
   }
@@ -397,4 +418,7 @@ function validateLimits(limits: StorageLimits): void {
   integerInRange(limits.reservedEmergencyMessages, 0, limits.maxMessages, 'reservedEmergencyMessages');
   integerInRange(limits.reservedEmergencySeenIds, 0, limits.maxSeenIds, 'reservedEmergencySeenIds');
   integerInRange(limits.maxPeersPerMessage, 1, MAX_TRACKED_PEERS, 'maxPeersPerMessage');
+  if (limits.maxElevatedPerSource !== undefined) {
+    integerInRange(limits.maxElevatedPerSource, 0, Number.MAX_SAFE_INTEGER, 'maxElevatedPerSource');
+  }
 }

@@ -8,5 +8,5 @@ export type { ProjectedChatMessage } from './domain/messages';
 export type { ChatEngine, ChatMesh, ChatRepository } from './domain/ports';
 export type {
   ChatActionResult, ChatDeliveryState, ChatIssue, ChatMessage, ChatSnapshot,
-  Conversation, ConversationId, RoutingChatEntry,
+  Conversation, ConversationId, RoutingChatEntry, UnreadUrgency,
 } from './domain/types';

@@ -150,13 +150,14 @@ test('DTN schema migration preserves version-one queue and receipts, then schedu
   database.execute(`CREATE TABLE palmesh_dtn_messages (sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
     source TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('chat','sos','location')), ttl INTEGER NOT NULL, packet TEXT NOT NULL,
     received_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, dedup_expires_at INTEGER NOT NULL, forwardable INTEGER NOT NULL, peer_limit INTEGER NOT NULL)`);
-  database.execute('INSERT INTO palmesh_dtn_messages SELECT * FROM v2_messages'); database.execute('DROP TABLE v2_messages');
+  database.execute(`INSERT INTO palmesh_dtn_messages SELECT sequence, id, source, kind, ttl, packet, received_at, expires_at,
+    dedup_expires_at, forwardable, peer_limit FROM v2_messages`); database.execute('DROP TABLE v2_messages');
   database.execute('UPDATE palmesh_dtn_schema SET version = 1');
   const migrated = new SqliteDtnStore(database); await migrated.initialize();
   assert.equal((await migrated.getMessage(old.message.id))?.message.payload && (await migrated.listHistoryWithCustody(10))[0]?.peerStored, true);
   const control = response(sos('bob').message.id, 'alice', 'bob'); await migrated.accept(control, null, limits, NOW);
   assert.equal((await migrated.getNextDelivery(['bob'], NOW, true, 4))?.record.message.kind, 'sos-response');
-  assert.equal(database.execute('SELECT version FROM palmesh_dtn_schema').rows[0]?.version, 2);
+  assert.equal(database.execute('SELECT version FROM palmesh_dtn_schema').rows[0]?.version, 3);
 });
 
 test('SOS arriving while initial history is loading is retained and presented after recovery', async t => {

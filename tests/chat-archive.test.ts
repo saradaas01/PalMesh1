@@ -117,7 +117,7 @@ test('chat archive rejects newer schema and validates query bounds without chang
   t.after(() => db.close());
   db.execute('PRAGMA user_version = 42');
   db.execute('CREATE TABLE palmesh_chat_schema (singleton INTEGER PRIMARY KEY, version INTEGER, local_device_id TEXT)');
-  db.execute('INSERT INTO palmesh_chat_schema VALUES (1, 2, NULL)');
+  db.execute('INSERT INTO palmesh_chat_schema VALUES (1, 3, NULL)');
   await assert.rejects(new SqliteChatRepository(db).initialize(), /Unsupported/);
   assert.equal(db.execute('PRAGMA user_version').rows[0]?.user_version, 42);
   const { repo } = await fixture(t);

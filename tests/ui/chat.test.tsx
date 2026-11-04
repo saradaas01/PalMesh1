@@ -4,6 +4,7 @@ import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import { AppState, BackHandler } from 'react-native';
 import type { ChatActionResult, ChatMessage, ChatSnapshot, Conversation } from '../../src/features/chat/domain/types';
+import type { MessagePriority } from '../../src/features/dtn/domain/types';
 import { PalMeshChatApp } from '../../src/features/chat/ui/PalMeshChatApp';
 import type { ChatUiService } from '../../src/features/chat/ui/ChatProvider';
 
@@ -33,6 +34,7 @@ class ReactiveChatService implements ChatUiService {
     status: 'idle', conversations: [conversation(this.archive[0]!)], messages: [],
     selectedConversationId: null, connectedPeers: [], draft: '', pendingSend: false,
     pendingSos: false, hasOlderMessages: false, issue: null, notice: null, now: NOW,
+    draftAssessment: null, priorityOverride: null,
   };
   rejectSend = false;
   sosGate: Promise<void> | null = null;
@@ -74,6 +76,11 @@ class ReactiveChatService implements ChatUiService {
     this.patch({ pendingSos: false, notice: { kind: 'sos-queued', messageId: 'sos-message' } });
     return { status: 'queued', messageId: 'sos-message' };
   });
+  sendDraftAsSos = jest.fn(async (): Promise<ChatActionResult> => {
+    this.patch({ draft: '', draftAssessment: null, notice: { kind: 'sos-queued', messageId: 'draft-sos' } });
+    return { status: 'queued', messageId: 'draft-sos' };
+  });
+  setPriorityOverride = jest.fn((priorityOverride: MessagePriority | null): void => { this.patch({ priorityOverride }); });
   loadOlder = jest.fn(async (): Promise<void> => { this.patch({ hasOlderMessages: false }); });
   refresh = jest.fn(async (): Promise<void> => { this.patch({ status: 'ready', issue: null }); });
   dismissIssue = jest.fn((): void => { this.patch({ issue: null }); });
@@ -327,3 +334,51 @@ describe('PalMesh chat UI', () => {
 });
 
 test('typed drafts and incoming messages stay readable on their rendered surfaces',async()=>{const service=new ReactiveChatService();await render(<PalMeshChatApp service={service}/>);await openAlice();await fireEvent.changeText(screen.getByLabelText('Message'),'Readable offline draft');expect(renderedContrast(screen.getByLabelText('Message'))).toBeGreaterThanOrEqual(4.5);expect(renderedContrast(screen.getByText('Can you hear me?'))).toBeGreaterThanOrEqual(4.5);});
+
+describe('on-device message priority UI', () => {
+  const critical = {
+    priority: 'critical' as const, confidence: 0.97, suggestSos: true, signals: ['not breathing'],
+    scores: { critical: 0.97, high: 0.02, normal: 0.01, low: 0 },
+  };
+
+  test('shows the AI estimate, cycles a manual override, and escalates a critical draft to SOS', async () => {
+    const service = new ReactiveChatService();
+    await render(<PalMeshChatApp service={service} />);
+    await openAlice();
+    await act(async () => { service.patch({ draft: 'He is not breathing', draftAssessment: critical }); });
+    expect(screen.getByText('AI priority: Critical · 97%')).toBeOnTheScreen();
+    expect(screen.getByText('Detected: not breathing')).toBeOnTheScreen();
+    expect(screen.getByText(/This sounds life-threatening/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Change message priority: AI priority: Critical · 97%' }));
+    expect(service.setPriorityOverride).toHaveBeenLastCalledWith('critical');
+    expect(screen.getByText('Priority: Critical (chosen by you)')).toBeOnTheScreen();
+    expect(screen.queryByText(/This sounds life-threatening/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Change message priority: Priority: Critical (chosen by you)' }));
+    expect(service.setPriorityOverride).toHaveBeenLastCalledWith('high');
+    await act(async () => { service.patch({ priorityOverride: null }); });
+    await fireEvent.press(screen.getByRole('button', { name: 'Send as SOS' }));
+    expect(service.sendDraftAsSos).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/SOS queued on this device/)).toBeOnTheScreen();
+  });
+
+  test('a dismissed SOS suggestion stays hidden for that draft', async () => {
+    const service = new ReactiveChatService();
+    await render(<PalMeshChatApp service={service} />);
+    await openAlice();
+    await act(async () => { service.patch({ draft: 'Trapped under rubble', draftAssessment: critical }); });
+    await fireEvent.press(screen.getByRole('button', { name: 'Keep as message' }));
+    expect(screen.queryByText(/This sounds life-threatening/)).toBeNull();
+    expect(service.sendDraftAsSos).not.toHaveBeenCalled();
+  });
+
+  test('labels urgent unread conversations and elevated messages', async () => {
+    const service = new ReactiveChatService();
+    const urgent = message({ priority: 'critical', text: 'Bleeding badly' });
+    service.archive = [urgent];
+    service.snapshot = { ...service.snapshot, conversations: [{ ...conversation(urgent), unreadUrgency: 'critical' }] };
+    await render(<PalMeshChatApp service={service} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Open conversation with peer-alice, 1 unread, Unread critical message' }));
+    expect(screen.getByText('Bleeding badly')).toBeOnTheScreen();
+    expect(screen.getByText('Critical')).toBeOnTheScreen();
+  });
+});

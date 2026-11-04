@@ -418,3 +418,21 @@ test('saved contact choices expose only immutable imported addresses and survive
   await alice.security.importPeer(carol.security.publicIdentity);
   assert.deepEqual(alice.security.savedPeerIds(), [bob.security.deviceId, carol.security.deviceId].sort());
 });
+
+test('signed chat priority cannot be added, stripped or raised by a relay, and decrypts with its packet', async () => {
+  const alice = await identity(); const bob = await identity();
+  await alice.security.importPeer(bob.security.publicIdentity);
+  await bob.security.importPeer(alice.security.publicIdentity);
+  const urgent = await alice.security.seal(createMessage({ kind: 'chat', destination: bob.security.deviceId,
+    payload: { text: 'محتاجين دوا ضروري' }, priority: 'high' }, randomUUID(), alice.security.deviceId, now));
+  assert.equal(urgent.kind === 'chat' && urgent.priority, 'high');
+  await bob.security.verify(urgent);
+  const projected = await bob.security.project(urgent);
+  assert.equal(projected?.kind === 'chat' && projected.priority, 'high');
+  const { priority: _priority, ...stripped } = urgent as MeshMessage & { priority?: string };
+  await assert.rejects(bob.security.verify(mutate(stripped as MeshMessage, {})), /signature/);
+  await assert.rejects(bob.security.verify(mutate(urgent, { priority: 'critical' })), /signature/);
+  const routine = await alice.security.seal(chat(alice.security.deviceId, bob.security.deviceId, 'see you tomorrow'));
+  await bob.security.verify(routine);
+  await assert.rejects(bob.security.verify(mutate(routine, { priority: 'critical' })), /signature/);
+});

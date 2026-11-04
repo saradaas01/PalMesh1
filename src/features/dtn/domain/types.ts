@@ -5,6 +5,12 @@ export const BROADCAST = '*' as const;
 export const NORMAL_TTL = 10;
 export const SOS_TTL = 15;
 
+/** Sender-assigned urgency of ordinary chat. SOS traffic always outranks every
+ * chat priority. `normal` is never serialized, keeping existing packets valid. */
+export type MessagePriority = 'critical' | 'high' | 'normal' | 'low';
+export type WirePriority = Exclude<MessagePriority, 'normal'>;
+export const MESSAGE_PRIORITIES: readonly MessagePriority[] = Object.freeze(['critical', 'high', 'normal', 'low']);
+
 export interface LocationFix {
   readonly latitude: number;
   readonly longitude: number;
@@ -55,14 +61,14 @@ interface Envelope {
 }
 
 export type MeshMessage = Envelope & (
-  | { readonly kind: 'chat'; readonly payload: ChatPayload }
+  | { readonly kind: 'chat'; readonly payload: ChatPayload; readonly priority?: WirePriority }
   | { readonly kind: 'sos'; readonly payload: SosPayload }
   | { readonly kind: 'sos-response'; readonly payload: SosResponsePayload }
   | { readonly kind: 'location'; readonly payload: LocationPayload }
 );
 
 export type OutgoingMessage =
-  | { readonly kind: 'chat'; readonly destination: PeerId; readonly payload: ChatPayload }
+  | { readonly kind: 'chat'; readonly destination: PeerId; readonly payload: ChatPayload; readonly priority?: MessagePriority }
   | { readonly kind: 'sos'; readonly payload: SosPayload }
   | { readonly kind: 'sos-response'; readonly destination: PeerId; readonly payload: SosResponsePayload }
   | { readonly kind: 'location'; readonly payload: LocationPayload };
@@ -90,6 +96,9 @@ export interface StorageLimits {
   readonly maxSeenIds: number;
   readonly reservedEmergencySeenIds: number;
   readonly maxPeersPerMessage: number;
+  /** Retained critical/high chats queued per source before relays treat more
+   * of that source's elevated packets as normal. Bounds priority inflation. */
+  readonly maxElevatedPerSource?: number;
 }
 
 export type AcceptResult =

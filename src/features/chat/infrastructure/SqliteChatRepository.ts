@@ -3,7 +3,14 @@ import type { PeerId } from '../../dtn/domain/types';
 import type { SqliteRow, SynchronousSqliteDatabase } from '../../dtn/infrastructure/sqlite/SqliteDtnStore';
 import type { ChatRepository } from '../domain/ports';
 import { projectEntry } from '../domain/messages';
-import type { ChatMessage, Conversation, ConversationId, RoutingChatEntry } from '../domain/types';
+import type { ChatMessage, Conversation, ConversationId, RoutingChatEntry, UnreadUrgency } from '../domain/types';
+
+const SCHEMA_VERSION = 2;
+const PRIORITY_COLUMN = `priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('critical', 'high', 'normal', 'low'))`;
+// Unread SOS first, then critical and high chat. Read or routine messages tie.
+const UNREAD_RANK = `CASE WHEN outgoing = 1 OR is_read = 1 THEN 3 WHEN kind = 'sos' THEN 0
+  WHEN priority = 'critical' THEN 1 WHEN priority = 'high' THEN 2 ELSE 3 END`;
+const URGENCY: readonly (UnreadUrgency | undefined)[] = ['sos', 'critical', 'high', undefined];
 
 /** A separate bounded archive, not the router's expiring queue. Dedicate this
  * synchronous SQLite handle to the archive; the mobile host owns its close(). */
@@ -24,7 +31,7 @@ export class SqliteChatRepository implements ChatRepository {
         singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL, local_device_id TEXT
       )`);
       const version = this.database.execute('SELECT version FROM palmesh_chat_schema WHERE singleton = 1').rows[0]?.version;
-      if (version !== undefined && version !== 1) throw new Error('Unsupported chat archive schema version');
+      if (version !== undefined && version !== 1 && version !== SCHEMA_VERSION) throw new Error('Unsupported chat archive schema version');
       if (version === undefined) {
         this.database.execute(`CREATE TABLE palmesh_chat_messages (
           sequence INTEGER PRIMARY KEY AUTOINCREMENT, message_id TEXT NOT NULL UNIQUE,
@@ -33,7 +40,7 @@ export class SqliteChatRepository implements ChatRepository {
           created_at INTEGER NOT NULL, received_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
           outgoing INTEGER NOT NULL CHECK (outgoing IN (0, 1)),
           peer_stored INTEGER NOT NULL CHECK (peer_stored IN (0, 1)),
-          is_read INTEGER NOT NULL CHECK (is_read IN (0, 1)), location TEXT
+          is_read INTEGER NOT NULL CHECK (is_read IN (0, 1)), location TEXT, ${PRIORITY_COLUMN}
         )`);
         this.database.execute('CREATE INDEX palmesh_chat_conversation ON palmesh_chat_messages (conversation_id, sequence)');
         // Tombstones preserve UUID idempotence when a bounded archive evicts a
@@ -42,7 +49,11 @@ export class SqliteChatRepository implements ChatRepository {
         this.database.execute(`CREATE TABLE palmesh_chat_seen (
           sequence INTEGER PRIMARY KEY AUTOINCREMENT, message_id TEXT NOT NULL UNIQUE
         )`);
-        this.database.execute('INSERT INTO palmesh_chat_schema (singleton, version, local_device_id) VALUES (1, 1, NULL)');
+        this.database.execute('INSERT INTO palmesh_chat_schema (singleton, version, local_device_id) VALUES (1, ?, NULL)', [SCHEMA_VERSION]);
+      } else if (version === 1) {
+        // Messages archived before chat priority existed were all sent as normal.
+        this.database.execute(`ALTER TABLE palmesh_chat_messages ADD COLUMN ${PRIORITY_COLUMN}`);
+        this.database.execute('UPDATE palmesh_chat_schema SET version = ? WHERE singleton = 1', [SCHEMA_VERSION]);
       }
     });
     this.initialized = true;
@@ -71,11 +82,12 @@ export class SqliteChatRepository implements ChatRepository {
         this.database.execute('INSERT INTO palmesh_chat_seen (message_id) VALUES (?)', [entry.id]);
         this.database.execute(`INSERT INTO palmesh_chat_messages
           (message_id, conversation_id, source, destination, kind, text, created_at, received_at,
-            expires_at, outgoing, peer_stored, is_read, location)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            expires_at, outgoing, peer_stored, is_read, location, priority)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [entry.id, entry.conversationId, entry.source, entry.destination, entry.kind, entry.text,
           entry.createdAt, entry.receivedAt, entry.expiresAt, entry.outgoing ? 1 : 0,
-          entry.peerStored ? 1 : 0, entry.outgoing ? 1 : 0, entry.location ? JSON.stringify(entry.location) : null]);
+          entry.peerStored ? 1 : 0, entry.outgoing ? 1 : 0, entry.location ? JSON.stringify(entry.location) : null,
+          entry.priority]);
       }
       this.database.execute(`DELETE FROM palmesh_chat_messages WHERE sequence IN (
         SELECT sequence FROM palmesh_chat_messages ORDER BY sequence DESC LIMIT -1 OFFSET ?
@@ -105,13 +117,18 @@ export class SqliteChatRepository implements ChatRepository {
 
   async listConversations(): Promise<readonly Conversation[]> {
     this.requireBound();
-    return this.database.execute(`SELECT m.*, c.unread_count FROM palmesh_chat_messages m JOIN (
+    return this.database.execute(`SELECT m.*, c.unread_count, c.unread_rank FROM palmesh_chat_messages m JOIN (
       SELECT conversation_id, MAX(sequence) AS latest,
-        SUM(CASE WHEN outgoing = 0 AND is_read = 0 THEN 1 ELSE 0 END) AS unread_count
+        SUM(CASE WHEN outgoing = 0 AND is_read = 0 THEN 1 ELSE 0 END) AS unread_count,
+        MIN(${UNREAD_RANK}) AS unread_rank
       FROM palmesh_chat_messages GROUP BY conversation_id
-    ) c ON c.latest = m.sequence ORDER BY m.sequence DESC`).rows.map(row => Object.freeze({
-      id: string(row, 'conversation_id'), lastMessage: decode(row), unreadCount: number(row, 'unread_count'),
-    }));
+    ) c ON c.latest = m.sequence ORDER BY c.unread_rank, m.sequence DESC`).rows.map(row => {
+      const urgency = URGENCY[number(row, 'unread_rank')];
+      return Object.freeze({
+        id: string(row, 'conversation_id'), lastMessage: decode(row), unreadCount: number(row, 'unread_count'),
+        ...(urgency ? { unreadUrgency: urgency } : {}),
+      });
+    });
   }
 
   async listMessages(conversationId: ConversationId, limit: number): Promise<readonly ChatMessage[]> {
@@ -148,13 +165,17 @@ export class SqliteChatRepository implements ChatRepository {
 function decode(row: SqliteRow): ChatMessage {
   const kind = string(row, 'kind');
   if (kind !== 'chat' && kind !== 'sos') throw new Error('Invalid chat message kind');
+  const priority = string(row, 'priority');
+  if (priority !== 'critical' && priority !== 'high' && priority !== 'normal' && priority !== 'low') {
+    throw new Error('Invalid chat message priority');
+  }
   const location = row.location === null ? undefined : Object.freeze(JSON.parse(string(row, 'location')) as NonNullable<ChatMessage['location']>);
   return Object.freeze({
     id: string(row, 'message_id'), sequence: number(row, 'sequence'), conversationId: string(row, 'conversation_id'),
     source: string(row, 'source'), destination: string(row, 'destination'), kind, text: string(row, 'text'),
     createdAt: number(row, 'created_at'), receivedAt: number(row, 'received_at'), expiresAt: number(row, 'expires_at'),
     outgoing: number(row, 'outgoing') === 1, peerStored: number(row, 'peer_stored') === 1, read: number(row, 'is_read') === 1,
-    ...(location ? { location } : {}),
+    priority, ...(location ? { location } : {}),
   });
 }
 

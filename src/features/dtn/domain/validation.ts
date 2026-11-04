@@ -1,6 +1,7 @@
 import {
   BROADCAST, NORMAL_TTL, SOS_TTL,
   type LocationFix, type MeshMessage, type MessageId, type MessageSecurity, type OutgoingMessage, type PeerId,
+  type WirePriority,
 } from './types';
 
 export const DEFAULT_MAX_PACKET_BYTES = 16 * 1024;
@@ -14,6 +15,8 @@ export type ParseMessageResult =
 const PEER_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$(?![\s\S])/;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$(?![\s\S])/i;
 const ENVELOPE_KEYS = ['version', 'id', 'source', 'destination', 'createdAt', 'ttl', 'kind', 'payload'] as const;
+
+const WIRE_PRIORITIES: readonly unknown[] = ['critical', 'high', 'low'];
 
 class ValidationError extends Error {}
 
@@ -161,7 +164,7 @@ function validatePacket(input: unknown, maxPacketBytes: number): MeshMessage {
   if (!Number.isSafeInteger(maxPacketBytes) || maxPacketBytes <= 0) {
     throw new ValidationError('Maximum packet size must be a positive safe integer.');
   }
-  const fields = objectFields(input, ENVELOPE_KEYS, ['security']);
+  const fields = objectFields(input, ENVELOPE_KEYS, ['security', 'priority']);
   if (fields.version !== 1) throw new ValidationError('Unsupported message version.');
   if (typeof fields.id !== 'string' || !UUID_V4.test(fields.id)) {
     throw new ValidationError('Message id must be a UUID v4.');
@@ -175,6 +178,14 @@ function validatePacket(input: unknown, maxPacketBytes: number): MeshMessage {
   const parsedContent = content(fields.kind, fields.payload, Boolean(security?.encryption));
   if (parsedContent.kind === 'sos-response' && fields.destination === BROADCAST) {
     throw new ValidationError('SOS responses require a direct destination.');
+  }
+  let priority: WirePriority | undefined;
+  if (Object.hasOwn(fields, 'priority')) {
+    // `normal` is the omitted default, so each priority has one signed encoding.
+    if (parsedContent.kind !== 'chat' || !WIRE_PRIORITIES.includes(fields.priority)) {
+      throw new ValidationError('Message priority must be critical, high or low and is only supported for chat.');
+    }
+    priority = fields.priority as WirePriority;
   }
   const maximumTtl = parsedContent.kind === 'sos' || parsedContent.kind === 'sos-response' ? SOS_TTL : NORMAL_TTL;
   if (typeof fields.ttl !== 'number' || !Number.isInteger(fields.ttl) || fields.ttl < 0 || fields.ttl > maximumTtl) {
@@ -190,8 +201,9 @@ function validatePacket(input: unknown, maxPacketBytes: number): MeshMessage {
     createdAt: timestamp(fields.createdAt, 'Message createdAt'),
     ttl: fields.ttl,
     ...parsedContent,
+    ...(priority ? { priority } : {}),
     ...(security ? { security } : {}),
-  });
+  }) as MeshMessage;
   if (utf8Length(JSON.stringify(message)) > maxPacketBytes) {
     throw new ValidationError('Message exceeds the maximum serialized packet size.');
   }
@@ -215,11 +227,15 @@ export function createMessage(
 ): MeshMessage {
   // Outgoing messages are runtime inputs too. A spread here could otherwise
   // let untyped callers override engine-owned TTL, UUID, source, or version.
-  const base = objectFields(input, ['kind', 'payload'], ['destination'], 'Outgoing message');
+  const base = objectFields(input, ['kind', 'payload'], ['destination', 'priority'], 'Outgoing message');
   const direct = base.kind === 'chat' || base.kind === 'sos-response';
   const fields = direct
-    ? objectFields(input, ['kind', 'payload', 'destination'], [], 'Outgoing message')
+    ? objectFields(input, ['kind', 'payload', 'destination'], base.kind === 'chat' ? ['priority'] : [], 'Outgoing message')
     : objectFields(input, ['kind', 'payload'], [], 'Outgoing message');
+  const priority = fields.priority;
+  if (priority !== undefined && priority !== 'normal' && !WIRE_PRIORITIES.includes(priority)) {
+    throw new ValidationError('Outgoing priority must be critical, high, normal or low.');
+  }
   return validatePacket({
     version: 1,
     id,
@@ -229,5 +245,6 @@ export function createMessage(
     ttl: fields.kind === 'sos' || fields.kind === 'sos-response' ? SOS_TTL : NORMAL_TTL,
     kind: fields.kind,
     payload: fields.payload,
+    ...(priority !== undefined && priority !== 'normal' ? { priority } : {}),
   }, maxPacketBytes);
 }

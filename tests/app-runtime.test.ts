@@ -37,7 +37,7 @@ function controlledResources() {
   const chatSnapshot: ChatSnapshot = {
     status: 'ready', conversations: [], messages: [], selectedConversationId: null,
     connectedPeers: [], draft: '', pendingSend: false, pendingSos: false,
-    hasOlderMessages: false, issue: null, notice: null, now: 100_000,
+    hasOlderMessages: false, issue: null, notice: null, now: 100_000, draftAssessment: null, priorityOverride: null,
   };
   const mapsSnapshot: MapsSnapshot = {
     status: 'ready', mapStatus: 'unavailable', map: null, localLocation: null, peers: [],
@@ -66,9 +66,10 @@ function controlledResources() {
       deviceId: 'alice', getSnapshot: () => chatSnapshot, subscribe: () => () => {},
       start: () => run('chat.start'), stop: () => run('chat.stop'), refresh: () => run('chat.refresh'),
       setVisible(visible) { state.chatVisible = visible; log.push(`chat.visible:${visible}`); },
-      async openConversation() {}, closeConversation() {}, setDraft() {}, async loadOlder() {},
+      async openConversation() {}, closeConversation() {}, setDraft() {}, setPriorityOverride() {}, async loadOlder() {},
       async send() { return { status: 'rejected', reason: 'empty' }; },
       async sendSos() { state.chatSosCalls += 1; return { status: 'queued', messageId: randomUUID() }; },
+      async sendDraftAsSos() { return { status: 'rejected', reason: 'empty' }; },
       dismissIssue() {}, dismissNotice() {},
     },
     locations: {

@@ -60,6 +60,7 @@ accessibility. Record results against the exact commit and APK certificate.
 - [DTN routing contract](docs/dtn.md): hop limits, durable deduplication, emergency priority and bounded retries.
 - [Mesh transport](docs/mesh.md) and [native stream contract](docs/mesh-native-contract.md): discovery, handshakes, fragmentation and fallback.
 - [Chat](docs/chat.md): offline queues, durable history and peer-custody labels.
+- [On-device message priority](docs/ai-priority.md): offline Arabic/English urgency model, signed chat priority, queue order and SOS suggestions.
 - [Emergency inbox](src/features/emergency/README.md): urgent alerts and responder statements; a response never guarantees assistance.
 - [Maps and location](docs/maps.md): local vector tiles, bundled glyphs, timestamped GPS and opt-in sharing.
 - [Security](docs/security.md): signed identities/packets, encrypted direct chat, device key storage, SQLCipher and trust limits.

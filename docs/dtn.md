@@ -19,7 +19,9 @@ and encrypted direct chat.
   Duplicate UUIDs keep the first packet and TTL; they cannot upgrade priority,
   payload, retention or hop allowance. A duplicate's previous hop is also recorded
   as already carrying that packet.
-- Ready SOS packets precede ordinary traffic. Within a priority, packets are FIFO.
+- Ready SOS packets precede chat, which is ordered critical, high, normal, low
+  by its signed [on-device priority](ai-priority.md); location reports rank as
+  normal. Within a rank, packets are FIFO.
   An in-flight packet finishes or times out; the next selection checks priority
   again. Backed-off peers do not block other ready deliveries.
 - Hop ACKs and failed attempts persist per peer. Acknowledged peers are not sent
@@ -45,15 +47,17 @@ Override defaults through the constructor's `config`:
 | Dedup slots reserved for SOS | 1,000 |
 | Message / dedup retention | 24 hours / 7 days |
 | Tracked peers per message, over its lifetime | 256 |
+| Critical/high chats ranked above normal, per source | 20 |
 | Simultaneous connected peers | 64 |
 | Serialized packet / text bound | 16 KiB / 4,096 UTF-16 code units |
 | Hop ACK timeout | 10 seconds |
 | Retry delay | 1–60 seconds, including capped jitter |
 | Transmissions per event-loop turn | 32 |
 
-Ordinary traffic may fill only `capacity - reserved` total slots. SOS may use
-the full capacity and evict the oldest ordinary message if the message table is
-full. Eviction removes queue/history and receipts but retains the dedup ID.
+Ordinary traffic may fill only `capacity - reserved` total slots. At that limit
+a chat may evict only strictly lower-priority chat, lowest priority and then
+oldest first; otherwise it is rejected. SOS may use the full capacity and evict
+the lowest-priority, oldest ordinary message if the message table is full. Eviction removes queue/history and receipts but retains the dedup ID.
 Live dedup IDs and existing SOS packets are never evicted. A full SOS/dedup
 budget can still reject an SOS; callers must handle that result. At the peer
 tracking limit, existing retries continue but no new peers are scheduled.

@@ -11,7 +11,7 @@ import type { ChatUiService } from '../../src/features/chat/ui';
 import type { ChatActionResult, ChatMessage, ChatSnapshot } from '../../src/features/chat/domain/types';
 import type { MapsUiService } from '../../src/features/maps/ui';
 import type { LocationActionResult, MapsSnapshot } from '../../src/features/maps/domain/types';
-import type { LocationFix, OutgoingMessage, PowerMode } from '../../src/features/dtn/domain/types';
+import type { LocationFix, MessagePriority, OutgoingMessage, PowerMode } from '../../src/features/dtn/domain/types';
 import { createMessage } from '../../src/features/dtn/domain/validation';
 import { EmergencyService, type EmergencyEntry } from '../../src/features/emergency';
 import { SecurityService } from '../../src/features/security';
@@ -32,7 +32,7 @@ class ChatDouble implements ChatUiService {
     createdAt: NOW, receivedAt: NOW, expiresAt: NOW + 60_000, outgoing: false, peerStored: false, read: false };
   snapshot: ChatSnapshot = { status: 'idle', conversations: [{ id: 'peer-alice', lastMessage: this.received, unreadCount: 1 }],
     messages: [], selectedConversationId: null, connectedPeers: [], draft: '', pendingSend: false, pendingSos: false,
-    hasOlderMessages: false, issue: null, notice: null, now: NOW };
+    hasOlderMessages: false, issue: null, notice: null, now: NOW, draftAssessment: null, priorityOverride: null };
   patch(change: Partial<ChatSnapshot>): void { this.snapshot = Object.freeze({ ...this.snapshot, ...change }); for (const listener of this.listeners) listener(); }
   getSnapshot = (): ChatSnapshot => this.snapshot;
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -44,6 +44,8 @@ class ChatDouble implements ChatUiService {
   setDraft = jest.fn((draft: string): void => { this.patch({ draft }); });
   send = jest.fn(async (): Promise<ChatActionResult> => { this.patch({ draft: '' }); return { status: 'queued', messageId: 'chat' }; });
   sendSos = jest.fn(async (): Promise<ChatActionResult> => ({ status: 'queued', messageId: 'chat-sos' }));
+  sendDraftAsSos = jest.fn(async (): Promise<ChatActionResult> => ({ status: 'queued', messageId: 'draft-sos' }));
+  setPriorityOverride = jest.fn((priorityOverride: MessagePriority | null): void => { this.patch({ priorityOverride }); });
   loadOlder = jest.fn(async (): Promise<void> => {});
   refresh = jest.fn(async (): Promise<void> => {});
   dismissIssue = jest.fn((): void => { this.patch({ issue: null }); });

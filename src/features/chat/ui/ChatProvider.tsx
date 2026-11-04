@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import type { ChatService } from '../application/ChatService';
+import type { MessagePriority } from '../../dtn/domain/types';
 
 /** The UI depends only on the application's public contract, never a radio or database. */
 export type ChatUiService = Pick<ChatService,
   'deviceId' | 'start' | 'stop' | 'setVisible' | 'subscribe' | 'getSnapshot' | 'openConversation' |
-  'closeConversation' | 'setDraft' | 'send' | 'sendSos' | 'loadOlder' | 'refresh' |
+  'closeConversation' | 'setDraft' | 'setPriorityOverride' | 'send' | 'sendSos' | 'sendDraftAsSos' | 'loadOlder' | 'refresh' |
   'dismissIssue' | 'dismissNotice'>;
 
 const ChatContext = createContext<ChatUiService | null>(null);
@@ -57,8 +58,10 @@ export function useChat() {
     openConversation: (id: string) => service.openConversation(id),
     closeConversation: () => service.closeConversation(),
     setDraft: (text: string) => service.setDraft(text),
+    setPriorityOverride: (priority: MessagePriority | null) => service.setPriorityOverride(priority),
     send: () => service.send(),
     sendSos: () => service.sendSos(),
+    sendDraftAsSos: () => service.sendDraftAsSos(),
     loadOlder: () => service.loadOlder(),
     refresh: () => service.refresh(),
     dismissIssue: () => service.dismissIssue(),

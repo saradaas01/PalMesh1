@@ -12,7 +12,8 @@
     "test": "npm run test:core && npm run test:ui",
     "test:core": "tsx --test tests/*.test.ts",
     "test:ui": "jest --runInBand",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "ai:train": "tsx scripts/ai/train-priority-model.ts"
   },
   "engines": {
     "node": ">=24.0.0"

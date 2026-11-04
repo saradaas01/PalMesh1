@@ -1,8 +1,8 @@
-import type { MeshMessage, PeerId } from '../../dtn/domain/types';
+import type { MeshMessage, MessagePriority, PeerId } from '../../dtn/domain/types';
 import { isPeerId, parseMessage } from '../../dtn/domain/validation';
 import type { ChatDeliveryState, ChatMessage, ConversationId, RoutingChatEntry } from './types';
 
-export type ProjectedChatMessage = Omit<ChatMessage, 'sequence' | 'read'>;
+export type ProjectedChatMessage = Omit<ChatMessage, 'sequence' | 'read' | 'priority'> & { readonly priority: MessagePriority };
 
 function visibleConversation(message: MeshMessage, localDeviceId: PeerId): ConversationId | null {
   if (message.kind !== 'chat' && message.kind !== 'sos') return null;
@@ -45,6 +45,7 @@ export function projectEntry(entry: RoutingChatEntry, localDeviceId: PeerId): Pr
       id: message.id, conversationId, source: message.source, destination: message.destination,
       kind: message.kind, text: message.payload.text, createdAt: message.createdAt,
       receivedAt, expiresAt, outgoing: message.source === localDeviceId, peerStored,
+      priority: message.kind === 'chat' ? message.priority ?? 'normal' : 'normal',
       ...(message.kind === 'sos' && message.payload.location !== undefined ? { location: message.payload.location } : {}),
     });
   } catch {

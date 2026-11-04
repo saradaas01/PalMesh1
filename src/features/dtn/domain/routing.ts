@@ -17,3 +17,19 @@ export function forNextHop(message: MeshMessage): MeshMessage | null {
 export function isForLocal(message: MeshMessage, localId: PeerId): boolean {
   return message.destination === BROADCAST || message.destination === localId || message.source === localId;
 }
+
+/** Queue rank, lowest first. SOS and SOS responses always precede chat, and
+ * chat priorities never borrow the SOS hop budget or reserved storage. */
+export const EMERGENCY_RANK = 0;
+export const NORMAL_RANK = 3;
+
+export function priorityRank(message: MeshMessage): number {
+  if (message.kind === 'sos' || message.kind === 'sos-response') return EMERGENCY_RANK;
+  if (message.kind !== 'chat') return NORMAL_RANK;
+  switch (message.priority) {
+    case 'critical': return 1;
+    case 'high': return 2;
+    case 'low': return 4;
+    default: return NORMAL_RANK;
+  }
+}

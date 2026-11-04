@@ -1,6 +1,8 @@
 import { RecipientKeyError } from '../../security/domain/errors';
 import type { Clock } from '../../dtn/domain/ports';
-import type { DtnEvent, PeerId } from '../../dtn/domain/types';
+import type { DtnEvent, MessagePriority, PeerId } from '../../dtn/domain/types';
+import { MESSAGE_PRIORITIES } from '../../dtn/domain/types';
+import type { MessageClassifier, PriorityAssessment } from '../../ai/domain/types';
 import { isPeerId } from '../../dtn/domain/validation';
 import type { ChatEngine, ChatMesh, ChatRepository } from '../domain/ports';
 import { conversationFor } from '../domain/messages';
@@ -16,6 +18,8 @@ export interface ChatServiceOptions {
   readonly pageSize?: number;
   readonly refreshIntervalMs?: number;
   readonly sosText?: string;
+  /** On-device urgency model. Without one, chats are sent at normal priority. */
+  readonly classifier?: MessageClassifier;
 }
 
 /** A React-independent external store. All archive writes are serialized, while
@@ -30,6 +34,7 @@ export class ChatService {
   private readonly pageSize: number;
   private readonly refreshIntervalMs: number;
   private readonly sosText: string;
+  private readonly classifier: MessageClassifier | undefined;
   private readonly listeners = new Set<() => void>();
   private readonly drafts = new Map<ConversationId, string>();
   private readonly pendingArchive = new Map<string, RoutingChatEntry>();
@@ -61,6 +66,7 @@ export class ChatService {
     this.visibleLimit = this.pageSize;
     this.refreshIntervalMs = options.refreshIntervalMs ?? 30_000;
     this.sosText = options.sosText ?? 'I need help';
+    this.classifier = options.classifier;
     if (!Number.isSafeInteger(this.pageSize) || this.pageSize < 1 || this.pageSize > 1_000
       || !Number.isSafeInteger(this.refreshIntervalMs) || this.refreshIntervalMs < 1 || this.refreshIntervalMs > 2_147_483_647
       || this.sosText.trim().length === 0 || this.sosText.length > 4_096) {
@@ -70,7 +76,7 @@ export class ChatService {
       status: 'idle', conversations: Object.freeze([]), messages: Object.freeze([]),
       selectedConversationId: null, connectedPeers: Object.freeze([]), draft: '',
       pendingSend: false, pendingSos: false, hasOlderMessages: false,
-      issue: null, notice: null, now: this.now(),
+      issue: null, notice: null, now: this.now(), draftAssessment: null, priorityOverride: null,
     });
   }
 
@@ -130,16 +136,20 @@ export class ChatService {
     }
     this.selectionRevision += 1;
     this.visibleLimit = this.pageSize;
+    const draft = this.drafts.get(id) ?? '';
     this.patch({
       selectedConversationId: id, messages: Object.freeze([]), hasOlderMessages: false,
-      draft: this.drafts.get(id) ?? '', notice: null,
+      draft, notice: null, draftAssessment: this.assess(draft), priorityOverride: null,
     });
     if (this.active) await this.enqueue(() => this.reload(true));
   };
 
   closeConversation = (): void => {
     this.selectionRevision += 1;
-    this.patch({ selectedConversationId: null, messages: Object.freeze([]), draft: '', hasOlderMessages: false });
+    this.patch({
+      selectedConversationId: null, messages: Object.freeze([]), draft: '', hasOlderMessages: false,
+      draftAssessment: null, priorityOverride: null,
+    });
     if (this.active) void this.enqueue(() => this.reload(false));
   };
 
@@ -157,7 +167,16 @@ export class ChatService {
     }
     if (text === '') this.drafts.delete(conversation);
     else this.drafts.set(conversation, text);
-    this.patch({ draft: text });
+    this.patch({ draft: text, draftAssessment: this.assess(text), ...(text === '' ? { priorityOverride: null } : {}) });
+  };
+
+  /** null returns control to the on-device estimate for this draft. */
+  setPriorityOverride = (priority: MessagePriority | null): void => {
+    if (priority !== null && !MESSAGE_PRIORITIES.includes(priority)) {
+      this.patch({ issue: 'invalid-input' });
+      return;
+    }
+    this.patch({ priorityOverride: priority });
   };
 
   send = async (): Promise<ChatActionResult> => {
@@ -168,20 +187,18 @@ export class ChatService {
     if (text.trim().length === 0) return { status: 'rejected', reason: 'empty' };
     if (text.length > 4_096) return { status: 'rejected', reason: 'too-long' };
     const generation = this.generation;
+    const priority = this.state.priorityOverride ?? this.assess(text)?.priority ?? 'normal';
     this.patch({ pendingSend: true, issue: null, notice: null });
     try {
-      const result = await this.engine.publish({ kind: 'chat', destination, payload: { text } });
+      const result = await this.engine.publish({
+        kind: 'chat', destination, payload: { text }, ...(priority !== 'normal' ? { priority } : {}),
+      });
       if (result.status === 'full') {
         if (this.live(generation)) this.patch({ issue: 'queue-full' });
         return { status: 'rejected', reason: 'capacity' };
       }
       if (this.live(generation)) {
-        // New typing or navigation while SQLite commits must not be erased by
-        // the completion of this older send.
-        if (this.drafts.get(destination) === text) {
-          this.drafts.delete(destination);
-          if (this.state.selectedConversationId === destination) this.patch({ draft: '' });
-        }
+        this.clearSentDraft(destination, text);
         this.patch({ notice: { kind: 'chat-queued', messageId: result.record.message.id } });
         this.archive(result.record, generation);
       }
@@ -196,7 +213,19 @@ export class ChatService {
     }
   };
 
-  sendSos = async (): Promise<ChatActionResult> => {
+  sendSos = (): Promise<ChatActionResult> => this.publishSos(this.sosText);
+
+  /** Escalates the current draft to a public SOS broadcast, typically after the
+   * on-device model flags it as life-threatening and the user confirms. */
+  sendDraftAsSos = async (): Promise<ChatActionResult> => {
+    const conversation = this.state.selectedConversationId;
+    const text = this.state.draft;
+    if (conversation === null || text.trim().length === 0) return { status: 'rejected', reason: 'empty' };
+    if (text.length > 4_096) return { status: 'rejected', reason: 'too-long' };
+    return this.publishSos(text, () => { this.clearSentDraft(conversation, text); });
+  };
+
+  private async publishSos(text: string, onQueued?: () => void): Promise<ChatActionResult> {
     if (!this.active) {
       this.patch({ issue: 'send-unavailable' });
       return { status: 'rejected', reason: 'unavailable' };
@@ -207,12 +236,13 @@ export class ChatService {
     try {
       // This deliberately does not await archive initialization or work: the
       // routing DB is the authority for whether the emergency was queued.
-      const result = await this.engine.publish({ kind: 'sos', payload: { text: this.sosText } });
+      const result = await this.engine.publish({ kind: 'sos', payload: { text } });
       if (result.status === 'full') {
         if (this.live(generation)) this.patch({ issue: 'queue-full' });
         return { status: 'rejected', reason: 'capacity' };
       }
       if (this.live(generation)) {
+        onQueued?.();
         this.patch({ notice: { kind: 'sos-queued', messageId: result.record.message.id } });
         this.archive(result.record, generation);
       }
@@ -223,7 +253,7 @@ export class ChatService {
     } finally {
       if (this.live(generation)) this.patch({ pendingSos: false });
     }
-  };
+  }
 
   loadOlder = async (): Promise<void> => {
     if (!this.active || !this.state.hasOlderMessages || this.visibleLimit >= 1_000) return;
@@ -252,6 +282,22 @@ export class ChatService {
     this.visible = visible;
     if (becameVisible && this.active) void this.enqueue(() => this.reload(true));
   };
+
+  /** New typing or navigation while SQLite commits must not be erased by the
+   * completion of an older send. */
+  private clearSentDraft(conversation: ConversationId, text: string): void {
+    if (this.drafts.get(conversation) !== text) return;
+    this.drafts.delete(conversation);
+    if (this.state.selectedConversationId === conversation) {
+      this.patch({ draft: '', draftAssessment: null, priorityOverride: null });
+    }
+  }
+
+  /** A faulty model must never block messaging; it only loses the estimate. */
+  private assess(text: string): PriorityAssessment | null {
+    if (!this.classifier || text.trim().length === 0) return null;
+    try { return this.classifier.classify(text); } catch { return null; }
+  }
 
   private async synchronize(generation: number): Promise<void> {
     await this.repository.initialize();

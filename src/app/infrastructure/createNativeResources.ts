@@ -5,6 +5,7 @@ import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { v4 as uuidV4 } from 'uuid';
 import { ChatService, SqliteChatRepository } from '../../features/chat';
+import { createPriorityClassifier } from '../../features/ai';
 import { OpSqliteDatabase, SqliteDtnStore, type IdGenerator } from '../../features/dtn';
 import { LocationService, SqliteLocationRepository, type NativeOfflineMapOptions } from '../../features/maps';
 import { EmergencyService, SqliteEmergencyRepository, type EmergencyAlerts } from '../../features/emergency';
@@ -122,7 +123,7 @@ export async function createNativeResources(options: CreateNativeResourcesOption
         }),
       ],
     });
-    const chat = new ChatService({ engine: node.engine, mesh: node.mesh, repository: chatRepository });
+    const chat = new ChatService({ engine: node.engine, mesh: node.mesh, repository: chatRepository, classifier: createPriorityClassifier() });
     const locations = new LocationService({
       engine: node.engine,
       repository: locationRepository,
