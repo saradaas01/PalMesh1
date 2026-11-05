@@ -9,7 +9,7 @@ manual SOS decisions, encryption and SOS/response abuse limits. No existing PR i
 merged. Separate commits cover sender timestamps, passive radio recovery,
 Aqaba map/detail validation, contextual AI and opt-in authenticated public names.
 
-Local TypeScript/module build, 472 core tests, 133 UI tests, 91 Android-tool tests
+Local TypeScript/module build, 472 core tests, 133 UI tests, 99 Android-tool tests
 and 61 map-tool tests pass. Five native Android GPS/QR JVM tests and ARM64
 compilation also pass; that local compile is not a bundled-map acceptance result. Model training and the frozen 64-case Arabic/English
 holdout reproduce exactly. Holdout critical TP/FP/FN are 16/6/0; precision 72.7%,
@@ -21,9 +21,24 @@ only the explicitly documented project baseline is integrated. See
 The isolated `org.palmesh.aqabademo` / **PalMesh Aqaba Demo** delivery workflow
 validates the exact genuine Jordan artifact and all 256 Arabic glyph pages,
 then builds an ARM64 human APK and two distinct emulator acceptance APKs.
-Hosted build, actual packaged-map coverage and emulator evidence are pending
-until their exact workflow completes; local tooling tests alone do not establish
-them. Download and physical acceptance instructions are in
+The ARM64 human build at `e16e3db` passed actual APK checks: application ID,
+signature, embedded JavaScript, 15 aligned native libraries, genuine 36,306,944-byte
+Jordan MBTiles and all 256 glyph pages. Map diagnostics are disabled and synthetic fixtures
+are absent. [Sealed packaging evidence](verification/aqaba-demo-android.json)
+records the exact APK/source/artifact and authentic per-tile coverage, including
+zero buildings in the eastern surroundings sample. The published artifact is
+[ARM64 Aqaba Demo](https://github.com/saradaas01/PalMesh1/actions/runs/42034372955/artifacts/13418507032).
+This is packaging success, not completed emulator or physical acceptance.
+
+Hosted emergency evidence reached genuine offline map pixels, exact SOS marker
+tap/focus and synthetic blue-marker acquisition before a newer run superseded it;
+the canceled run is not counted as passing acceptance. The ordinary map test
+stopped at an oversized PNG log preview; bounded JPEG previews now retain the
+original PNG/pixel assertions. A separate generic smoke harness also correctly
+refused an AOSP virtual Ethernet default network; both harnesses now share the
+stronger isolation with emulator-only guards. Its virtual-Ethernet and fail-closed
+regressions pass; actual full reruns remain tracked separately. Exact completed full emulator
+and iOS results are recorded in PR #13 after CI; do not infer those from packaging. Download and physical acceptance instructions are in
 [Aqaba demo build](milestones/aqaba-demo-build.md). Existing app storage and keys
 are untouched. Real GNSS, two-phone names/replay/delayed messaging and physical
 radio recovery still need device tests.

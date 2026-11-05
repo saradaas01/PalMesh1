@@ -17,6 +17,7 @@ import socket
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+from emulator_network import isolate_emulator_network
 
 PACKAGE = 'org.palmesh'
 SOS = 'I Need Help · SOS'
@@ -128,19 +129,7 @@ class Smoke:
         raise RuntimeError('The Android emulator did not complete boot within the test budget.')
 
     def isolate(self) -> None:
-        self.command('shell', 'cmd', 'connectivity', 'airplane-mode', 'enable')
-        for radio in ('wifi', 'data', 'bluetooth'):
-            self.command('shell', 'svc', radio, 'disable')
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            connectivity = self.command('shell', 'dumpsys', 'connectivity')
-            radios_off = all(self.command('shell', 'settings', 'get', 'global', name) == '0'
-                             for name in ('wifi_on', 'bluetooth_on'))
-            if radios_off and re.search(r'Active default network:\s*none\b', connectivity, re.IGNORECASE):
-                self.output.joinpath('offline-network.txt').write_text('Active default network: none\n')
-                return
-            time.sleep(2)
-        raise RuntimeError('The emulator still has a default network; refusing to queue a synthetic SOS.')
+        isolate_emulator_network(self)
 
     def dump(self, name: str = 'last-ui.xml') -> str:
         self.command('shell', 'uiautomator', 'dump', '/data/local/tmp/palmesh-smoke-ui.xml', timeout=30)
