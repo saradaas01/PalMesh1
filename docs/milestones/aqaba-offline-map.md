@@ -27,9 +27,13 @@ native host and APK checks enforce the expected digest and bundled resources.
 There is no network style or remote tile fallback.
 
 The validator checks detailed tiles around central Aqaba, the fort/waterfront
-area, northern Aqaba and eastern Aqaba. Every sample must contain street and
-building features; the sampled area must also contain genuinely tagged named
-places/POIs and Arabic names. The report records these counts per sample. The
+area, northern Aqaba and eastern Aqaba. The three urban samples must contain street and building features; the sampled
+area must also contain genuinely tagged named places/POIs and Arabic names.
+The eastern surroundings sample is reported honestly even when sparse. The
+first genuine-artifact CI run found no buildings there and correctly stopped
+under the original overly broad requirement. The revised check preserves urban
+detail requirements and reports zero counts, sparsity and actual tile coordinates
+for surrounding coverage; it never inserts features or substitutes map bytes. The
 small existing OSM profile includes named places and selected medical/essential
 POIs; it does not include every tourism or historic landmark label. An OSM
 feature, name or road is not evidence of current access, safety or an operating

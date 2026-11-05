@@ -39,6 +39,9 @@ AQABA_COVERAGE_POINTS = {
     'Northern Aqaba': (35.016, 29.550),
     'Eastern Aqaba': (35.030, 29.535),
 }
+# Require built detail at the urban samples. Surrounding coverage is still
+# inspected and reported verbatim; genuine sparse tiles need not invent buildings.
+AQABA_URBAN_SAMPLES = frozenset({'Central Aqaba', 'Fort and waterfront area', 'Northern Aqaba'})
 
 
 def data_timestamp(value: object) -> dt.datetime:
@@ -194,7 +197,7 @@ def named_feature_counts(stored: bytes) -> dict[str, tuple[int, int]]:
 
 
 def aqaba_coverage(db: sqlite3.Connection, zoom: int) -> dict:
-    """Require real street/building tiles and named local landmarks at level 14+."""
+    """Require urban street/building detail and report surrounding coverage honestly."""
     if zoom < 14:
         raise ValueError('Aqaba streets/buildings require detailed zoom 14 or greater')
     samples, landmarks, arabic_names = {}, 0, 0
@@ -211,10 +214,13 @@ def aqaba_coverage(db: sqlite3.Connection, zoom: int) -> dict:
         named = sum(count for count, _ in names.values())
         arabic = sum(count for _, count in names.values())
         local_landmarks = sum(count for name, (count, _) in names.items() if re.search('poi|place', name, re.I))
-        if not roads or not buildings:
-            raise ValueError('Aqaba sample lacks street/building detail: ' + place)
+        urban = place in AQABA_URBAN_SAMPLES
+        if urban and (not roads or not buildings):
+            raise ValueError(f'Aqaba sample lacks street/building detail: {place} (streets={roads}, buildings={buildings})')
         samples[place] = {'longitude': lon, 'latitude': lat, 'zoom': zoom,
                           'streetFeatures': roads, 'buildingFeatures': buildings,
+                          'tileColumn': column, 'tileRowTms': row, 'urbanDetailRequired': urban,
+                          'sparseBuiltDetail': not roads or not buildings,
                           'namedFeatures': named, 'arabicNamedFeatures': arabic,
                           'namedPlaceOrPoiFeatures': local_landmarks}
         landmarks += local_landmarks

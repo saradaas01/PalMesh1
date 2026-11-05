@@ -56,6 +56,16 @@ class AqabaCoverageTest(unittest.TestCase):
             self.assertEqual(sample['namedPlaceOrPoiFeatures'], 1)
             self.assertEqual(sample['arabicNamedFeatures'], 2)
 
+    def test_sparse_surrounding_tile_is_reported_without_inventing_buildings(self):
+        x, y = xyz_tile(*AQABA_COVERAGE_POINTS['Eastern Aqaba'], 14)
+        self.db.execute('UPDATE tiles SET tile_data=? WHERE tile_column=? AND tile_row=?', (tile(buildings=False), x, y))
+        report = aqaba_coverage(self.db, 14)
+        self.assertEqual(report['Eastern Aqaba']['buildingFeatures'], 0)
+        self.assertTrue(report['Eastern Aqaba']['sparseBuiltDetail'])
+        self.assertFalse(report['Eastern Aqaba']['urbanDetailRequired'])
+        self.assertTrue(report['Central Aqaba']['urbanDetailRequired'])
+        self.assertFalse(report['Central Aqaba']['sparseBuiltDetail'])
+
     def test_empty_named_key_declarations_do_not_pass_as_landmarks(self):
         self.db.execute('UPDATE tiles SET tile_data=?', (tile(named=False),))
         with self.assertRaisesRegex(ValueError, 'named places/POIs'):

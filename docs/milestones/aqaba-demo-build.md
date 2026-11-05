@@ -81,6 +81,7 @@ Before the demonstration, follow the physical checklist in
 [Aqaba offline map demonstration](aqaba-offline-map.md): offline Aqaba rendering,
 pan/zoom/restart, real outdoor location acquisition, SOS while GPS is pending,
 exact red markers and missing-location behavior on the receiving phone.
-Also check delayed sender timestamps, Arabic/English priority context, radio
-recovery, and voluntarily shared display names on two phones. Keep automated
+Also follow [the two-phone acceptance plan](aqaba-two-phone-acceptance.md) for
+delayed sender timestamps, Arabic/English priority context, radio recovery,
+and voluntarily shared display names. Keep automated
 results and physical observations separately identified.
