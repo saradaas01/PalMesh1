@@ -1,6 +1,7 @@
 import React from 'react';
 import type { TextProps } from 'react-native';
 import { LocalizedText, useI18n } from '../../../shared/i18n';
+import { useDeviceHourCycle } from '../../../shared/time/useDeviceHourCycle';
 import { formatMessageTimestamps } from '../../../shared/time/messageTimestamps';
 
 export interface MessageTimestampProps {
@@ -15,7 +16,8 @@ export interface MessageTimestampProps {
  * the independently stored receipt time without confusing the two. */
 export function MessageTimestamp({ createdAt, receivedAt, style, testID }: MessageTimestampProps): React.JSX.Element {
   const { t } = useI18n();
-  const formatted = formatMessageTimestamps({ createdAt, receivedAt });
+  const hour12 = useDeviceHourCycle();
+  const formatted = formatMessageTimestamps({ createdAt, receivedAt }, typeof hour12 === 'boolean' ? {hour12} : {});
   const sender = formatted.sent === null ? t('chat.timestamp.unavailable')
     : t('chat.timestamp.sender', { time: formatted.sent });
   const warning = formatted.sent !== null && formatted.clockIssue !== null

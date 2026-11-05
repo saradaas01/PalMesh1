@@ -8,6 +8,8 @@ export interface MessageTimestampInput {
 export interface MessageTimestampFormatOptions {
   /** Omit in the app to follow the device's locale and default 12/24-hour cycle. */
   readonly locale?: string;
+  /** Explicit OS clock setting, when available; otherwise Intl chooses. */
+  readonly hour12?: boolean;
   /** Omit in the app to use the device's local timezone. Useful in tests. */
   readonly timeZone?: string;
 }
@@ -44,6 +46,7 @@ export function formatMessageTimestamps(
     const formatter = new Intl.DateTimeFormat(options.locale, {
       year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       ...(options.timeZone ? { timeZone: options.timeZone } : {}),
+      ...(typeof options.hour12 === 'boolean' ? { hour12: options.hour12 } : {}),
     });
     return Object.freeze({
       sent: sentAt === null ? null : formatter.format(sentAt),

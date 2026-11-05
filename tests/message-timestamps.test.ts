@@ -74,3 +74,11 @@ test('unsupported timezone formatting fails safely without inventing a fallback 
   assert.deepEqual(formatMessageTimestamps({ createdAt: sent, receivedAt: received }, { timeZone: 'Not/A_Zone' }),
     { sent: null, received: null, clockIssue: null });
 });
+
+
+test('explicit OS clock preference overrides the locale default without changing timezone or original instant', () => {
+  assert.equal(formatMessageTimestamps({createdAt: sent}, {locale: 'en-US', timeZone:'Asia/Amman', hour12:false}).sent,
+    'Nov 5, 2026, 13:00');
+  assert.equal(formatMessageTimestamps({createdAt: sent}, {locale: 'en-GB', timeZone:'Asia/Amman', hour12:true}).sent,
+    '5 Nov 2026, 1:00 pm');
+});

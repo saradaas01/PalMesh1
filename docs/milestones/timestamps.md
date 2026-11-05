@@ -12,9 +12,11 @@ stored by another phone at 10:25 continues to show its original 10:00 time.
 The receiving phone's first storage time remains separate metadata and is
 described separately in the timestamp's accessibility label.
 
-Formatting uses the device's local timezone and locale through `Intl`, including
-the locale's default 12/24-hour cycle. The app does not force Jordan time, UTC,
-English date formatting, or a particular hour cycle. A timezone or locale change
+Formatting uses the device's local timezone and locale through `Intl`. An
+optional native display-preference read applies Android's explicit 12/24-hour
+setting (and the corresponding iOS locale preference), refreshed on foreground
+return. Native absence/failure falls back to Intl's locale default. The app does
+not force Jordan time, UTC, English date formatting, or a particular hour cycle. A timezone or locale change
 can change the displayed representation; it never changes the stored instant.
 The visible date includes its year so old history cannot look like today's
 messages merely because the hour is the same.
@@ -57,7 +59,7 @@ Focused core tests exercise the 10:00/10:25 projection; actual three-node DTN
 offline queueing, failed-send retry, delayed relay, and duplicate receipt; incoming
 message reordering; future-clock conversation sorting; unread watermarks; and a
 real SQLite close/reopen. Formatter tests cover New York and Amman, English
-12/24-hour locale defaults, Arabic, the device default, clock advisories, malformed
+12/24-hour locale defaults and explicit OS overrides, Arabic, the device default, clock advisories, malformed
 dates, and history restoration. Component tests check original sender time,
 separate receipt descriptions, Arabic clock guidance, and unavailable times.
 

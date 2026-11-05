@@ -9,8 +9,9 @@ manual SOS decisions, encryption and SOS/response abuse limits. No existing PR i
 merged. Separate commits cover sender timestamps, passive radio recovery,
 Aqaba map/detail validation, contextual AI and opt-in authenticated public names.
 
-Local TypeScript/module build, 471 core tests, 125 UI tests, 91 Android-tool tests
-and 60 map-tool tests pass. Model training and the frozen 64-case Arabic/English
+Local TypeScript/module build, 472 core tests, 133 UI tests, 91 Android-tool tests
+and 61 map-tool tests pass. Five native Android GPS/QR JVM tests and ARM64
+compilation also pass; that local compile is not a bundled-map acceptance result. Model training and the frozen 64-case Arabic/English
 holdout reproduce exactly. Holdout critical TP/FP/FN are 16/6/0; precision 72.7%,
 recall 100%, F1 84.2%. These are synthetic engineering cases, not clinical or
 physical-field validation. The requested user lexicon JSON was not attached;

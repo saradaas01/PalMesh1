@@ -81,6 +81,11 @@ public final class PalMeshRuntimeModule extends ReactContextBaseJavaModule {
 
     @ReactMethod public void getBatteryState(Promise promise) { promise.resolve(batteryState()); }
 
+    /** Display preference only; no location, message or identity access. */
+    @ReactMethod public void getClockFormat(Promise promise) {
+        promise.resolve(!android.text.format.DateFormat.is24HourFormat(getReactApplicationContext()));
+    }
+
     @ReactMethod public void startMeshService(Promise promise) {
         main.post(() -> {
             if (invalidated) { promise.reject("RUNTIME_CLOSED", "Runtime is closed"); return; }
