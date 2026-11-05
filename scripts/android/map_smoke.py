@@ -14,6 +14,16 @@ import time
 import smoke
 
 
+def map_thumbnail(image, limit: int = 350000) -> str:
+    """Bound only the log preview; retain and assess the original PNG pixels."""
+    for size in ((1024, 768), (800, 600), (640, 480), (480, 360), (320, 240)):
+        thumb = image.copy().convert('RGB'); thumb.thumbnail(size)
+        stream = io.BytesIO(); thumb.save(stream, format='JPEG', quality=80, optimize=True)
+        encoded = base64.b64encode(stream.getvalue()).decode('ascii')
+        if len(encoded) <= limit: return encoded
+    raise RuntimeError('Map evidence thumbnail exceeds bound')
+
+
 def interface_names(output: str) -> list[str]:
     names = re.findall(r'^\d+: ([A-Za-z0-9_.-]+)(?:@[^:]+)?:', output, re.MULTILINE)
     if 'lo' not in names: raise RuntimeError('Cannot identify emulator loopback interface')
@@ -140,10 +150,7 @@ class MapSmoke(smoke.Smoke):
             if name.startswith('first-'):
                 # A bounded map-only thumbnail in logs permits independent review
                 # without exposing app identity text or relying on artifact APIs.
-                thumb = image.crop(area).convert('RGB'); thumb.thumbnail((1024, 768))
-                stream = io.BytesIO(); thumb.save(stream, format='PNG')
-                encoded = base64.b64encode(stream.getvalue()).decode('ascii')
-                if len(encoded) > 350000: raise RuntimeError('Map evidence thumbnail exceeds bound')
+                encoded = map_thumbnail(image.crop(area))
                 for index in range(0, len(encoded), 4000):
                     print('MAP_IMAGE_CHUNK ' + name + ' ' + encoded[index:index+4000], flush=True)
             return summary

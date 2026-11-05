@@ -7,6 +7,26 @@ import map_smoke
 
 
 class MapSmokeTests(unittest.TestCase):
+    def test_dense_map_preview_is_bounded_without_modifying_original_pixels(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest('Pillow is installed in the hosted map acceptance lane')
+        import base64, io
+        source = Image.effect_noise((1080, 1600), 128).convert('RGB')
+        original = source.tobytes()
+        old = io.BytesIO(); source.save(old, format='PNG')
+        self.assertGreater(len(base64.b64encode(old.getvalue())), 350000)
+        encoded = map_smoke.map_thumbnail(source)
+        self.assertLessEqual(len(encoded), 350000)
+        with Image.open(io.BytesIO(base64.b64decode(encoded))) as preview:
+            self.assertEqual(preview.format, 'JPEG')
+            self.assertLessEqual(preview.width, 1024)
+            self.assertLessEqual(preview.height, 768)
+        self.assertEqual(source.tobytes(), original)
+        with self.assertRaisesRegex(RuntimeError, 'thumbnail exceeds bound'):
+            map_smoke.map_thumbnail(source, limit=1)
+
     def test_early_empty_frame_cannot_be_called_a_blocked_baseline_after_rendering(self):
         empty = dict(androidInternetConnected=False, loopbackOnly=True, sdkConnected=False, geometry=0, tileHits=0, glyphHits=0)
         rendered = self.good(); rendered['sdkConnected'] = False
