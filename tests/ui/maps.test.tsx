@@ -75,7 +75,7 @@ describe('PalMesh offline maps UI', () => {
     const service = new ReactiveMapsService();
     await render(<PalMeshMapsApp service={service} />);
     await fireEvent.press(screen.getByRole('button',{name:'Location & sharing'}));
-    expect(screen.getByRole('alert')).toHaveTextContent(/bundled Palestine MBTiles asset is missing or could not be opened/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/bundled Jordan map is missing or could not be opened/);
     expect(screen.getByText('No GPS fix stored. Tap My location to try.')).toBeOnTheScreen();
     expect(screen.getByRole('switch', { name: 'Share location periodically' })).not.toBeChecked();
     expect(service.refreshLocal).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 # Android releases and reproducible checks
 
-Production releases require a real, reviewed Palestine map pack, an operator-owned
+Production releases require a real, reviewed Jordan map pack, an operator-owned
 signing identity and completed device acceptance. The automation never creates a
 production identity, uses a debug key for releases or publishes an application
 store/GitHub Release entry.
@@ -81,7 +81,7 @@ nondebuggable manifest, ZIP integrity and 16 KiB ZIP page alignment. It rejects
 APK signing material, including damaged signing blocks, rather than mistaking
 a signature verification failure for an unsigned file. The JSON report records
 `signatureVerified: false`, `installable: false`, `releaseEligible: false` and
-whether Palestine tiles are present. Missing tiles are permitted only for this
+whether Jordan map tiles are present. Missing tiles are permitted only for this
 explicit compilation inspection; it is not a map-complete release check.
 `--unsigned-preview` cannot be combined with `--release`, and `release.py` never
 uses it. Do not install or distribute the unsigned inspection artifact.
@@ -119,11 +119,11 @@ through your normal repository process before dispatch; do not force-push,
 rewrite `main` or change the default branch merely to expose a workflow.
 
 Provision the reviewed map as the **same repository's** immutable Actions
-artifact named `palmesh-reviewed-palestine-map`; see the
+artifact named `palmesh-reviewed-jordan-map`; see the
 [artifact preparation procedure](../mapdata/README.md#reviewed-actions-artifact).
 Dispatch requires its producing run ID, plus the independently reviewed
-lowercase SHA-256 values of **both** `palestine.mbtiles` and
-`palestine.manifest.json`. Record those values through your review process
+lowercase SHA-256 values of **both** `jordan.mbtiles` and
+`jordan.manifest.json`. Record those values through your review process
 before upload; neither the download nor a hash file inside the artifact is a
 trusted source for the pins. Do not use the Actions archive digest in place of
 either individual file digest.

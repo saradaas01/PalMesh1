@@ -109,7 +109,7 @@ export function useI18n(): I18nValue { return useContext(I18nContext); }
  * device identifiers left-to-right; translated body text follows the language. */
 export function LocalizedText({ style, ...props }: TextProps): React.JSX.Element {
   const { textStyle, language } = useI18n();
-  return <Text {...props} accessibilityLanguage={language === 'ar' ? 'ar-PS' : 'en'} style={[textStyle, style]} />;
+  return <Text {...props} accessibilityLanguage={language === 'ar' ? 'ar-JO' : 'en'} style={[textStyle, style]} />;
 }
 
 /** Describe report age without treating it as connection or delivery evidence. */

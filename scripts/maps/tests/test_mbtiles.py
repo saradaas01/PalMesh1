@@ -44,7 +44,7 @@ class ValidationTest(unittest.TestCase):
         self.directory.cleanup()
 
     def inspect(self):
-        return validate(self.path, sha256(self.path), require_palestine=False)
+        return validate(self.path, sha256(self.path), require_region=False)
 
     def test_valid_compressed_and_uncompressed_mvt(self):
         report = self.inspect()
@@ -54,7 +54,7 @@ class ValidationTest(unittest.TestCase):
 
     def test_trusted_digest_mismatch(self):
         with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
-            validate(self.path, '0' * 64, require_palestine=False)
+            validate(self.path, '0' * 64, require_region=False)
 
     def test_open_wal_is_not_packaged(self):
         Path(str(self.path) + '-wal').touch()
@@ -114,7 +114,7 @@ class ValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'lacks an index'):
             self.inspect()
 
-    def test_fixture_cannot_be_misrepresented_as_palestine_map(self):
+    def test_fixture_cannot_be_misrepresented_as_a_real_map(self):
         with self.assertRaisesRegex(ValueError, 'maximum zoom'):
             validate(self.path, sha256(self.path))
 
@@ -143,10 +143,10 @@ class ProvenanceTest(unittest.TestCase):
 
     def test_manifest_cannot_relabel_an_older_database_with_a_new_date(self):
         # The artifact validator is isolated here: no synthetic fixture is
-        # ever offered to the production packager as Palestine street data.
+        # ever offered to the production packager as real street data.
         report = {'bytes': 1234, 'bounds': [34.15, 31.15, 35.65, 32.65], 'minZoom': 6, 'maxZoom': 14,
                   'sourceLayers': ['fixture'], 'attribution': 'Validation fixture', 'dataTimestamp': '2026-01-01T00:00:00Z'}
-        manifest = {'schemaVersion': 1, 'file': 'palestine.mbtiles', 'license': 'ODbL-1.0',
+        manifest = {'schemaVersion': 1, 'file': 'jordan.mbtiles', 'license': 'ODbL-1.0',
                     'licenseUrl': 'https://opendatacommons.org/licenses/odbl/1-0/', 'sourceUrl': 'https://download.geofabrik.de/asia/extract.osm.pbf',
                     **report, 'sha256': '1' * 64, 'sourceSha256': '2' * 64, 'generatorSha256': '3' * 64,
                     'configurationSha256': '4' * 64, 'profileSha256': '5' * 64}

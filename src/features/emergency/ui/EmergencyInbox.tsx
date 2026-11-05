@@ -58,7 +58,7 @@ function EmergencyCard({ entry, now, pending, service,onViewMap }: {
     <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: names.label(entry.source) })}</LocalizedText>
     <LocalizedText style={styles.dim}>{t('emergency.age', { age: reportAge(entry.receivedAt, now, t) })}</LocalizedText>
     <LocalizedText selectable style={styles.body}>{entry.text}</LocalizedText>
-    <LocalizedText style={styles.dim}>{t('emMap.reported',{time:new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-PS':'en-GB',{timeZone:'Asia/Hebron',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})})}</LocalizedText>
+    <LocalizedText style={styles.dim}>{t('emMap.reported',{time:new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-JO':'en-GB',{timeZone:'Asia/Amman',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})})}</LocalizedText>
     {sosLocation(entry,now)?<><LocationDetails location={sosLocation(entry,now)!} now={now}/>{onViewMap&&<Action label={t('emMap.view')} onPress={()=>onViewMap(entry.id)}/>}</>:<LocalizedText style={styles.dim}>{t('emMap.unavailable')}</LocalizedText>}
     {entry.responses.map(response => <LocalizedText key={response.id} style={styles.response}>
       {t('emergency.responding', { responder: names.label(response.responder) })}

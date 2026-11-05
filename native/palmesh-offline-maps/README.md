@@ -20,10 +20,10 @@ add `new com.palmesh.offlinemaps.PalMeshOfflineMapsPackage()` to the host packag
 The library uses legacy-module interoperability on the New Architecture. The
 host supplies Android Gradle tooling and React Native dependencies.
 
-Place a legally distributable, independently verified Palestine vector dataset at:
+Place a legally distributable, independently verified Jordan vector dataset at:
 
 ```text
-android/app/src/main/assets/palmesh/palestine.mbtiles
+android/app/src/main/assets/palmesh/jordan.mbtiles
 ```
 
 **No map dataset is included in this repository.** Missing assets fail cleanly;
@@ -46,7 +46,7 @@ import { NativeModules } from 'react-native';
 import { NativeOfflineMapSource } from './src/features/maps/infrastructure/NativeOfflineMapSource';
 
 const maps = new NativeOfflineMapSource(NativeModules.PalMeshOfflineMaps, {
-  assetName: 'palmesh/palestine.mbtiles',
+  assetName: 'palmesh/jordan.mbtiles',
   // Set this to the trusted SHA-256 of the exact bundled file (64 hex digits).
   // expectedSha256: '...actual independently verified digest...',
 });

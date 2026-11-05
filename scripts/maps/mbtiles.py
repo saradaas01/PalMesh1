@@ -18,14 +18,18 @@ import urllib.parse
 
 MAX_TILE_BYTES = 1024 * 1024
 MAX_DECODED_BYTES = 4 * MAX_TILE_BYTES
-# Deliberately broad rectangular extent covering Gaza and the West Bank.
-PALESTINE_BOUNDS = (34.15, 31.15, 35.65, 32.65)
+# The bundled offline region: a rectangle covering all of Jordan, from the
+# Gulf of Aqaba to the Syrian border and from the Jordan Valley to Iraq.
+MAP_FILE = 'jordan.mbtiles'
+MAP_MANIFEST = 'jordan.manifest.json'
+MAP_BOUNDS = (34.85, 29.10, 39.35, 33.45)
+# A generated pack must have street-level detail at each of these cities.
 COVERAGE_POINTS = {
-    "Gaza City": (34.46, 31.50), "Rafah": (34.25, 31.29),
-    "Khan Younis": (34.30, 31.35), "Ramallah": (35.20, 31.90),
-    "Nablus": (35.26, 32.22), "Hebron": (35.10, 31.53),
-    "Jenin": (35.30, 32.46), "Jericho": (35.44, 31.86),
-    "Tulkarm": (35.03, 32.31),
+    "Amman": (35.93, 31.95), "Zarqa": (36.09, 32.07),
+    "Irbid": (35.85, 32.55), "Aqaba": (35.01, 29.53),
+    "Mafraq": (36.21, 32.34), "Madaba": (35.79, 31.72),
+    "Karak": (35.70, 31.18), "Ma'an": (35.73, 30.19),
+    "Jerash": (35.90, 32.28), "Salt": (35.73, 32.04),
 }
 
 
@@ -140,7 +144,7 @@ def xyz_tile(longitude: float, latitude: float, zoom: int) -> tuple[int, int]:
     return column, count - 1 - xyz_row  # MBTiles uses TMS rows.
 
 
-def validate(path: Path, expected_sha256: str, require_palestine: bool = True) -> dict:
+def validate(path: Path, expected_sha256: str, require_region: bool = True) -> dict:
     if not re.fullmatch(r'[a-f0-9]{64}', expected_sha256):
         raise ValueError('A trusted lowercase SHA-256 digest is required')
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 8 * 1024**3:
@@ -162,13 +166,13 @@ def validate(path: Path, expected_sha256: str, require_palestine: bool = True) -
         if metadata.get('format') != 'pbf' or metadata.get('scheme', 'tms') != 'tms':
             raise ValueError('PBF vector tiles with TMS rows are required')
         lower, upper = int(metadata['minzoom']), int(metadata['maxzoom'])
-        if not 0 <= lower <= upper <= 22 or (require_palestine and upper < 14):
+        if not 0 <= lower <= upper <= 22 or (require_region and upper < 14):
             raise ValueError('Street/building data requires a maximum zoom of at least 14')
         bounds = tuple(float(value) for value in metadata['bounds'].split(','))
         if len(bounds) != 4 or not all(math.isfinite(v) for v in bounds) or not -180 <= bounds[0] < bounds[2] <= 180 or not -85.051129 <= bounds[1] < bounds[3] <= 85.051129:
             raise ValueError('Invalid map bounds')
-        if require_palestine and not (bounds[0] <= 34.21 and bounds[1] <= 31.21 and bounds[2] >= 35.58 and bounds[3] >= 32.56):
-            raise ValueError('Map bounds do not cover Gaza and the West Bank')
+        if require_region and not (bounds[0] <= 34.95 and bounds[1] <= 29.18 and bounds[2] >= 39.30 and bounds[3] >= 33.37):
+            raise ValueError('Map bounds do not cover Jordan')
         descriptor = json.loads(metadata['json'])
         source_layers = descriptor.get('vector_layers') if isinstance(descriptor, dict) else None
         if not isinstance(source_layers, list) or not 0 < len(source_layers) <= 128:
@@ -198,7 +202,7 @@ def validate(path: Path, expected_sha256: str, require_palestine: bool = True) -
             counts[str(zoom)] = counts.get(str(zoom), 0) + 1
         if not counts or str(lower) not in counts or str(upper) not in counts:
             raise ValueError('Map is empty or declared zoom endpoints are absent')
-        if require_palestine:
+        if require_region:
             if not any(re.search('road|transport|street', n, re.I) and c for n, c in layer_features.items()) or not any('building' in n.lower() and c for n, c in layer_features.items()):
                 raise ValueError('Map must contain streets and buildings')
             if not arabic_attributes:
@@ -225,7 +229,7 @@ def checked_manifest(path: Path, mbtiles: Path) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 262144:
         raise ValueError('Map manifest must be a regular JSON file of at most 256 KiB')
     manifest = json.loads(path.read_text(encoding='utf-8'))
-    if not isinstance(manifest, dict) or manifest.get('schemaVersion') != 1 or manifest.get('file') != 'palestine.mbtiles':
+    if not isinstance(manifest, dict) or manifest.get('schemaVersion') != 1 or manifest.get('file') != MAP_FILE:
         raise ValueError('Unsupported map manifest')
     data_timestamp(manifest.get('dataTimestamp'))
     provenance_url(manifest.get('sourceUrl'))

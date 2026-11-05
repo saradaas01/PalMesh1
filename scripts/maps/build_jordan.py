@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a real Palestine pack from an authentic OSM PBF using tilemaker 3.2.
+"""Generate a real Jordan pack from an authentic OSM PBF using tilemaker 3.2.
 
 The input is never synthesized. Direct Geofabrik downloads retain TLS checks,
 compare the vendor's published transport checksum, and record a local SHA-256.
@@ -21,10 +21,10 @@ import sys
 import tempfile
 import urllib.request
 import zlib
-from mbtiles import decoded_tile, data_timestamp, fields, provenance_url, sha256, validate, PALESTINE_BOUNDS
+from mbtiles import decoded_tile, data_timestamp, fields, provenance_url, sha256, validate, MAP_BOUNDS, MAP_FILE
 
 ROOT = Path(__file__).resolve().parents[2]
-GEOFABRIK = 'https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf'
+GEOFABRIK = 'https://download.geofabrik.de/asia/jordan-latest.osm.pbf'
 ATTRIBUTION = '© OpenStreetMap contributors. Open Database License (ODbL) 1.0. https://www.openstreetmap.org/copyright'
 
 
@@ -124,11 +124,11 @@ def publish_generated_pair(temporary: Path, output: Path, manifest: dict) -> Non
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--download', action='store_true')
-    parser.add_argument('--source', type=Path, default=ROOT / 'mapdata/source/israel-and-palestine.osm.pbf')
+    parser.add_argument('--source', type=Path, default=ROOT / 'mapdata/source/jordan.osm.pbf')
     parser.add_argument('--source-sha256', help='Trusted digest required for a locally supplied source')
     parser.add_argument('--source-url', default=GEOFABRIK)
     parser.add_argument('--tilemaker', default='tilemaker', help='Path to upstream tilemaker 3.2.x binary')
-    parser.add_argument('--output', type=Path, default=ROOT / 'mapdata/palestine.mbtiles')
+    parser.add_argument('--output', type=Path, default=ROOT / 'mapdata' / MAP_FILE)
     args = parser.parse_args()
     if args.output.exists() or args.output.is_symlink() or args.output.with_suffix('.manifest.json').exists():
         parser.error('Refusing to replace an existing map or manifest; choose a new output path')
@@ -151,17 +151,17 @@ def main() -> None:
     tool_hash = sha256(Path(tool))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     workspace = tempfile.TemporaryDirectory(prefix='.palmesh-map-', dir=args.output.parent)
-    temporary = Path(workspace.name) / 'palestine.mbtiles'
+    temporary = Path(workspace.name) / MAP_FILE
     try:
         command = [tool, '--input', str(args.source.resolve()), '--output', str(temporary.resolve()),
                    '--config', str(ROOT / 'scripts/maps/tilemaker.json'), '--process', str(ROOT / 'scripts/maps/tilemaker.lua'),
-                   '--bbox', ','.join(str(v) for v in PALESTINE_BOUNDS), '--threads', '2']
+                   '--bbox', ','.join(str(v) for v in MAP_BOUNDS), '--threads', '2']
         subprocess.run(command, check=True)
         with sqlite3.connect(temporary) as db:
             # MBTiles metadata is textual. This schema deliberately supplies the
             # real data timestamp, attribution and source; no fetch date is substituted.
             for name, value in [('attribution', ATTRIBUTION), ('scheme', 'tms'), ('format', 'pbf'),
-                                ('bounds', ','.join(str(v) for v in PALESTINE_BOUNDS)),
+                                ('bounds', ','.join(str(v) for v in MAP_BOUNDS)),
                                 ('osm_data_timestamp', timestamp)]:
                 db.execute('DELETE FROM metadata WHERE name=?', (name,))
                 db.execute('INSERT INTO metadata(name,value) VALUES(?,?)', (name, value))
@@ -169,7 +169,7 @@ def main() -> None:
         empty_removed = remove_empty_generated_tiles(temporary)
         digest = sha256(temporary)
         report = validate(temporary, digest)
-        manifest = {'schemaVersion': 1, 'file': 'palestine.mbtiles', **report,
+        manifest = {'schemaVersion': 1, 'file': MAP_FILE, **report,
                     'emptyGeneratedTilesRemoved': empty_removed,
                     'dataTimestamp': timestamp, 'sourceUrl': args.source_url, 'sourceSha256': source_digest,
                     'license': 'ODbL-1.0', 'licenseUrl': 'https://opendatacommons.org/licenses/odbl/1-0/',

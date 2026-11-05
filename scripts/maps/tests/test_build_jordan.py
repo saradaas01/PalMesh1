@@ -9,7 +9,7 @@ import tempfile
 import unittest
 import zlib
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from build_palestine import osm_timestamp, remove_empty_generated_tiles, publish_generated_pair
+from build_jordan import osm_timestamp, remove_empty_generated_tiles, publish_generated_pair
 from mbtiles import tile_layers
 from test_mbtiles import item, vi
 
@@ -93,14 +93,14 @@ class PreservingPublicationTests(unittest.TestCase):
     def test_existing_map_is_never_replaced(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'generated.mbtiles'; source.write_bytes(b'new')
-            output = Path(directory) / 'palestine.mbtiles'; output.write_bytes(b'operator-map')
+            output = Path(directory) / 'jordan.mbtiles'; output.write_bytes(b'operator-map')
             with self.assertRaises(FileExistsError): publish_generated_pair(source, output, {})
             self.assertEqual(output.read_bytes(), b'operator-map')
 
     def test_existing_manifest_rolls_back_only_our_new_map(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'generated.mbtiles'; source.write_bytes(b'new')
-            output = Path(directory) / 'palestine.mbtiles'
+            output = Path(directory) / 'jordan.mbtiles'
             manifest = output.with_suffix('.manifest.json'); manifest.write_bytes(b'operator-manifest')
             with self.assertRaises(FileExistsError): publish_generated_pair(source, output, {})
             self.assertFalse(output.exists())
@@ -109,7 +109,7 @@ class PreservingPublicationTests(unittest.TestCase):
     def test_new_pair_retains_the_generated_bytes_and_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'generated.mbtiles'; source.write_bytes(b'new')
-            output = Path(directory) / 'palestine.mbtiles'
+            output = Path(directory) / 'jordan.mbtiles'
             publish_generated_pair(source, output, {'candidate': True})
             self.assertEqual(output.read_bytes(), b'new')
             self.assertIn('candidate', output.with_suffix('.manifest.json').read_text())

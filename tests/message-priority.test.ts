@@ -216,6 +216,12 @@ test('a version-one chat archive gains a normal priority column without losing h
   assert.equal(message?.priority, 'normal');
 });
 
+/** Priority of the latest published chat; other kinds carry no chat priority. */
+function lastPriority(engine: ControlledChatEngine): string | undefined {
+  const last = engine.publications.at(-1);
+  return last?.kind === 'chat' ? last.priority : undefined;
+}
+
 function chatFixture(t: TestContext, options: { classifier?: MessageClassifier } = {}) {
   const database = new TestSqliteDatabase();
   const engine = new ControlledChatEngine();
@@ -234,13 +240,13 @@ test('chat drafts are assessed on the device and sent with the estimated or chos
   service.setDraft('محتاجين مي وحليب اطفال ضروري');
   assert.equal(service.getSnapshot().draftAssessment?.priority, 'high');
   assert.equal((await service.send()).status, 'queued');
-  assert.equal(engine.publications.at(-1)?.kind === 'chat' && engine.publications.at(-1)?.priority, 'high');
+  assert.equal(lastPriority(engine), 'high');
   assert.equal(service.getSnapshot().draftAssessment, null, 'a sent draft clears its estimate');
 
   service.setDraft('see you tomorrow at the bakery');
   service.setPriorityOverride('critical');
   await service.send();
-  assert.equal(engine.publications.at(-1)?.kind === 'chat' && engine.publications.at(-1)?.priority, 'critical');
+  assert.equal(lastPriority(engine), 'critical');
   assert.equal(service.getSnapshot().priorityOverride, null);
 
   service.setDraft('ok thanks');

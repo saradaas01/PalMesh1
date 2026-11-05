@@ -11,7 +11,7 @@ def native_card(body,heading='Incoming SOS',button=True,button_bounds='[48,780][
  <node class="android.view.ViewGroup" scrollable="false" bounds="[48,570][672,660]">
   <node class="android.widget.TextView" text="{body}" enabled="true" bounds="[48,580][672,620]"/>
  </node>
- <node class="android.widget.TextView" text="Reported: 28 Oct 2026, 18:00 (Palestine time)" bounds="[48,670][672,706]"/>
+ <node class="android.widget.TextView" text="Reported: 28 Oct 2026, 18:00 (Jordan time)" bounds="[48,670][672,706]"/>
  {('<node class="android.view.ViewGroup" content-desc="View on map" enabled="true" clickable="true" bounds="'+button_bounds+'"/>') if button else '<node class="android.widget.TextView" text="Location unavailable" bounds="[48,720][672,756]"/>'}
  </node>'''
 

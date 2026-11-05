@@ -1,17 +1,19 @@
-# Palestine offline map packs
+# Jordan offline map pack
 
-**No Palestine MBTiles dataset is currently included.** The app displays the
-unavailable state until a real, validated map is bundled. The source glyph atlas
-under `assets/map-fonts` is included; fonts alone do not supply a map.
+PalMesh bundles an offline OpenStreetMap pack covering **Jordan**. The map file
+is generated from Geofabrik's `asia/jordan-latest.osm.pbf` extract and is not
+committed to Git. The `Candidate Jordan map and Android APK` workflow
+(`.github/workflows/candidate-map-android.yml`) downloads the extract, builds
+tilemaker, generates and validates the pack, and publishes the
+`palmesh-candidate-jordan-map` artifact plus a debug APK with the map bundled.
+Operator approval and real offline rendering acceptance are still required
+before a release. No fixture, scraped public tiles or invented checksum is
+substituted. The source glyph atlas under `assets/map-fonts` is included; fonts
+alone do not supply a map.
 
-On October 26, 2026, direct official Geofabrik access succeeded and a genuine
-candidate was generated and fully validated. Its OSM source date is
-2026-10-25T21:21:21Z. See [candidate provenance](../docs/verification/palestine-candidate.manifest.json)
-and the [candidate milestone](../docs/milestones/real-map-candidate.md).
-Operator approval and real offline rendering acceptance are still required.
-The candidate workflow publishes `palmesh-candidate-palestine-map` and a bundled
-debug test APK; it deliberately does not use the reviewed release artifact name.
-No fixture, scraped public tiles or invented checksum is substituted.
+An earlier pack covered Gaza and the West Bank; see the historical
+[candidate provenance](../docs/verification/palestine-candidate.manifest.json)
+and [candidate milestone](../docs/milestones/real-map-candidate.md).
 
 ## Generate from OpenStreetMap
 
@@ -24,16 +26,16 @@ someone else. Follow tilemaker's build instructions for your operating system.
 With permitted access to Geofabrik:
 
 ```sh
-python3 scripts/maps/build_palestine.py --download --tilemaker /path/to/tilemaker
+python3 scripts/maps/build_jordan.py --download --tilemaker /path/to/tilemaker
 ```
 
 With an authentic local Geofabrik PBF whose SHA-256 was independently obtained:
 
 ```sh
-python3 scripts/maps/build_palestine.py \
-  --source /path/to/israel-and-palestine.osm.pbf \
+python3 scripts/maps/build_jordan.py \
+  --source /path/to/jordan.osm.pbf \
   --source-sha256 "$PALMESH_SOURCE_SHA256" \
-  --source-url https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf \
+  --source-url https://download.geofabrik.de/asia/jordan-latest.osm.pbf \
   --tilemaker /path/to/tilemaker
 ```
 
@@ -42,16 +44,16 @@ corruption and records SHA-256 locally. MD5 is not an authenticity signature.
 Both workflows require a real PBF replication timestamp, retained as the source
 data date. Build time is never presented as source freshness.
 
-The profile clips to `34.15,31.15,35.65,32.65`, covering Gaza and the West Bank,
-and emits zooms 6–14. It includes roads, buildings, place names, water, land use
+The profile clips to `34.85,29.10,39.35,33.45`, covering all of Jordan from
+Aqaba to the northern border, and emits zooms 6–14. It includes roads, buildings, place names, water, land use
 and selected points of interest, with Arabic names retained. The default
 configuration fetches no remote shapefiles. It cannot establish current road
 access or operating facilities.
 
-Successful generation produces `palestine.mbtiles` and
-`palestine.manifest.json`. Validation scans every tile, checks the database
-index and declared layers, and requires detailed coverage at Gaza City, Rafah,
-Khan Younis, Ramallah, Nablus, Hebron, Jenin, Jericho and Tulkarm. Bounds alone
+Successful generation produces `jordan.mbtiles` and `jordan.manifest.json`.
+Validation scans every tile, checks the database index and declared layers, and
+requires detailed coverage at Amman, Zarqa, Irbid, Aqaba, Mafraq, Madaba, Karak,
+Ma'an, Jerash and Salt. Bounds alone
 are insufficient. These structural checks do not certify map accuracy.
 
 ## Verify and package
@@ -90,7 +92,7 @@ been reviewed and actual offline rendering has been tested on both platforms.
 ## Reviewed Actions artifact
 
 The signed Android workflow consumes an already reviewed artifact from an
-Actions run in **this repository**, named `palmesh-reviewed-palestine-map`.
+Actions run in **this repository**, named `palmesh-reviewed-jordan-map`.
 Preparing that artifact requires real licensed data; the release workflow never
 downloads map data or substitutes a fixture. First generate/obtain the genuine
 map pair, run the full checks above, review its license/source date/coverage, and
@@ -109,17 +111,17 @@ folder or any extra entries:
   run: python3 scripts/maps/package.py --check
 - uses: actions/upload-artifact@v4
   with:
-    name: palmesh-reviewed-palestine-map
+    name: palmesh-reviewed-jordan-map
     path: |
-      mapdata/palestine.mbtiles
-      mapdata/palestine.manifest.json
+      mapdata/jordan.mbtiles
+      mapdata/jordan.manifest.json
     if-no-files-found: error
     compression-level: 0
     retention-days: 14
 ```
 
 This is a step to add to your trusted preparation workflow after its controlled
-data provisioning, not a claim that an artifact or Palestine map currently
+data provisioning, not a claim that a reviewed Jordan map currently
 exists. Never upload source PBFs, SQLite sidecars, signing material or extra
 checksum/readme files in this named artifact. Confirm both expected files are
 present; the release importer requires the exact pair. Record the producing run
@@ -132,7 +134,7 @@ Dispatch `release-android.yml` with the producing `map_artifact_run_id`,
 first be reviewed onto the repository's default branch to support manual
 dispatch. It downloads from the same repository with the existing scoped
 `GITHUB_TOKEN`, checks pinned hashes before importing, and runs full map
-provenance/coverage validation. If a tracked `palestine.manifest.json` already
+provenance/coverage validation. If a tracked `jordan.manifest.json` already
 exists it must match the reviewed artifact exactly; review a new manifest in
 Git instead of overwriting it during release. Rebuild/review/re-upload and use
 new pins when any approved map or manifest bytes change. Expired/deleted or
@@ -143,8 +145,8 @@ checks to proceed.
 
 Build the application after staging and check that both the MBTiles database
 and font/notice resources appear in the install artifact. On devices without
-internet, verify Arabic labels at several zoom levels, pan between Gaza and
-West Bank cities, restart, and repeat. Verify missing/corrupt map behavior and
+internet, verify Arabic labels at several zoom levels, pan between Amman, Irbid
+and Aqaba, restart, and repeat. Verify missing/corrupt map behavior and
 available storage during first launch. The native host retains an extracted
 copy, so budget space for the packaged asset, retained database and temporary
 copy during import. Physical-device rendering and GPS checks remain required.

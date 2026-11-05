@@ -1,4 +1,4 @@
-name: Candidate Palestine map and Android APK
+name: Candidate Jordan map and Android APK
 on:
   push:
     paths:
@@ -37,16 +37,16 @@ jobs:
         run: python3 scripts/maps/prepare_tilemaker.py --workspace "$RUNNER_TEMP/palmesh-tilemaker"
       - name: Generate a genuine candidate map with full provenance and coverage validation
         run: >-
-          python3 scripts/maps/build_palestine.py --download
+          python3 scripts/maps/build_jordan.py --download
           --source "$RUNNER_TEMP/palmesh-source.osm.pbf"
           --tilemaker "$RUNNER_TEMP/palmesh-tilemaker/build/tilemaker"
       - name: Retain candidate data for operator review (not an approved release asset)
         uses: actions/upload-artifact@v4
         with:
-          name: palmesh-candidate-palestine-map
+          name: palmesh-candidate-jordan-map
           path: |
-            mapdata/palestine.mbtiles
-            mapdata/palestine.manifest.json
+            mapdata/jordan.mbtiles
+            mapdata/jordan.manifest.json
           retention-days: 14
       - name: Retain tool source provenance
         uses: actions/upload-artifact@v4
@@ -67,5 +67,5 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             dist/android/candidate-map-verification.json
-            mapdata/palestine.manifest.json
+            mapdata/jordan.manifest.json
           retention-days: 14

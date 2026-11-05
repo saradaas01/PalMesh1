@@ -15,10 +15,10 @@ import sqlite3
 import stat
 import tempfile
 
-from mbtiles import checked_manifest, sha256
+from mbtiles import checked_manifest, sha256, MAP_FILE, MAP_MANIFEST
 
 ROOT = Path(__file__).resolve().parents[2]
-FILES = {'palestine.mbtiles': 8 * 1024**3, 'palestine.manifest.json': 262144}
+FILES = {MAP_FILE: 8 * 1024**3, MAP_MANIFEST: 262144}
 
 
 def directory_without_symlinks(path: Path) -> Path:
@@ -78,10 +78,10 @@ def provision(artifact: Path, destination: Path, map_sha256: str, manifest_sha25
     artifact = directory_without_symlinks(artifact)
     destination = directory_without_symlinks(destination)
     if {entry.name for entry in artifact.iterdir()} != set(FILES):
-        raise ValueError('Artifact must contain exactly palestine.mbtiles and palestine.manifest.json')
+        raise ValueError('Artifact must contain exactly %s and %s' % (MAP_FILE, MAP_MANIFEST))
     sizes = {name: regular_file(artifact / name, maximum).st_size for name, maximum in FILES.items()}
     for suffix in ('-wal', '-shm', '-journal'):
-        if os.path.lexists(destination / ('palestine.mbtiles' + suffix)):
+        if os.path.lexists(destination / (MAP_FILE + suffix)):
             raise ValueError('Preserving existing SQLite sidecar; close/checkpoint before import')
     # Check both destinations before creating either output. In particular, a
     # conflicting tracked manifest must never replace or introduce the map.
@@ -94,7 +94,7 @@ def provision(artifact: Path, destination: Path, map_sha256: str, manifest_sha25
             copied_size = snapshot(artifact / name, staging / name, expected[name], maximum)
             if copied_size != sizes[name]:
                 raise ValueError('Artifact changed before import: ' + name)
-        checked_manifest(staging / 'palestine.manifest.json', staging / 'palestine.mbtiles')
+        checked_manifest(staging / MAP_MANIFEST, staging / MAP_FILE)
         # Recheck after provenance/coverage validation; a validator result is not
         # permission to publish changed bytes or overwrite an existing asset.
         for name, maximum in FILES.items():
@@ -127,7 +127,7 @@ def provision(artifact: Path, destination: Path, map_sha256: str, manifest_sha25
                         target.unlink()
             raise
     return {'mapSha256': map_sha256, 'manifestSha256': manifest_sha256,
-            'mapBytes': sizes['palestine.mbtiles'], 'manifestBytes': sizes['palestine.manifest.json']}
+            'mapBytes': sizes[MAP_FILE], 'manifestBytes': sizes[MAP_MANIFEST]}
 
 
 def main() -> None:

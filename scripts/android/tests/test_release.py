@@ -48,8 +48,8 @@ class ApkVerificationTests(unittest.TestCase):
                 archive.writestr('lib/'+architecture+'/' + library, elf(alignment=elf_alignment))
             if bundle: archive.writestr('assets/index.android.bundle', b'PALMESH_SYNTHETIC_EMERGENCY_ONLY' if synthetic else b'fixture-js')
             if map_data:
-                archive.writestr('assets/palmesh/palestine.mbtiles', b'fixture-map')
-                archive.writestr('assets/palmesh/palestine.manifest.json', json.dumps({'sha256': hashlib.sha256(b'fixture-map').hexdigest()}))
+                archive.writestr('assets/palmesh/jordan.mbtiles', b'fixture-map')
+                archive.writestr('assets/palmesh/jordan.manifest.json', json.dumps({'sha256': hashlib.sha256(b'fixture-map').hexdigest()}))
         return path
 
     def verify(self, apk, *options, pin=True, certificate='CN=Operator'):
@@ -66,7 +66,7 @@ class ApkVerificationTests(unittest.TestCase):
     def test_bundled_development_apk_reports_limits(self):
         report = self.verify(self.apk(), '--require-bundle', '--architectures', 'arm64-v8a')
         self.assertTrue(report['embeddedJavaScriptBundle'])
-        self.assertFalse(report['bundledPalestineMap'])
+        self.assertFalse(report['bundledMap'])
         self.assertFalse(report['deviceInstallationTested'])
         self.assertTrue(report['elfAlignment16KiB'])
         self.assertEqual(len(report['nativeLibraryLoadAlignment']), 4)
@@ -133,7 +133,7 @@ class ApkVerificationTests(unittest.TestCase):
 
     def test_release_checks_packaged_map_and_operator_certificate(self):
         report = self.verify(self.apk(map_data=True), '--release', '--version-code', '1', '--version-name', '0.1.0')
-        self.assertTrue(report['bundledPalestineMap'])
+        self.assertTrue(report['bundledMap'])
         self.assertEqual(report['signingCertificateSha256'], [self.fingerprint])
 
     def test_zip_alignment_cannot_hide_4k_elf_libraries(self):
@@ -166,7 +166,7 @@ class ApkVerificationTests(unittest.TestCase):
         apk = self.apk(map_data=True)
         with zipfile.ZipFile(apk) as archive:
             contents = {entry: archive.read(entry) for entry in archive.namelist()}
-        contents['assets/palmesh/palestine.mbtiles'] = b'changed-map'
+        contents['assets/palmesh/jordan.mbtiles'] = b'changed-map'
         with zipfile.ZipFile(apk, 'w') as archive:
             for entry, value in contents.items(): archive.writestr(entry, value)
         with self.assertRaisesRegex(ValueError, 'provenance manifest'):
@@ -178,7 +178,7 @@ class ApkVerificationTests(unittest.TestCase):
         self.assertFalse(report['signatureVerified'])
         self.assertFalse(report['installable'])
         self.assertFalse(report['releaseEligible'])
-        self.assertFalse(report['bundledPalestineMap'])
+        self.assertFalse(report['bundledMap'])
         self.assertEqual(report['signingCertificateSha256'], [])
 
     def test_unsigned_preview_rejects_debuggable_apk(self):

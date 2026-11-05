@@ -104,7 +104,7 @@ public final class PalMeshOfflineMapsModule extends ReactContextBaseJavaModule {
         final String assetName;
         final String expected;
         try {
-            assetName = options.hasKey("assetName") ? options.getString("assetName") : "palmesh/palestine.mbtiles";
+            assetName = options.hasKey("assetName") ? options.getString("assetName") : "palmesh/jordan.mbtiles";
             expected = options.hasKey("expectedSha256") ? options.getString("expectedSha256") : null;
             if (assetName == null || !ASSET.matcher(assetName).matches()) throw new IOException("Invalid bundled asset name");
             if (expected != null && !expected.matches("[a-fA-F0-9]{64}")) throw new IOException("Invalid SHA-256 checksum");

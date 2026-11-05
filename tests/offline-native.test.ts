@@ -42,7 +42,7 @@ test('offline native descriptor accepts only immutable bounded loopback vector m
 
 test('offline native source fails cleanly without a bridge or with invalid asset/checksum config', async () => {
   await assert.rejects(new NativeOfflineMapSource(undefined).open(new AbortController().signal), /unavailable/);
-  assert.throws(() => new NativeOfflineMapSource(undefined, { assetName: '../palestine.mbtiles' }));
+  assert.throws(() => new NativeOfflineMapSource(undefined, { assetName: '../jordan.mbtiles' }));
   assert.throws(() => new NativeOfflineMapSource(undefined, { expectedSha256: 'not-a-digest' }));
   let calls = 0;
   const source = new NativeOfflineMapSource({ open: async () => { calls++; return descriptor; }, close: async () => undefined });
@@ -59,7 +59,7 @@ test('offline native source passes asset checksum explicitly and closes owned se
   };
   const source = new NativeOfflineMapSource(bridge, { expectedSha256: 'B'.repeat(64) });
   assert.deepEqual(await source.open(new AbortController().signal), descriptor);
-  assert.deepEqual(calls, [{ assetName: 'palmesh/palestine.mbtiles', expectedSha256: 'b'.repeat(64) }]);
+  assert.deepEqual(calls, [{ assetName: 'palmesh/jordan.mbtiles', expectedSha256: 'b'.repeat(64) }]);
   await source.close();
   assert.ok((calls as unknown[]).includes('close'));
 });

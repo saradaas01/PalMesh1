@@ -15,7 +15,7 @@ export function LocationDetails({location,now,quality}:{readonly location:Locati
 }
 export function SosMapDetails({entry,now,onView}:{readonly entry:EmergencyEntry;readonly now:number;readonly onView?:((id:string)=>void)|undefined}){
  const {t,language}=useI18n();const names=useContactNames();const fix=sosLocation(entry,now);
- const reported=new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-PS':'en-GB',{timeZone:'Asia/Hebron',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+ const reported=new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-JO':'en-GB',{timeZone:'Asia/Amman',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
  return <Card><Text accessibilityRole="header" style={ui.heading}>{entry.outgoing?t('emergency.outgoing'):names.label(entry.source)}</Text><Text selectable style={ui.text}>{entry.text}</Text><Text style={ui.muted}>{t('emMap.reported',{time:reported})}</Text>
  {fix?<><LocationDetails location={fix} now={now}/>{onView&&<Action label={t('emMap.view')} onPress={()=>onView(entry.id)}/>}</>:<Text style={ui.muted}>{t('emMap.unavailable')}</Text>}
  <Text style={ui.muted}>{t('emMap.notLive')}</Text></Card>;

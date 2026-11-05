@@ -107,15 +107,15 @@ def main() -> None:
         fixture = bundled and b'PALMESH_SYNTHETIC_EMERGENCY_ONLY' in archive.read('assets/index.android.bundle')
         if fixture != args.synthetic_emergency_fixture: raise ValueError('Unexpected synthetic fixture in APK')
         if args.synthetic_emergency_fixture and (not args.isolated_emergency_test or architectures != ['x86_64']): raise ValueError('Synthetic fixture requires isolated x86_64 emergency test APK')
-        has_map = 'assets/palmesh/palestine.mbtiles' in entries
-        if args.release and not has_map: raise ValueError('Release APK is missing the reviewed Palestine map pack')
+        has_map = 'assets/palmesh/jordan.mbtiles' in entries
+        if args.release and not has_map: raise ValueError('Release APK is missing the reviewed Jordan map pack')
         if is_test and not has_map: raise ValueError('Isolated map test APK is missing its map pack')
         if args.release or is_test:
-            manifest_path = 'assets/palmesh/palestine.manifest.json'
+            manifest_path = 'assets/palmesh/jordan.manifest.json'
             if manifest_path not in entries or archive.getinfo(manifest_path).file_size > 262144:
                 raise ValueError('Missing or oversized bundled map provenance manifest')
             map_manifest = json.loads(archive.read(manifest_path))
-            with archive.open('assets/palmesh/palestine.mbtiles') as map_stream:
+            with archive.open('assets/palmesh/jordan.mbtiles') as map_stream:
                 packaged_digest = hashlib.file_digest(map_stream, 'sha256').hexdigest()
             if map_manifest.get('sha256') != packaged_digest:
                 raise ValueError('Packaged map differs from its provenance manifest')
@@ -151,7 +151,7 @@ def main() -> None:
     with apk.open('rb') as stream: digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     report = {'apk': str(apk), 'bytes': apk.stat().st_size, 'sha256': digest, 'architectures': architectures,
               'applicationId': package_fields['name'], 'versionName': package_fields.get('versionName'), 'versionCode': package_fields.get('versionCode'),
-              'embeddedJavaScriptBundle': bundled, 'bundledPalestineMap': has_map, 'debuggable': debuggable,
+              'embeddedJavaScriptBundle': bundled, 'bundledMap': has_map, 'debuggable': debuggable,
               'signingCertificateSha256': fingerprints, 'zipAlignment16KiB': True, 'elfAlignment16KiB': True, 'nativeLibraryLoadAlignment': native_alignment, 'deviceInstallationTested': False,
               'verificationMode': 'unsigned-preview' if args.unsigned_preview else 'release' if args.release else 'isolated-emergency-test' if args.isolated_emergency_test else 'isolated-ux-test' if args.isolated_ux_test else 'isolated-contacts-test' if args.isolated_contacts_test else 'isolated-map-performance-test' if args.isolated_map_performance_test else 'isolated-map-test' if is_test else 'development',
               'signatureVerified': not args.unsigned_preview, 'installable': not args.unsigned_preview,

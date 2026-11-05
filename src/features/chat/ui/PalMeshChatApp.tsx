@@ -81,7 +81,7 @@ function MessageBubble({ message, deviceId, now }: {
 }): React.JSX.Element {
   const { t, language } = useI18n();
   const status = t(deliveryLabels[deliveryState(message, deviceId, now)]);
-  const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-PS' : 'en', { hour: '2-digit', minute: '2-digit' });
+  const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-JO' : 'en', { hour: '2-digit', minute: '2-digit' });
   const names = useContactNames();
   const sender = message.outgoing ? t('chat.you') : names.label(message.source);
   const elevated = message.kind === 'chat' && (message.priority === 'critical' || message.priority === 'high') ? message.priority : null;

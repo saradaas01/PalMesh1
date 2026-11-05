@@ -42,7 +42,7 @@ There is **no iOS foreground service**. `startMeshService` rejects with `BACKGRO
 
 ## Offline maps
 
-The Xcode project copies `ios/PalMesh/palmesh` as a folder resource, preserving the shared asset paths. The default map is `palmesh/palestine.mbtiles`. Use the map packaging script to place an independently licensed vector dataset and fonts into both mobile targets. No placeholder file is presented as map coverage.
+The Xcode project copies `ios/PalMesh/palmesh` as a folder resource, preserving the shared asset paths. The default map is `palmesh/jordan.mbtiles`. Use the map packaging script to place an independently licensed vector dataset and fonts into both mobile targets. No placeholder file is presented as map coverage.
 
 `PalMeshOfflineMaps` opens the immutable bundle file with SQLite read-only, checks vector/TMS metadata and sample tile framing, and optionally checks a supplied SHA-256 digest. Its socket binds to `127.0.0.1` on an ephemeral port and requires a fresh 128-bit session token plus an exact loopback Host header. It accepts bounded GET requests, converts XYZ rows to TMS, bounds tile sizes and gzip inflation, limits concurrent requests, applies socket/query deadlines and interrupts active work on close. It does not fetch remote tiles.
 

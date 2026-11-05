@@ -1,4 +1,4 @@
-"""Isolated import-boundary fixtures; no fixture is packaged as Palestine data."""
+"""Isolated import-boundary fixtures; no fixture is packaged as real map data."""
 import json
 import os
 from pathlib import Path
@@ -20,8 +20,8 @@ class ReviewedArtifactTest(unittest.TestCase):
         self.artifact, self.destination = self.root / 'artifact', self.root / 'mapdata'
         self.artifact.mkdir()
         self.destination.mkdir()
-        (self.artifact / 'palestine.mbtiles').write_bytes(b'Import boundary fixture, not geographic map data')
-        (self.artifact / 'palestine.manifest.json').write_text('{"fixture":"not a production manifest"}')
+        (self.artifact / 'jordan.mbtiles').write_bytes(b'Import boundary fixture, not geographic map data')
+        (self.artifact / 'jordan.manifest.json').write_text('{"fixture":"not a production manifest"}')
         self.expected = {name: sha256(self.artifact / name) for name in FILES}
 
     def tearDown(self):
@@ -29,7 +29,7 @@ class ReviewedArtifactTest(unittest.TestCase):
 
     def import_pair(self):
         return provision(self.artifact, self.destination,
-                         self.expected['palestine.mbtiles'], self.expected['palestine.manifest.json'])
+                         self.expected['jordan.mbtiles'], self.expected['jordan.manifest.json'])
 
     def assert_empty(self):
         self.assertEqual(list(self.destination.iterdir()), [])
@@ -51,7 +51,7 @@ class ReviewedArtifactTest(unittest.TestCase):
         with patch('provision_artifact.checked_manifest', side_effect=self.validator_boundary) as validator:
             report = self.import_pair()
         validator.assert_called_once()
-        self.assertEqual(report['mapSha256'], self.expected['palestine.mbtiles'])
+        self.assertEqual(report['mapSha256'], self.expected['jordan.mbtiles'])
         self.assertEqual(set(path.name for path in self.destination.iterdir()), set(FILES))
         for name in FILES:
             self.assertEqual((self.destination / name).read_bytes(), (self.artifact / name).read_bytes())
@@ -77,7 +77,7 @@ class ReviewedArtifactTest(unittest.TestCase):
             (self.artifact / name).write_bytes(original)
 
     def test_extra_nested_and_sqlite_sidecar_entries_are_rejected(self):
-        for name, directory in [('unexpected.txt', False), ('nested', True), ('palestine.mbtiles-wal', False)]:
+        for name, directory in [('unexpected.txt', False), ('nested', True), ('jordan.mbtiles-wal', False)]:
             extra = self.artifact / name
             extra.mkdir() if directory else extra.write_bytes(b'not part of approved pair')
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'exactly'):
@@ -120,7 +120,7 @@ class ReviewedArtifactTest(unittest.TestCase):
         self.assert_empty()
 
     def test_conflicting_tracked_manifest_preserves_every_existing_byte(self):
-        manifest = self.destination / 'palestine.manifest.json'
+        manifest = self.destination / 'jordan.manifest.json'
         manifest.write_text('Existing reviewed operator work')
         with patch('provision_artifact.checked_manifest') as validator:
             with self.assertRaisesRegex(ValueError, 'Preserving different existing destination'):
@@ -130,7 +130,7 @@ class ReviewedArtifactTest(unittest.TestCase):
         self.assertEqual(list(self.destination.iterdir()), [manifest])
 
     def test_conflicting_existing_map_is_never_overwritten(self):
-        target = self.destination / 'palestine.mbtiles'
+        target = self.destination / 'jordan.mbtiles'
         target.write_bytes(b'Existing operator database')
         with self.assertRaisesRegex(ValueError, 'Preserving different existing destination'):
             self.import_pair()
@@ -152,15 +152,15 @@ class ReviewedArtifactTest(unittest.TestCase):
             self.assertEqual((info.st_ino, info.st_mtime_ns), before[name])
 
     def test_existing_destination_symlink_is_preserved_and_rejected(self):
-        target = self.destination / 'palestine.manifest.json'
+        target = self.destination / 'jordan.manifest.json'
         target.symlink_to(self.artifact / target.name)
         with self.assertRaisesRegex(ValueError, 'regular file'):
             self.import_pair()
         self.assertTrue(target.is_symlink())
-        self.assertFalse((self.destination / 'palestine.mbtiles').exists())
+        self.assertFalse((self.destination / 'jordan.mbtiles').exists())
 
     def test_existing_destination_sqlite_sidecar_blocks_import(self):
-        sidecar = self.destination / 'palestine.mbtiles-wal'
+        sidecar = self.destination / 'jordan.mbtiles-wal'
         sidecar.write_bytes(b'Existing uncheckpointed database work')
         with self.assertRaisesRegex(ValueError, 'existing SQLite sidecar'):
             self.import_pair()
@@ -173,12 +173,12 @@ class ReviewedArtifactTest(unittest.TestCase):
         self.assert_empty()
 
     def test_real_map_validator_rejects_non_database_even_with_matching_pins(self):
-        manifest = {'schemaVersion': 1, 'file': 'palestine.mbtiles', 'sha256': self.expected['palestine.mbtiles'],
-                    'dataTimestamp': '2026-01-01T00:00:00Z', 'sourceUrl': 'https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf',
+        manifest = {'schemaVersion': 1, 'file': 'jordan.mbtiles', 'sha256': self.expected['jordan.mbtiles'],
+                    'dataTimestamp': '2026-01-01T00:00:00Z', 'sourceUrl': 'https://download.geofabrik.de/asia/jordan-latest.osm.pbf',
                     'license': 'ODbL-1.0', 'licenseUrl': 'https://opendatacommons.org/licenses/odbl/1-0/',
                     'sourceSha256': '1' * 64, 'generatorSha256': '2' * 64,
                     'configurationSha256': '3' * 64, 'profileSha256': '4' * 64}
-        path = self.artifact / 'palestine.manifest.json'
+        path = self.artifact / 'jordan.manifest.json'
         path.write_text(json.dumps(manifest))
         self.expected[path.name] = sha256(path)
         with self.assertRaises(sqlite3.DatabaseError):
@@ -197,7 +197,7 @@ class ReviewedArtifactTest(unittest.TestCase):
         real_link = os.link
 
         def concurrent_target(source, target, **options):
-            if target.name == 'palestine.manifest.json':
+            if target.name == 'jordan.manifest.json':
                 target.write_bytes(b'Concurrent operator work')
                 raise FileExistsError('Another operation published a file')
             real_link(source, target, **options)
@@ -205,8 +205,8 @@ class ReviewedArtifactTest(unittest.TestCase):
         with patch('provision_artifact.checked_manifest'), patch('provision_artifact.os.link', side_effect=concurrent_target):
             with self.assertRaisesRegex(ValueError, 'no overwrite attempted'):
                 self.import_pair()
-        self.assertFalse((self.destination / 'palestine.mbtiles').exists())
-        manifest = self.destination / 'palestine.manifest.json'
+        self.assertFalse((self.destination / 'jordan.mbtiles').exists())
+        manifest = self.destination / 'jordan.manifest.json'
         self.assertEqual(manifest.read_bytes(), b'Concurrent operator work')
         self.assertEqual(list(self.destination.iterdir()), [manifest])
 
@@ -215,8 +215,8 @@ class ReviewedArtifactTest(unittest.TestCase):
 
         def remove_map_during_publication(source, target, **options):
             real_link(source, target, **options)
-            if target.name == 'palestine.manifest.json':
-                (self.destination / 'palestine.mbtiles').unlink()
+            if target.name == 'jordan.manifest.json':
+                (self.destination / 'jordan.mbtiles').unlink()
 
         with patch('provision_artifact.checked_manifest'), patch('provision_artifact.os.link', side_effect=remove_map_during_publication):
             with self.assertRaisesRegex(ValueError, 'Destination disappeared'):

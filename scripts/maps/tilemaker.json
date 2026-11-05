@@ -15,12 +15,12 @@
     "maxzoom": 14,
     "basezoom": 14,
     "include_ids": false,
-    "name": "PalMesh Palestine OSM offline map",
+    "name": "PalMesh Jordan OSM offline map",
     "version": "1.0",
-    "description": "OpenStreetMap streets, buildings and places covering Gaza and the West Bank. No current hazard or access information.",
+    "description": "OpenStreetMap streets, buildings and places covering Jordan. No current hazard or access information.",
     "compress": "gzip",
     "mvt_version": 2,
     "high_resolution": true,
-    "bounding_box": [34.15, 31.15, 35.65, 32.65]
+    "bounding_box": [34.85, 29.10, 39.35, 33.45]
   }
 }

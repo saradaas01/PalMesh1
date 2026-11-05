@@ -36,7 +36,7 @@ export class NativeOfflineMapSource implements OfflineMapSource {
   private active: Attempt | undefined;
 
   constructor(private readonly native: NativeOfflineMapsBridge | undefined, options: NativeOfflineMapOptions = {}) {
-    const assetName = options.assetName ?? 'palmesh/palestine.mbtiles';
+    const assetName = options.assetName ?? 'palmesh/jordan.mbtiles';
     if (!/^palmesh\/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,99}\.mbtiles$/.test(assetName)) {
       throw new Error('Invalid bundled MBTiles asset name');
     }

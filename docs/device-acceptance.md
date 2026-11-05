@@ -148,8 +148,8 @@ modified ciphertext, replay, TTL changes and wrong-destination response packets
 with the security tests/harness. Record clock-skew behavior with incorrect phone
 clocks; authentication expiration relies on timestamps.
 
-With a real reviewed map installed, cold-launch offline and pan/zoom across Gaza
-and the West Bank, including streets/buildings and Arabic labels. Verify local
+With a real reviewed map installed, cold-launch offline and pan/zoom across Amman,
+Irbid, Zarqa and Aqaba, including streets/buildings and Arabic labels. Verify local
 fonts, no online tile/glyph requests, map attribution/date and stale GPS labels.
 Test missing/corrupt/wrong-checksum tiles: show unavailable instead of an online
 fallback or fabricated coverage. GPS coordinates/SOS must remain usable. Map

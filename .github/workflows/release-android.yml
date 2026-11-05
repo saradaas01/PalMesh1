@@ -11,15 +11,15 @@ on:
         required: true
         type: string
       map_artifact_run_id:
-        description: Same-repository run containing palmesh-reviewed-palestine-map
+        description: Same-repository run containing palmesh-reviewed-jordan-map
         required: true
         type: string
       map_sha256:
-        description: Independently reviewed lowercase SHA-256 of palestine.mbtiles
+        description: Independently reviewed lowercase SHA-256 of jordan.mbtiles
         required: true
         type: string
       map_manifest_sha256:
-        description: Independently reviewed lowercase SHA-256 of palestine.manifest.json
+        description: Independently reviewed lowercase SHA-256 of jordan.manifest.json
         required: true
         type: string
 permissions:
@@ -50,7 +50,7 @@ jobs:
       - name: Download the same-repository reviewed map artifact
         uses: actions/download-artifact@v4
         with:
-          name: palmesh-reviewed-palestine-map
+          name: palmesh-reviewed-jordan-map
           path: ${{ runner.temp }}/palmesh-reviewed-map
           repository: ${{ github.repository }}
           run-id: ${{ inputs.map_artifact_run_id }}
