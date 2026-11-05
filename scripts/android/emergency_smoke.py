@@ -209,7 +209,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'SOS inbox'),'actual cold notification inbox route','cold-notification-inbox.xml')
    # Review reports explicitly so the global urgent banner does not obscure the viewport.
    for _ in range(3):self.press('Mark reviewed')
-   self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','sos-no-location.xml','Location unavailable');self.capture('inbox-no-location');self.wait_ui(lambda x:smoke.has_text(x,'From SIMULATED Rescue Contact') and smoke.has_text(x,'Self-declared name authenticated to this fingerprint; verify the person separately.'),'authenticated voluntarily shared sender name','shared-name-inbox.xml')
+   self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','sos-no-location.xml','Location unavailable');self.capture('inbox-no-location');self.wait_ui(lambda x:smoke.find_control(x,'Sender identity: SIMULATED Rescue Contact') is not None and smoke.has_text(x,'Self-declared name authenticated to this fingerprint; verify the person separately.'),'authenticated voluntarily shared sender name','shared-name-inbox.xml')
    self.tap('Map');self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline marker overview','marker-overview-ready.xml');self.top();self.map_image('marker-overview',red=True)
    records=self.evidence()
    if not records:raise RuntimeError('Native camera evidence absent before marker tap')
