@@ -56,3 +56,7 @@ UI tests cover precedence, duplicate names, explicit opt-in, failed queueing,
 withdrawal, restart and optional fingerprint details. The emulator-only signed
 SOS fixture also includes a normal signed profile from an unfamiliar identity.
 Physical two-phone name exchange and withdrawal remain manual acceptance steps.
+
+The chat summary formats announcements/withdrawals only for normal public chat.
+Private chat, SOS and elevated traffic retain their literal text in both bubbles
+and previews; profile-shaped text in those contexts never becomes a name update.

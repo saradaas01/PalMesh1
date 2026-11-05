@@ -6,10 +6,12 @@ Branch `feat/aqaba-demo-improvements` starts from the latest requested
 `feat/ai-message-priority` checkpoint `714fff7315f44de18548d32cd3e9e420fc4010f9`.
 It preserves the Jordan pack, 90-second cancellable native GPS, original SOS IDs,
 manual SOS decisions, encryption and SOS/response abuse limits. No existing PR is
-merged. Separate commits cover sender timestamps, passive radio recovery,
+merged. Profile-shaped JSON is formatted as a name announcement only in normal public
+chat; private, SOS and elevated-message text stays verbatim in bubbles/previews.
+Separate commits cover sender timestamps, passive radio recovery,
 Aqaba map/detail validation, contextual AI and opt-in authenticated public names.
 
-Local TypeScript/module build, 472 core tests, 133 UI tests, 99 Android-tool tests
+Local TypeScript/module build, 472 core tests, 143 UI tests, 99 Android-tool tests
 and 61 map-tool tests pass. Five native Android GPS/QR JVM tests and ARM64
 compilation also pass; that local compile is not a bundled-map acceptance result. Model training and the frozen 64-case Arabic/English
 holdout reproduce exactly. Holdout critical TP/FP/FN are 16/6/0; precision 72.7%,

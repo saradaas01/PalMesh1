@@ -115,6 +115,49 @@ test('delayed message bubbles and conversation previews display original sender 
   expect(bubble).toHaveProp('accessibilityLabel', expect.stringContaining(receiptLabel));
 });
 
+describe('profile announcement presentation context', () => {
+  for (const priority of [undefined, 'normal'] as const) {
+    for (const name of ['Sara', '']) {
+      test(`formats a normal public ${name ? 'announcement' : 'withdrawal'} with ${priority ?? 'omitted'} archive priority`, async () => {
+        const text = JSON.stringify({type:'palmesh-profile',version:1,revision:1,name});
+        const entry = message({conversationId:'*',destination:'*',text,...(priority ? {priority} : {})});
+        const service = new ReactiveChatService();
+        service.archive = [entry]; service.patch({conversations:[conversation(entry)]});
+        await render(<PalMeshChatApp service={service}/>);
+        await fireEvent.press(screen.getByRole('button',{name:/^Nearby broadcasts · Public/}));
+        const summary = name ? translate('en','names.announcement',{name}) : translate('en','names.withdrawal');
+        expect(screen.getByText(summary)).toBeOnTheScreen();
+        expect(screen.queryByText(text)).toBeNull();
+      });
+    }
+  }
+
+  const protectedContexts: {label:string; overrides:Partial<ChatMessage>}[] = [
+    {label:'private chat',overrides:{destination:'local-device',priority:'normal'}},
+    {label:'private high-priority chat',overrides:{destination:'local-device',priority:'high'}},
+    {label:'public SOS',overrides:{kind:'sos',conversationId:'*',destination:'*'}},
+    ...(['critical','high','low'] as const).map(priority=>({label:`public ${priority} chat`,overrides:{conversationId:'*',destination:'*',priority}})),
+  ];
+  for (const {label,overrides} of protectedContexts) {
+    test(`keeps profile-shaped JSON literal in ${label}`, async () => {
+      const text = JSON.stringify({type:'palmesh-profile',version:1,revision:1,name:'Sara'});
+      const entry = message({text,...overrides});
+      const service = new ReactiveChatService();
+      service.archive = [entry]; service.patch({conversations:[conversation(entry)]});
+      await render(<PalMeshChatApp service={service}/>);
+      if (entry.conversationId==='*') await fireEvent.press(screen.getByRole('button',{name:/^Nearby broadcasts · Public/}));
+      else {
+        expect(screen.getByText(text)).toBeOnTheScreen(); // Direct conversation preview.
+        expect(screen.queryByText('Shared display name: Sara')).toBeNull();
+        await openAlice();
+      }
+      expect(screen.getByText(text)).toBeOnTheScreen();
+      expect(screen.queryByText('Shared display name: Sara')).toBeNull();
+      expect(screen.queryByText('Sender requested removal of their shared name.')).toBeNull();
+    });
+  }
+});
+
 describe('PalMesh chat UI', () => {
   test('subscribes on mount, releases chat lifecycle on unmount, and shows unread inbox', async () => {
     const service = new ReactiveChatService();

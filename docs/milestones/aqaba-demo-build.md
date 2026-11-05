@@ -94,8 +94,8 @@ and is available as [artifact 13418507032](https://github.com/saradaas01/PalMesh
 Its SHA-256 is `d21eb1b0ffaaf2dc1784237e08d73cf8ac1e77b06f088ec036463bbf9c576018`.
 The [verification checkpoint](../verification/aqaba-demo-android.json) records
 its actual source, certificate, ABI and genuine per-tile feature counts.
-Subsequent harness-only commits do not change the application source in that
-APK. Check PR #13 for the final workflow's separate full acceptance results and
-latest artifact. A canceled partial emergency test is not a passing result.
+Later commits add a presentation guard preserving literal profile-shaped JSON
+in private/SOS/elevated messages and harden the automated harness. Check PR #13
+for the final workflow's separate full acceptance results and latest artifact. A canceled partial emergency test is not a passing result.
 If you already installed this checkpoint, preserve it: a newly generated debug
 certificate can prevent replacement even when the application source is the same.
