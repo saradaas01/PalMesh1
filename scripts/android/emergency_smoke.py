@@ -4,7 +4,7 @@ import json,re,time,xml.etree.ElementTree as ET
 import smoke
 from map_smoke import MapSmoke,map_pixels
 from ux_smoke import UxSmoke
-from emergency_gps_provider import EmulatorGpsProvider
+from emergency_gps_provider import EmulatorGpsProvider, SYNTHETIC_COORDINATE_LABEL
 BaseSmoke=smoke.Smoke
 REPORT_ID='80222222-2222-4222-8222-222222222222'
 REPORT_BODIES={
@@ -248,7 +248,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'Location report queued locally. Delivery is not confirmed.'),'explicit one-time share','shared-once.xml');self.press('Dismiss map notice')
   else:
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')
-   self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
+   self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,SYNTHETIC_COORDINATE_LABEL),'original persisted GPS coordinates','retained-gps-coordinates.xml')
    self.open_inbox();self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','retained-missing-location.xml','Location unavailable');self.press_report(REPORT_ID,'View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline map after original SOS focus','retained-map-ready.xml');self.top();self.map_image('restart-sos-map',red=True)
    self.show_report_text(REPORT_ID,'retained-sos-focus.xml')

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from emergency_gps_provider import EmulatorGpsProvider, require_empty_provider
+from emergency_gps_provider import EmulatorGpsProvider, require_empty_provider, SYNTHETIC_COORDINATE_LABEL
 
 
 def empty_dump():
@@ -108,11 +108,14 @@ class EmergencyGpsProviderTests(unittest.TestCase):
             ('shell', 'getprop', 'ro.kernel.qemu'),
             ('shell', 'getprop', 'ro.build.version.sdk'),
             ('shell', 'cmd', 'location', 'providers', 'set-test-provider-location',
-             'gps', '--location', '31.5,34.47', '--accuracy', '8'),
+             'gps', '--location', '29.531,35.006', '--accuracy', '8'),
         ])
         self.assertEqual(provider.injections, 1)
         evidence = json.loads(self.output.joinpath('emulated-gps-provider.json').read_text())
         self.assertEqual(evidence['explicitInjections'], 1)
+        self.assertEqual((evidence['syntheticLatitude'], evidence['syntheticLongitude']), (29.531, 35.006))
+        self.assertEqual(SYNTHETIC_COORDINATE_LABEL, 'Latitude 29.53100, longitude 35.00600')
+        self.assertFalse(evidence['physicalGpsTested'])
 
     def test_injection_before_install_is_refused_without_commands(self):
         runner = Runner(self.output)

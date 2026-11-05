@@ -1,9 +1,7 @@
 name: Candidate Jordan map and Android APK
 on:
-  push:
-    paths:
-      - '.github/workflows/candidate-map-android.yml'
-      - 'scripts/maps/**'
+  # Refresh real OSM data explicitly. Demo builds reuse the reviewed Jordan
+  # artifact and verify it with the current coverage/packaging checks.
   workflow_dispatch:
 permissions:
   contents: read
@@ -54,7 +52,7 @@ jobs:
           name: tilemaker-candidate-provenance
           path: ${{ runner.temp }}/palmesh-tilemaker/source-provenance.json
           retention-days: 14
-      - run: python3 scripts/maps/package.py
+      - run: python3 scripts/maps/package.py --report dist/maps/aqaba-coverage.json
       - uses: ./.github/actions/setup-android
       - run: python3 scripts/android/gradle.py --bundle-debug :app:assembleDebug
       - run: >-
@@ -68,4 +66,5 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk
             dist/android/candidate-map-verification.json
             mapdata/jordan.manifest.json
+            dist/maps/aqaba-coverage.json
           retention-days: 14

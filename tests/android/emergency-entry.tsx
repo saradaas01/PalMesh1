@@ -20,7 +20,7 @@ const runtime=new AppRuntime({permissions,platformRuntime,initiallyForeground:fa
   const entropy=new NativeSecurityVault(NativeModules.PalMeshSecurity);const records=new Map<string,string>();
   const peer=new SecurityService({read:async k=>records.get(k)??null,write:async(k,v)=>{records.set(k,v);},randomBytes:n=>entropy.randomBytes(n)});await peer.initialize();
   await resources.contacts!.add(peer.publicIdentity,'SIMULATED Rescue Contact');const now=Date.now();
-  const payloads=[{text:'SIMULATED SOS old location',location:{latitude:31.500,longitude:34.470,timestamp:now-3600000}},{text:'SIMULATED SOS new location',location:{latitude:31.520,longitude:34.490,timestamp:now-10000}},{text:'SIMULATED SOS no location'}];
+  const payloads=[{text:'SIMULATED SOS old location',location:{latitude:29.531,longitude:35.006,timestamp:now-3600000}},{text:'SIMULATED SOS new location',location:{latitude:29.535,longitude:35.010,timestamp:now-10000}},{text:'SIMULATED SOS no location'}];
   for(let i=0;i<payloads.length;i++){const packet=await peer.seal(createMessage({kind:'sos',payload:payloads[i]!},IDS[i]!,peer.deviceId,now));const accepted=await engine.receive(peer.deviceId,peer.forNextHop(packet)!);if(accepted.status!=='accepted')throw new Error('Synthetic signed acceptance failed');}
  }
  return resources;
