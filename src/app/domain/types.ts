@@ -64,6 +64,8 @@ export interface AppSnapshot {
   readonly permissions: RadioPermissionReport | null;
   readonly radios: Readonly<Partial<Record<RadioKind, RadioStatus>>>;
   readonly connectedPeers: number;
+  /** Ephemeral, bounded diagnostics only. Never contains native errors or peer IDs. */
+  readonly radioDiagnostics?: Readonly<{ readonly transientFailures: number }> | null;
   readonly requestingPermissions: boolean;
   readonly pendingSos: boolean;
   readonly powerMode: PowerMode;
@@ -74,6 +76,6 @@ export interface AppSnapshot {
   readonly automaticPowerMode: boolean;
   readonly alertsEnabled: boolean | null;
   readonly alertsBusy: boolean;
-  readonly issue: 'startup-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'sos-limited' | 'background-unavailable' | 'alerts-unavailable' | null;
+  readonly issue: 'startup-failed' | 'shutdown-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'sos-limited' | 'background-unavailable' | 'alerts-unavailable' | null;
   readonly notice: 'sos-queued' | null;
 }

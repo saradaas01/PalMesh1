@@ -364,5 +364,9 @@ export const ar = {
   "chat.timestamp.unavailable": "الوقت غير متاح",
   "chat.timestamp.unverified": "الوقت من جهاز المرسل؛ قد تكون ساعة جهازه غير دقيقة.",
   "chat.timestamp.clockWarning": "قد تكون ساعة المرسل غير دقيقة",
+  "app.diagnostics": "تشخيص الاتصالات",
+  "app.radioTroubleSummary": "انقطاعات اتصال مؤقتة مسجلة: {count}",
+  "app.radioTroubleHelp": "تعمل استعادة الاتصال تلقائيًا. لا تتضمن هذه الأعداد محتوى الرسائل أو معرّفات الأجهزة.",
+  "app.issue.shutdown-failed": "تعذّر إيقاف جميع خدمات بالمِش. أعد فتح التطبيق دون مسح البيانات المحفوظة.",
 
 } satisfies Readonly<Record<TranslationKey, string>>;

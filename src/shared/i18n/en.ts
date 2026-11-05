@@ -362,6 +362,10 @@ export const en = {
   "chat.timestamp.unavailable": "Time unavailable",
   "chat.timestamp.unverified": "Sender-assigned time; the sender’s clock may be inaccurate.",
   "chat.timestamp.clockWarning": "Sender clock may be inaccurate",
+  "app.diagnostics": "Connection diagnostics",
+  "app.radioTroubleSummary": "Transient radio interruptions recorded: {count}",
+  "app.radioTroubleHelp": "Recovery runs automatically. These counts contain no message contents or peer identifiers.",
+  "app.issue.shutdown-failed": "PalMesh could not finish stopping its services. Reopen the app without clearing saved data.",
 
 } as const;
 

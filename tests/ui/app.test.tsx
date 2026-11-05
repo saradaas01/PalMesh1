@@ -287,6 +287,49 @@ describe('PalMesh app shell', () => {
     expect(screen.queryByRole('button', { name: 'Connect nearby' })).toBeNull();
   });
 
+  test('keeps transient radio interruptions passive and makes only sanitized diagnostics optional', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    await act(async () => { runtime.patch({ issue: 'radio-error', radioDiagnostics: { transientFailures: 3 },
+      radios: { ble: { available: true }, 'wifi-direct': { available: true } } }); });
+    expect(screen.queryByText(en['app.issue.radio-error'])).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Dismiss app error' })).toBeNull();
+    expect(screen.getByText('Waiting to connect')).toBeOnTheScreen();
+    expect(screen.queryByText(/connected mesh peers/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'I Need Help · SOS' })).toBeEnabled();
+    await fireEvent.press(screen.getByRole('tab', { name: 'More' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.queryByText('Transient radio interruptions recorded: 3')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Connection diagnostics' }));
+    expect(screen.getByText('Transient radio interruptions recorded: 3')).toBeOnTheScreen();
+    expect(screen.queryByText(/private-message|signingSecret|native-path|pm1:/)).toBeNull();
+    expect(runtime.dismissIssue).not.toHaveBeenCalled();
+  });
+
+  test('connection counts describe authenticated sessions rather than available radios', async () => {
+    const runtime = new RuntimeDouble();
+    await render(<PalMeshApp runtime={runtime} />);
+    await act(async () => { runtime.patch({ radios: { ble: { available: true } }, connectedPeers: 0 }); });
+    expect(screen.getByText('Waiting to connect')).toBeOnTheScreen();
+    await act(async () => { runtime.patch({ connectedPeers: 2 }); });
+    expect(screen.getByText('2 connected mesh peers')).toBeOnTheScreen();
+    expect(screen.queryByText('Waiting to connect')).toBeNull();
+    await act(async () => { runtime.patch({ connectedPeers: 0 }); });
+    expect(screen.getByText('Waiting to connect')).toBeOnTheScreen();
+  });
+
+  for (const issue of ['queue-full', 'sos-unavailable', 'sos-limited', 'permissions-unavailable',
+    'alerts-unavailable', 'shutdown-failed'] as const) {
+    test(`keeps ${issue} feedback visible despite passive radio diagnostics`, async () => {
+      const runtime = new RuntimeDouble();
+      await render(<PalMeshApp runtime={runtime} />);
+      await act(async () => { runtime.patch({ issue, radioDiagnostics: { transientFailures: 4 } }); });
+      expect(screen.getByText(en[`app.issue.${issue}`])).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Dismiss app error' })).toBeOnTheScreen();
+      expect(screen.queryByText('SOS queued on this device. Receipt or assistance is not confirmed.')).toBeNull();
+    });
+  }
+
   test('routes map low-battery mode through the runtime to both routing and location services', async () => {
     const runtime = new RuntimeDouble();
     await render(<PalMeshApp runtime={runtime} />);
