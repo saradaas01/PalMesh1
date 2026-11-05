@@ -69,4 +69,3 @@ def isolate_emulator_network(runner) -> None:
             return
         time.sleep(2)
     raise RuntimeError('Emulator offline isolation failed; inspect offline-connectivity.txt and radio-settings.json')
-
