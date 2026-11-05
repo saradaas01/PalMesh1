@@ -10,6 +10,8 @@ import { LocalizedText as Text, useI18n, type TranslationKey } from '../../../sh
 import { isPeerId } from '../../dtn/domain/validation';
 import { deliveryState } from '../domain/messages';
 import { MessageTimestamp } from './MessageTimestamp';
+import {IdentityName} from '../../contacts/IdentityName';
+import { parseProfileAnnouncement } from '../../contacts/profilePayload';
 import type { ChatDeliveryState, ChatIssue, ChatMessage, Conversation, UnreadUrgency } from '../domain/types';
 import type { MessagePriority } from '../../dtn/domain/types';
 import { ChatProvider, type ChatUiService, useChat } from './ChatProvider';
@@ -47,6 +49,8 @@ const urgencyLabels: Readonly<Record<UnreadUrgency, TranslationKey>> = {
 };
 
 // Manual choices cycle through every priority, then return to the AI estimate.
+function messageSummary(text:string,t:ReturnType<typeof useI18n>['t']):string {const profile=parseProfileAnnouncement(text);return profile?profile.name?t('names.announcement',{name:profile.name}):t('names.withdrawal'):text;}
+
 const overrideCycle: readonly (MessagePriority | null)[] = [null, 'critical', 'high', 'normal', 'low'];
 
 function PriorityChip({ priority }: { readonly priority: MessagePriority | 'sos' }): React.JSX.Element {
@@ -74,7 +78,7 @@ function ConversationRow({ item, onOpen }: {
   const unread = item.unreadCount > 0 ? `, ${t('chat.unread', { count: item.unreadCount })}` : '';
   const urgency = item.unreadUrgency ? `, ${t(urgencyLabels[item.unreadUrgency])}` : '';
   return <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat.openConversation',{title:accessibleTitle})}${unread}${urgency}`} onPress={()=>onOpen(item.id)} style={[styles.conversation, item.unreadUrgency && styles.urgentConversation]}>
-    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text><MessageTimestamp createdAt={item.lastMessage.createdAt} receivedAt={item.lastMessage.receivedAt} style={styles.messageMeta} testID={`conversation-time-${item.id}`}/></View>
+    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{messageSummary(item.lastMessage.text,t)}</Text><MessageTimestamp createdAt={item.lastMessage.createdAt} receivedAt={item.lastMessage.receivedAt} style={styles.messageMeta} testID={`conversation-time-${item.id}`}/></View>
   </Pressable>;
 }
 
@@ -91,9 +95,9 @@ function MessageBubble({ message, deviceId, now }: {
       (message.kind === 'sos' || elevated === 'critical') && styles.emergencyMessage, elevated === 'high' && styles.urgentMessage]}>
       <View style={[styles.row, styles.wrap]}>
         {elevated && <PriorityChip priority={elevated} />}
-        <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+        {message.outgoing?<Text style={styles.messageSender}>{message.kind==='sos'?'SOS · ':''}{sender}</Text>:<IdentityName id={message.source} label={(message.kind==='sos'?'SOS · ':'')+sender} style={styles.messageSender}/>}
       </View>
-      <Text selectable style={styles.messageText}>{message.text}</Text>
+      <Text selectable style={styles.messageText}>{messageSummary(message.text,t)}</Text>
       <View style={[styles.row,styles.wrap]}><MessageTimestamp createdAt={message.createdAt} receivedAt={message.receivedAt} style={styles.messageMeta} testID={`message-time-${message.id}`}/><Text style={styles.messageMeta}>{` · ${status}`}</Text></View>
     </View>
   );

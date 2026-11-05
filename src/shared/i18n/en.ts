@@ -367,7 +367,28 @@ export const en = {
   "app.radioTroubleHelp": "Recovery runs automatically. These counts contain no message contents or peer identifiers.",
   "app.issue.shutdown-failed": "PalMesh could not finish stopping its services. Reopen the app without clearing saved data.",
 
+  "names.sharingError": "Name sharing needs attention. Your local name and messages are kept.",
+  "names.sharingTitle": "Name sharing · Public to the mesh",
+  "names.publicHelp": "Off by default. If enabled, your saved name is signed and shared publicly through the mesh, including relays. Turning it off requests removal but cannot erase copies already received.",
+  "names.sharePublic": "Share my name with the mesh",
+  "names.needName": "Save an optional display name first.",
+  "names.selfDeclared": "Self-declared name authenticated to this fingerprint; verify the person separately.",
+  "names.shared": "Shared name",
+  "names.retry": "Retry name update",
+  "names.queued": "Name update queued locally. Delivery is not confirmed.",
+  "names.announcement": "Shared display name: {name}",
+  "names.withdrawal": "Sender requested removal of their shared name.",
+  "contacts.shared": "Self-declared shared name · fingerprint not compared",
+
   "ai.estimateDisclaimer": "Local estimate; not a diagnosis.",
+
+  "names.openIdentity": "Sender identity: {name}",
+  "names.identityDetails": "Sender identity details",
+  "names.closeIdentity": "Close identity details",
+
+  "names.fingerprintHelp": "A fingerprint identifies keys, not a person’s real-world identity.",
+  "names.localAnnotation": "This nickname was chosen on this device.",
+
 } as const;
 
 export type TranslationKey = keyof typeof en;

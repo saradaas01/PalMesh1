@@ -1,5 +1,6 @@
 import type { OnboardingPreferences } from '../../features/onboarding/OnboardingPreferences';
 import type { ContactDirectory } from '../../features/contacts/ContactDirectory';
+import type { SharedProfileService } from '../../features/contacts/SharedProfileService';
 import type { ChatService } from '../../features/chat';
 import type { LocationService } from '../../features/maps';
 import type { AcceptResult, OutgoingMessage, PeerId, PowerMode } from '../../features/dtn';
@@ -42,6 +43,7 @@ export interface AppNode {
 
 export interface RuntimeResources {
   readonly contacts?: ContactDirectory;
+  readonly names?: SharedProfileService;
   readonly onboarding?: OnboardingPreferences;
   readonly deviceId: PeerId;
   readonly node: AppNode;

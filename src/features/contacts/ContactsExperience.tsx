@@ -8,13 +8,13 @@ function Action({label,onPress,disabled=false}:{readonly label:string;readonly o
  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={[styles.button,disabled && {opacity:0.5}]}><Text style={styles.text}>{label}</Text></Pressable>;
 }
 function ContactRow({entry,service,onOpen}:{readonly entry:ContactEntry;readonly service:ContactDirectory;readonly onOpen:(id:string)=>Promise<void>}) {
- const {t}=useI18n(); const [name,setName]=useState(entry.name); const [full,setFull]=useState(false); const [busy,setBusy]=useState(false);const [failed,setFailed]=useState(false);
+ const {t}=useI18n(); const {label,origin}=useContactNames(); const [name,setName]=useState(entry.name); const [full,setFull]=useState(false); const [busy,setBusy]=useState(false);const [failed,setFailed]=useState(false);
  const dirty=useRef(false);
  useEffect(()=>{if(!dirty.current)setName(entry.name);},[entry.name]);
  const lock=useRef(false);
  const run=async(operation:()=>Promise<unknown>)=>{if(lock.current)return;lock.current=true;setBusy(true);setFailed(false);try{await operation();}catch{setFailed(true);}finally{lock.current=false;setBusy(false);}};
  return <View style={styles.card}>
-  <Text accessibilityRole="header" style={styles.title}>{entry.name || shortIdentity(entry.id)}</Text>
+  <Text accessibilityRole="header" style={styles.title}>{label(entry.id)}</Text>{origin(entry.id)==='shared'&&<Text style={styles.warning}>{t('names.selfDeclared')}</Text>}
   <Text style={styles.id}>{shortIdentity(entry.id)}</Text>
   <Text style={styles.text}>{t(entry.compared?'contacts.compared':'contacts.saved')}</Text>
   {entry.duplicateName && <Text style={styles.warning}>{t('contacts.duplicate')}</Text>}
@@ -28,7 +28,7 @@ function ContactRow({entry,service,onOpen}:{readonly entry:ContactEntry;readonly
  </View>;
 }
 export function ContactsExperience({service,security,onOpen}:{readonly service:ContactDirectory;readonly security:IdentityDirectory;readonly onOpen:(id:string)=>Promise<void>}) {
- const {t}=useI18n();const {state}=useContactNames();
+ const {t}=useI18n();const {state,label}=useContactNames();
  const [profile,setProfile]=useState(state.profileName);const [name,setName]=useState('');const [input,setInput]=useState('');const [advanced,setAdvanced]=useState(false);const [qr,setQr]=useState(false);const [search,setSearch]=useState('');const [limit,setLimit]=useState(25);
  const [noticeArea,setNoticeArea]=useState<'profile'|'import'>('import');
  const [busy,setBusy]=useState(false);const lock=useRef(false);const [notice,setNotice]=useState<'error'|'partial'|'existing'|'savedNotice'|null>(null);
@@ -37,7 +37,7 @@ export function ContactsExperience({service,security,onOpen}:{readonly service:C
  const run=async(operation:()=>Promise<void>,area:'profile'|'import'='import')=>{if(lock.current)return;lock.current=true;setBusy(true);setNoticeArea(area);setNotice(null);try{await operation();}catch{setNotice('error');}finally{lock.current=false;setBusy(false);}};
  const scan=async()=>{const native=NativeModules.PalMeshPublicQr as {scanImage?:()=>Promise<string|null>}|undefined;if(!native?.scanImage)throw new Error('Unavailable');const text=await native.scanImage();if(text===null)return;const candidate=parsePublicIdentity(text);setInput(publicIdentityShare(candidate.identity,candidate.id));};
  const feedback=notice ? <Text accessibilityRole={notice==='error'||notice==='partial'?'alert':undefined} accessibilityLiveRegion="polite" style={styles.warning}>{t(`contacts.${notice}`)}</Text> : null;
- const contacts=state.contacts.filter(entry=>`${entry.name} ${entry.id}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const contacts=state.contacts.filter(entry=>`${label(entry.id)} ${entry.id}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  return <View style={styles.container}>
   <Text accessibilityRole="header" style={styles.title}>{t('app.myFingerprint')}</Text><Text selectable accessibilityLabel={t('app.myFingerprint')} style={styles.id}>{security.deviceId}</Text>
   <Text style={styles.warning}>{t('contacts.guide')}</Text>

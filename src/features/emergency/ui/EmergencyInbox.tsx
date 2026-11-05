@@ -1,7 +1,9 @@
+import {IdentityName} from '../../contacts/IdentityName';
 import {LocationDetails} from '../../maps/ui/LocationDetails';
 import {sosLocation} from '../../maps/domain/emergencyMap';
 import { Action, Disclosure, ui, palette } from '../../../shared/ui/design';
 import { useContactNames } from '../../contacts/ContactNames';
+import {MessageTimestamp} from '../../chat/ui/MessageTimestamp';
 import React, { useSyncExternalStore } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { LocalizedText, reportAge, useI18n } from '../../../shared/i18n';
@@ -55,10 +57,10 @@ function EmergencyCard({ entry, now, pending, service,onViewMap }: {
   const expired = entry.expiresAt <= now;
   return <View style={styles.card} testID={`sos-entry-${entry.id}`}>
     <LocalizedText accessibilityRole="header" style={styles.cardTitle}>{t(entry.outgoing ? 'emergency.outgoing' : 'emergency.incoming')}</LocalizedText>
-    <LocalizedText selectable style={styles.text}>{t('emergency.from', { source: names.label(entry.source) })}</LocalizedText>
+    <IdentityName id={entry.source} label={t('emergency.from',{source:names.label(entry.source)})} style={styles.text}/>{names.origin(entry.source)==='shared'&&<LocalizedText style={styles.dim}>{t('names.selfDeclared')}</LocalizedText>}
     <LocalizedText style={styles.dim}>{t('emergency.age', { age: reportAge(entry.receivedAt, now, t) })}</LocalizedText>
     <LocalizedText selectable style={styles.body}>{entry.text}</LocalizedText>
-    <LocalizedText style={styles.dim}>{t('emMap.reported',{time:new Date(entry.createdAt).toLocaleString(language==='ar'?'ar-JO':'en-GB',{timeZone:'Asia/Amman',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})})}</LocalizedText>
+    <MessageTimestamp createdAt={entry.createdAt} receivedAt={entry.receivedAt} style={styles.dim}/>
     {sosLocation(entry,now)?<><LocationDetails location={sosLocation(entry,now)!} now={now}/>{onViewMap&&<Action label={t('emMap.view')} onPress={()=>onViewMap(entry.id)}/>}</>:<LocalizedText style={styles.dim}>{t('emMap.unavailable')}</LocalizedText>}
     {entry.responses.map(response => <LocalizedText key={response.id} style={styles.response}>
       {t('emergency.responding', { responder: names.label(response.responder) })}

@@ -1,5 +1,6 @@
 import { identityFingerprint } from '../security/application/SecurityService';
 import type { PublicIdentity, SecurityVault } from '../security/domain/types';
+import type { SharedProfileService, SharedProfileSnapshot } from './SharedProfileService';
 
 const RECORD = 'contact-profile-v1';
 const MAX_CONTACTS = 256;
@@ -14,6 +15,7 @@ export interface ContactEntry { readonly id: string; readonly name: string; read
 export interface ContactSnapshot {
   readonly profileName: string; readonly contacts: readonly ContactEntry[];
   readonly loaded: boolean; readonly saving: boolean; readonly error: boolean;
+  readonly nameSharing?: SharedProfileSnapshot;
 }
 interface Label { readonly id: string; readonly name: string; readonly compared: boolean }
 interface Metadata { readonly profileName: string; readonly entries: readonly Label[] }
@@ -75,10 +77,25 @@ export class ContactDirectory {
   private importWork: Promise<unknown> = Promise.resolve();
   private work: Promise<unknown> = Promise.resolve();
   private listeners = new Set<() => void>();
+  private sharing: SharedProfileService | undefined;
   private state: ContactSnapshot = Object.freeze({profileName:'',contacts:Object.freeze([]),loaded:false,saving:false,error:false});
   constructor(private readonly security: IdentityDirectory, private readonly vault: Pick<SecurityVault,'read'|'write'>) {}
   getSnapshot = (): ContactSnapshot => this.state;
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  connectSharedProfiles(service: SharedProfileService): void {
+    if (this.sharing && this.sharing !== service) throw new TypeError('Shared profiles already bound');
+    if (this.sharing) return;
+    this.sharing = service;
+    service.subscribe(() => this.publish());
+    this.publish();
+  }
+  setNameSharing(enabled: boolean): Promise<void> {
+    return this.sharing ? this.sharing.setSharing(enabled) : Promise.reject(new Error('Name sharing unavailable'));
+  }
+  retryNameSharing(): Promise<void> {
+    return this.sharing ? this.sharing.setSharing(this.sharing.getSnapshot().sharingEnabled)
+      : Promise.reject(new Error('Name sharing unavailable'));
+  }
   initialize = (): Promise<void> => {
     const task = this.work.catch(() => undefined).then(async () => {
     try {
@@ -128,7 +145,11 @@ export class ContactDirectory {
   }
   setProfileName(name: string): Promise<void> {
     const normalized = normalizeName(name);
-    return this.mutate(metadata => ({...metadata,profileName:normalized}));
+    return this.mutate(metadata => ({...metadata,profileName:normalized})).then(async () => {
+      // A failed announcement cannot undo or misreport a durable local edit.
+      // Its separate sharing error remains visible in the profile controls.
+      if (this.sharing?.getSnapshot().sharingEnabled) await this.sharing.shareCurrent().catch(() => undefined);
+    });
   }
   rename(id: string, name: string): Promise<void> {
     const normalized = normalizeName(name);
@@ -168,9 +189,13 @@ export class ContactDirectory {
     const contacts = this.security.savedPeerIds().map(id => ({id,name:labels.get(id)?.name ?? '',compared:labels.get(id)?.compared ?? false}));
     const names = new Map<string,number>();
     const canonical = (name: string): string => name.normalize('NFKC').toLocaleLowerCase('en-US');
-    for (const contact of contacts) if (contact.name) names.set(canonical(contact.name),(names.get(canonical(contact.name)) ?? 0)+1);
+    const shared = new Map((this.sharing?.getSnapshot().peers ?? []).filter(peer=>peer.name).map(peer=>[peer.id,peer.name]));
+    for (const contact of contacts) {const name=contact.name||shared.get(contact.id);if(name)names.set(canonical(name),(names.get(canonical(name))??0)+1);}
+    const savedIds=new Set(contacts.map(contact=>contact.id));
+    for(const [id,name] of shared)if(!savedIds.has(id))names.set(canonical(name),(names.get(canonical(name))??0)+1);
     this.state = Object.freeze({profileName:this.metadata.profileName,loaded:this.loaded,saving:this.pending>0 || this.importsPending>0,error:this.failed,
-      contacts:Object.freeze(contacts.map(entry => Object.freeze({...entry,duplicateName:!!entry.name && (names.get(canonical(entry.name)) ?? 0)>1}))) });
+      ...(this.sharing ? {nameSharing:this.sharing.getSnapshot()} : {}),
+      contacts:Object.freeze(contacts.map(entry => Object.freeze({...entry,duplicateName:!!(entry.name||shared.get(entry.id)) && (names.get(canonical(entry.name||shared.get(entry.id)!)) ?? 0)>1}))) });
     for (const listener of this.listeners) { try { listener(); } catch { /* UI cannot invalidate a durable write. */ } }
   }
 }

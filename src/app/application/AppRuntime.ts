@@ -80,7 +80,7 @@ export class AppRuntime {
         // independently avoids ever starting radios in an initial background launch.
         await resources.node.engine.start();
         if (!this.live(generation)) return;
-        const features = await Promise.allSettled([resources.chat.start(), resources.locations.start(), resources.emergency?.start()]);
+        const features = await Promise.allSettled([resources.chat.start(), resources.locations.start(), resources.emergency?.start(), resources.names?.start()]);
         const failure = features.find(result => result.status === 'rejected');
         if (failure?.status === 'rejected') throw failure.reason;
         if (!this.live(generation)) return;
@@ -334,6 +334,7 @@ export class AppRuntime {
         Promise.resolve().then(() => resources.chat.stop()),
         Promise.resolve().then(() => resources.locations.stop()),
         Promise.resolve().then(() => resources.emergency?.stop()),
+        Promise.resolve().then(() => resources.names?.stop()),
       ]);
       const node = await Promise.allSettled([Promise.resolve().then(() => resources.node.stop())]);
       const released = await Promise.allSettled([Promise.resolve().then(() => resources.release())]);
