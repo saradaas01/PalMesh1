@@ -357,6 +357,12 @@ export const en = {
 
   "emMap.public": "SOS and shared locations are public to mesh participants.",
   "emMap.allowLocation": "Allow location access",
+  "chat.timestamp.sender": "Sender time: {time}",
+  "chat.timestamp.received": "Stored on this device: {time}",
+  "chat.timestamp.unavailable": "Time unavailable",
+  "chat.timestamp.unverified": "Sender-assigned time; the sender’s clock may be inaccurate.",
+  "chat.timestamp.clockWarning": "Sender clock may be inaccurate",
+
 } as const;
 
 export type TranslationKey = keyof typeof en;

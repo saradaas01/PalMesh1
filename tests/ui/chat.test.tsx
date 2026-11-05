@@ -7,6 +7,8 @@ import type { ChatActionResult, ChatMessage, ChatSnapshot, Conversation } from '
 import type { MessagePriority } from '../../src/features/dtn/domain/types';
 import { PalMeshChatApp } from '../../src/features/chat/ui/PalMeshChatApp';
 import type { ChatUiService } from '../../src/features/chat/ui/ChatProvider';
+import { translate } from '../../src/shared/i18n';
+import { formatMessageTimestamps } from '../../src/shared/time/messageTimestamps';
 
 const NOW = 1_800_000_000_000;
 const initialAppState = AppState.currentState;
@@ -90,6 +92,28 @@ class ReactiveChatService implements ChatUiService {
 async function openAlice(): Promise<void> {
   await fireEvent.press(screen.getByRole('button', { name: 'Open conversation with peer-alice, 1 unread' }));
 }
+
+test('delayed message bubbles and conversation previews display original sender time, keeping receipt separate', async () => {
+  const createdAt = Date.UTC(2026, 10, 5, 10);
+  const receivedAt = createdAt + 25 * 60_000;
+  const delayed = message({ createdAt, receivedAt });
+  const service = new ReactiveChatService();
+  service.archive = [delayed];
+  service.patch({ conversations: [conversation(delayed)], now: receivedAt });
+  const formatted = formatMessageTimestamps({ createdAt, receivedAt });
+  const senderLabel = translate('en', 'chat.timestamp.sender', { time: formatted.sent! });
+  const receiptLabel = translate('en', 'chat.timestamp.received', { time: formatted.received! });
+  await render(<PalMeshChatApp service={service} />);
+  const preview = screen.getByTestId('conversation-time-peer-alice');
+  expect(preview).toHaveTextContent(senderLabel);
+  expect(preview).not.toHaveTextContent(receiptLabel);
+  expect(preview).toHaveProp('accessibilityLabel', expect.stringContaining(receiptLabel));
+  await openAlice();
+  const bubble = screen.getByTestId('message-time-first-message');
+  expect(bubble).toHaveTextContent(senderLabel);
+  expect(bubble).not.toHaveTextContent(receiptLabel);
+  expect(bubble).toHaveProp('accessibilityLabel', expect.stringContaining(receiptLabel));
+});
 
 describe('PalMesh chat UI', () => {
   test('subscribes on mount, releases chat lifecycle on unmount, and shows unread inbox', async () => {

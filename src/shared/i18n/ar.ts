@@ -359,4 +359,10 @@ export const ar = {
 
   "emMap.public": "الاستغاثة والمواقع المشتركة علنية للمشاركين في الشبكة.",
   "emMap.allowLocation": "السماح بالوصول إلى الموقع",
+  "chat.timestamp.sender": "وقت المرسل: {time}",
+  "chat.timestamp.received": "حُفظ على هذا الجهاز: {time}",
+  "chat.timestamp.unavailable": "الوقت غير متاح",
+  "chat.timestamp.unverified": "الوقت من جهاز المرسل؛ قد تكون ساعة جهازه غير دقيقة.",
+  "chat.timestamp.clockWarning": "قد تكون ساعة المرسل غير دقيقة",
+
 } satisfies Readonly<Record<TranslationKey, string>>;

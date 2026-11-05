@@ -9,6 +9,7 @@ import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-nati
 import { LocalizedText as Text, useI18n, type TranslationKey } from '../../../shared/i18n';
 import { isPeerId } from '../../dtn/domain/validation';
 import { deliveryState } from '../domain/messages';
+import { MessageTimestamp } from './MessageTimestamp';
 import type { ChatDeliveryState, ChatIssue, ChatMessage, Conversation, UnreadUrgency } from '../domain/types';
 import type { MessagePriority } from '../../dtn/domain/types';
 import { ChatProvider, type ChatUiService, useChat } from './ChatProvider';
@@ -73,16 +74,15 @@ function ConversationRow({ item, onOpen }: {
   const unread = item.unreadCount > 0 ? `, ${t('chat.unread', { count: item.unreadCount })}` : '';
   const urgency = item.unreadUrgency ? `, ${t(urgencyLabels[item.unreadUrgency])}` : '';
   return <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat.openConversation',{title:accessibleTitle})}${unread}${urgency}`} onPress={()=>onOpen(item.id)} style={[styles.conversation, item.unreadUrgency && styles.urgentConversation]}>
-    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text></View>
+    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text><MessageTimestamp createdAt={item.lastMessage.createdAt} receivedAt={item.lastMessage.receivedAt} style={styles.messageMeta} testID={`conversation-time-${item.id}`}/></View>
   </Pressable>;
 }
 
 function MessageBubble({ message, deviceId, now }: {
   readonly message: ChatMessage; readonly deviceId: string; readonly now: number;
 }): React.JSX.Element {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const status = t(deliveryLabels[deliveryState(message, deviceId, now)]);
-  const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-JO' : 'en', { hour: '2-digit', minute: '2-digit' });
   const names = useContactNames();
   const sender = message.outgoing ? t('chat.you') : names.label(message.source);
   const elevated = message.kind === 'chat' && (message.priority === 'critical' || message.priority === 'high') ? message.priority : null;
@@ -94,7 +94,7 @@ function MessageBubble({ message, deviceId, now }: {
         <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
       </View>
       <Text selectable style={styles.messageText}>{message.text}</Text>
-      <Text style={styles.messageMeta}>{time} · {status}</Text>
+      <View style={[styles.row,styles.wrap]}><MessageTimestamp createdAt={message.createdAt} receivedAt={message.receivedAt} style={styles.messageMeta} testID={`message-time-${message.id}`}/><Text style={styles.messageMeta}>{` · ${status}`}</Text></View>
     </View>
   );
 }
