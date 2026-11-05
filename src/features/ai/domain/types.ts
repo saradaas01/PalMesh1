@@ -16,8 +16,9 @@ export interface PriorityModel {
  * not a diagnosis and does not prove that anyone needs or will receive help. */
 export interface PriorityAssessment {
   readonly priority: MessagePriority;
-  /** Probability of the chosen priority, from 0 to 1. */
+  /** Relative model strength, from 0 to 1; not calibrated danger probability. */
   readonly confidence: number;
+  /** Normalized model shares for comparison, not clinical risk probabilities. */
   readonly scores: Readonly<Record<MessagePriority, number>>;
   /** Short normalized words or phrases that explain the estimate. */
   readonly signals: readonly string[];

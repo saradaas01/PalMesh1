@@ -1,5 +1,6 @@
 import { OnboardingPreferences } from '../../features/onboarding/OnboardingPreferences';
 import { ContactDirectory } from '../../features/contacts/ContactDirectory';
+import { SharedProfileService } from '../../features/contacts/SharedProfileService';
 import { open, isSQLCipher, type DB } from '@op-engineering/op-sqlite';
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
@@ -123,6 +124,8 @@ export async function createNativeResources(options: CreateNativeResourcesOption
         }),
       ],
     });
+    const names = new SharedProfileService({engine:node.engine,security,vault,getName:()=>contacts.getSnapshot().profileName});
+    contacts.connectSharedProfiles(names);
     const chat = new ChatService({ engine: node.engine, mesh: node.mesh, repository: chatRepository, classifier: createPriorityClassifier() });
     const locations = new LocationService({
       engine: node.engine,
@@ -132,7 +135,7 @@ export async function createNativeResources(options: CreateNativeResourcesOption
     });
     const emergency = new EmergencyService({ engine: node.engine, repository: emergencyRepository,
       ...(options.alerts ? { alerts: options.alerts } : {}) });
-    return { deviceId, node, chat, locations, emergency, security, contacts, onboarding, release };
+    return { deviceId, node, chat, locations, emergency, security, contacts, names, onboarding, release };
   } catch (error) {
     // Preserve the cause of bootstrap failure even when native cleanup also
     // fails. Every remaining handle is still given a chance to close.

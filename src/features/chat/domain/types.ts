@@ -20,7 +20,9 @@ export interface ChatMessage {
   readonly destination: PeerId | '*';
   readonly kind: 'chat' | 'sos';
   readonly text: string;
+  /** Original sender-assigned signed time, displayed as a claim rather than a trusted clock. */
   readonly createdAt: number;
+  /** First local storage time. Retries, archive refresh and custody ACKs never replace it. */
   readonly receivedAt: number;
   readonly expiresAt: number;
   readonly outgoing: boolean;

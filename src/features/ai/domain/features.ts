@@ -3,7 +3,8 @@
 
 const DIACRITICS = /[ؐ-ًؚ-ٰٟۖ-ۭ]/g;
 const TATWEEL = /ـ/g;
-const MAX_FEATURE_TEXT = 1_024;
+// Process the complete wire-validated body, including danger near its end.
+const MAX_FEATURE_TEXT = 4_096;
 
 export function normalizeText(text: string): string {
   return text.slice(0, MAX_FEATURE_TEXT).toLowerCase()
@@ -16,7 +17,7 @@ export function normalizeText(text: string): string {
     .replace(/[^a-z0-9ء-ي]+/g, ' ')
     // Elongation ("helppp", "ساعدوووني", "ههههه") carries emphasis, not new words.
     .replace(/(.)\1{2,}/g, '$1$1')
-    .trim();
+    .trim().replace(/\s+/g, ' ');
 }
 
 export function tokenize(text: string): string[] {

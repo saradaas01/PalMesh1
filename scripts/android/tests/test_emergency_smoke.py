@@ -1,9 +1,9 @@
 """Scrollable geometry must come from the actual padded/native hierarchy."""
-import json,sys,unittest
+import json,sys,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from emergency_smoke import scroll_surface, report_control, report_label_visible, EmergencySmoke, REPORT_ID, REPORT_BODIES
-from unittest.mock import Mock,patch
+from unittest.mock import Mock,patch,patch
 
 def native_card(body,heading='Incoming SOS',button=True,button_bounds='[48,780][672,852]',resource_id=''):
  return f'''<node class="android.view.ViewGroup" resource-id="{resource_id}" scrollable="false" bounds="[24,500][696,950]">
@@ -19,6 +19,27 @@ def native_inbox(*cards):
  return '<hierarchy><node class="android.view.ViewGroup" bounds="[0,0][720,1280]"><node class="android.widget.TextView" text="SOS inbox" bounds="[24,230][696,290]"/><node class="androidx.recyclerview.widget.RecyclerView" scrollable="true" bounds="[24,480][696,1109]">'+''.join(cards)+'</node></node></hierarchy>'
 
 class EmergencyScrollTests(unittest.TestCase):
+ def test_second_sos_waits_for_real_sender_cooldown_without_changing_limits(self):
+  harness=object.__new__(EmergencySmoke);harness.sos_queued_at=100;harness.tap=Mock();harness.wait_ui=Mock()
+  with patch('emergency_smoke.time.monotonic',return_value=130),patch('emergency_smoke.time.sleep') as waiting:
+   harness.queue_sos()
+  self.assertAlmostEqual(sum(call.args[0] for call in waiting.call_args_list),91)
+  self.assertTrue(all(call.args[0]<=10 for call in waiting.call_args_list))
+  harness.tap.assert_any_call('I Need Help · SOS');harness.wait_ui.assert_called_once()
+
+ def test_restart_checks_the_exact_injected_aqaba_location(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   harness=object.__new__(EmergencySmoke);harness.output=Path(temporary)
+   for method in ('finish_guide','tap','top','press','open_inbox','show_report_text','press_report','map_image'):
+    setattr(harness,method,Mock())
+   harness.wait_ui=Mock(return_value='')
+   with patch('emergency_smoke.BaseSmoke.launch',return_value=''),patch('builtins.print'):
+    harness.launch('second')
+   check_coordinates=next(call.args[0] for call in harness.wait_ui.call_args_list if call.args[1]=='original persisted GPS coordinates')
+   self.assertTrue(check_coordinates('<hierarchy><node text="Latitude 29.53100, longitude 35.00600"/></hierarchy>'))
+   self.assertFalse(check_coordinates('<hierarchy><node text="Latitude 31.50000, longitude 34.47000"/></hierarchy>'))
+   self.assertFalse(check_coordinates('<hierarchy><node text="Latitude 29.53500, longitude 35.01000"/></hierarchy>'))
+
  def test_missing_location_label_is_bound_to_its_original_card_among_outgoing_reports(self):
   missing_id='80333333-3333-4333-8333-333333333333'
   xml=native_inbox('<node resource-id="sos-entry-outgoing" bounds="[24,480][696,650]"/><node text="Location unavailable" bounds="[48,550][672,582]"/><node resource-id="sos-entry-'+missing_id+'" bounds="[24,674][696,1000]"/><node text="SIMULATED SOS no location" bounds="[48,700][672,740]"/>')

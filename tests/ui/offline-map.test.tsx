@@ -29,7 +29,7 @@ jest.mock('@maplibre/maplibre-react-native', () => {
 });
 const descriptor = { tileUrlTemplate: `http://127.0.0.1:23001/${'a'.repeat(32)}/{z}/{x}/{y}.pbf`,
   glyphUrlTemplate: `http://127.0.0.1:23001/${'a'.repeat(32)}/fonts/{fontstack}/{range}.pbf`,
-  bounds: [34.15, 31.15, 35.65, 32.65] as const, minZoom: 6, maxZoom: 14,
+  bounds: [34.85, 29.10, 39.35, 33.45] as const, minZoom: 6, maxZoom: 14,
   sourceLayers: ['transportation', 'place'], attribution: '© OpenStreetMap contributors' };
 const originalPlatform = Platform.OS;
 const originalModule = NativeModules.PalMeshOfflineMaps;
@@ -54,6 +54,16 @@ test('unrelated updates preserve native camera constraint and initial-view ident
   const after = screen.getByTestId('native-map').props.children[0].props;
   expect(after.maxBounds).toBe(before.maxBounds);
   expect(after.initialViewState).toBe(before.initialViewState);
+  expect(after.initialViewState).toEqual({ center: [35.006, 29.531], zoom: 13 });
+  expect(after.maxBounds).toEqual(descriptor.bounds);
+});
+
+test('an old map outside Aqaba fails before enabling resources or mounting a misleading viewport', async () => {
+  const failed = jest.fn();
+  await render(<OfflineMapView {...props} descriptor={{ ...descriptor, bounds: [34.15, 31.15, 35.65, 32.65] }} onUnavailable={failed} />);
+  expect(failed).toHaveBeenCalled();
+  expect(NetworkManager.setConnected).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('native-map')).toBeNull();
 });
 
 test('accessible zoom controls wait for geometry and clamp native zoom to map bounds', async () => {

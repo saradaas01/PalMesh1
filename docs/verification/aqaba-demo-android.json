@@ -1,0 +1,88 @@
+{
+  "sourceCommit": "e16e3db6b188f6140613d2c41943297e1fe0bb15",
+  "repository": "saradaas01/PalMesh1",
+  "workflowRunId": 42034372955,
+  "jobId": 127269445697,
+  "artifactId": 13418507032,
+  "artifactUrl": "https://github.com/saradaas01/PalMesh1/actions/runs/42034372955/artifacts/13418507032",
+  "artifactZipSha256": "a18cff476a65c321baa8d9cd3b1bf076e326c4829fa4bfeeabdcb318ddde5217",
+  "apkFileName": "palmesh-aqaba-demo-human-arm64.apk",
+  "apkSha256": "d21eb1b0ffaaf2dc1784237e08d73cf8ac1e77b06f088ec036463bbf9c576018",
+  "apkBytes": 103006790,
+  "applicationId": "org.palmesh.aqabademo",
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "signingCertificateSha256": [
+    "36d7dcbf0e62a895d588f8cb3ca2f10b2c98896c2daf69ba26ab1e43b5d2ba3a"
+  ],
+  "bundleVerified": true,
+  "signatureVerified": true,
+  "nativeLibraryCount": 15,
+  "zipAlignment16KiB": true,
+  "elfAlignment16KiB": true,
+  "mapDiagnosticsEnabled": false,
+  "syntheticFixtureAbsent": true,
+  "glyphRangeCount": 256,
+  "mapSha256": "4a291b601e85628eea7e0d51595c027044c078eee89ec5ff39866d49ec106ba2",
+  "aqabaCoverage": {
+    "Central Aqaba": {
+      "longitude": 35.006,
+      "latitude": 29.531,
+      "zoom": 14,
+      "streetFeatures": 504,
+      "buildingFeatures": 1189,
+      "tileColumn": 9785,
+      "tileRowTms": 9599,
+      "urbanDetailRequired": true,
+      "sparseBuiltDetail": false,
+      "namedFeatures": 144,
+      "arabicNamedFeatures": 54,
+      "namedPlaceOrPoiFeatures": 4
+    },
+    "Fort and waterfront area": {
+      "longitude": 35.006,
+      "latitude": 29.526,
+      "zoom": 14,
+      "streetFeatures": 504,
+      "buildingFeatures": 1189,
+      "tileColumn": 9785,
+      "tileRowTms": 9599,
+      "urbanDetailRequired": true,
+      "sparseBuiltDetail": false,
+      "namedFeatures": 144,
+      "arabicNamedFeatures": 54,
+      "namedPlaceOrPoiFeatures": 4
+    },
+    "Northern Aqaba": {
+      "longitude": 35.016,
+      "latitude": 29.55,
+      "zoom": 14,
+      "streetFeatures": 696,
+      "buildingFeatures": 2245,
+      "tileColumn": 9785,
+      "tileRowTms": 9600,
+      "urbanDetailRequired": true,
+      "sparseBuiltDetail": false,
+      "namedFeatures": 196,
+      "arabicNamedFeatures": 46,
+      "namedPlaceOrPoiFeatures": 2
+    },
+    "Eastern Aqaba": {
+      "longitude": 35.03,
+      "latitude": 29.535,
+      "zoom": 14,
+      "streetFeatures": 3,
+      "buildingFeatures": 0,
+      "tileColumn": 9786,
+      "tileRowTms": 9599,
+      "urbanDetailRequired": false,
+      "sparseBuiltDetail": true,
+      "namedFeatures": 1,
+      "arabicNamedFeatures": 0,
+      "namedPlaceOrPoiFeatures": 0
+    }
+  },
+  "physicalDeviceTested": false,
+  "emulatorAcceptance": "Pending separate lane results; packaging success is not emulator acceptance."
+}

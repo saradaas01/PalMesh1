@@ -11,7 +11,12 @@ import re
 
 
 PROVIDERS = ('gps', 'network')
-SYNTHETIC_LOCATION = '31.5,34.47'
+# Aqaba demonstration coordinates. These belong exclusively to the disposable
+# emulator harness; the app continues to acquire and display actual OS fixes.
+SYNTHETIC_LATITUDE = 29.531
+SYNTHETIC_LONGITUDE = 35.006
+SYNTHETIC_LOCATION = f'{SYNTHETIC_LATITUDE:g},{SYNTHETIC_LONGITUDE:g}'
+SYNTHETIC_COORDINATE_LABEL = f'Latitude {SYNTHETIC_LATITUDE:.5f}, longitude {SYNTHETIC_LONGITUDE:.5f}'
 SYNTHETIC_ACCURACY_METERS = '8'
 
 
@@ -63,8 +68,8 @@ class EmulatorGpsProvider:
             'physicalGpsTested': False,
             'source': 'Android API 35 OS test providers',
             'controlledProviders': list(PROVIDERS),
-            'syntheticLatitude': 31.5,
-            'syntheticLongitude': 34.47,
+            'syntheticLatitude': SYNTHETIC_LATITUDE,
+            'syntheticLongitude': SYNTHETIC_LONGITUDE,
             'syntheticAccuracyMeters': 8,
             'explicitInjections': self.injections,
         }, indent=2) + '\n')

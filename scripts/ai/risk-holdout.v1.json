@@ -1,0 +1,390 @@
+{
+  "version": 1,
+  "provenance": "Manually authored balanced synthetic holdout. Not training data or clinical/field validation. Frozen before first evaluation; no accuracy guarantee.",
+  "examples": [
+    {
+      "id": "en-critical-01",
+      "language": "en",
+      "expected": "critical",
+      "text": "My uncle collapsed in the stairwell and is not breathing at all"
+    },
+    {
+      "id": "en-critical-02",
+      "language": "en",
+      "expected": "critical",
+      "text": "Heavy bleeding from her leg will not stop, send emergency help"
+    },
+    {
+      "id": "en-critical-03",
+      "language": "en",
+      "expected": "critical",
+      "text": "People are trapped inside a burning apartment near the clinic"
+    },
+    {
+      "id": "en-critical-04",
+      "language": "en",
+      "expected": "critical",
+      "text": "The ceiling collapsed and two people are trapped under concrete"
+    },
+    {
+      "id": "en-critical-05",
+      "language": "en",
+      "expected": "critical",
+      "text": "A child fell into the pool and cannot breathe, help immediately"
+    },
+    {
+      "id": "en-critical-06",
+      "language": "en",
+      "expected": "critical",
+      "text": "He is unconscious after a road crash outside the market"
+    },
+    {
+      "id": "en-critical-07",
+      "language": "en",
+      "expected": "critical",
+      "text": "There is smoke in every room and we cannot breathe"
+    },
+    {
+      "id": "en-critical-08",
+      "language": "en",
+      "expected": "critical",
+      "text": "A gas explosion injured our neighbors and they are bleeding badly"
+    },
+    {
+      "id": "en-high-01",
+      "language": "en",
+      "expected": "high",
+      "text": "The clinic urgently needs insulin for patients today"
+    },
+    {
+      "id": "en-high-02",
+      "language": "en",
+      "expected": "high",
+      "text": "Our child is missing near the bus terminal, please help search"
+    },
+    {
+      "id": "en-high-03",
+      "language": "en",
+      "expected": "high",
+      "text": "We urgently need clean drinking water at this shelter"
+    },
+    {
+      "id": "en-high-04",
+      "language": "en",
+      "expected": "high",
+      "text": "Need an ambulance for an injured neighbor at the school gate"
+    },
+    {
+      "id": "en-high-05",
+      "language": "en",
+      "expected": "high",
+      "text": "Evacuate our elderly neighbors from this area urgently"
+    },
+    {
+      "id": "en-high-06",
+      "language": "en",
+      "expected": "high",
+      "text": "There is no electricity for essential medical equipment here"
+    },
+    {
+      "id": "en-high-07",
+      "language": "en",
+      "expected": "high",
+      "text": "Essential medicine has run out at our family shelter"
+    },
+    {
+      "id": "en-high-08",
+      "language": "en",
+      "expected": "high",
+      "text": "We need urgent assistance locating a missing child this evening"
+    },
+    {
+      "id": "en-normal-01",
+      "language": "en",
+      "expected": "normal",
+      "text": "There is no fire in the house and nobody needs help"
+    },
+    {
+      "id": "en-normal-02",
+      "language": "en",
+      "expected": "normal",
+      "text": "That explosion was in the movie we watched yesterday"
+    },
+    {
+      "id": "en-normal-03",
+      "language": "en",
+      "expected": "normal",
+      "text": "I am dying laughing at that story you sent"
+    },
+    {
+      "id": "en-normal-04",
+      "language": "en",
+      "expected": "normal",
+      "text": "The fire has been put out and everyone is safe now"
+    },
+    {
+      "id": "en-normal-05",
+      "language": "en",
+      "expected": "normal",
+      "text": "The newspaper discusses a collapsed building from last year"
+    },
+    {
+      "id": "en-normal-06",
+      "language": "en",
+      "expected": "normal",
+      "text": "Please confirm the meeting time for the neighborhood group"
+    },
+    {
+      "id": "en-normal-07",
+      "language": "en",
+      "expected": "normal",
+      "text": "I am reading about first aid for a training course"
+    },
+    {
+      "id": "en-normal-08",
+      "language": "en",
+      "expected": "normal",
+      "text": "No ambulance is required, the drill has finished"
+    },
+    {
+      "id": "en-low-01",
+      "language": "en",
+      "expected": "low",
+      "text": "Thanks for your kindness, have a peaceful evening"
+    },
+    {
+      "id": "en-low-02",
+      "language": "en",
+      "expected": "low",
+      "text": "Good morning my friend, I hope you slept well"
+    },
+    {
+      "id": "en-low-03",
+      "language": "en",
+      "expected": "low",
+      "text": "Okay, I received your note, thank you very much"
+    },
+    {
+      "id": "en-low-04",
+      "language": "en",
+      "expected": "low",
+      "text": "Happy birthday to your sister from all of us"
+    },
+    {
+      "id": "en-low-05",
+      "language": "en",
+      "expected": "low",
+      "text": "Good night everyone, take care until tomorrow"
+    },
+    {
+      "id": "en-low-06",
+      "language": "en",
+      "expected": "low",
+      "text": "Thank you for sharing that nice photograph"
+    },
+    {
+      "id": "en-low-07",
+      "language": "en",
+      "expected": "low",
+      "text": "No rush replying, enjoy your weekend with family"
+    },
+    {
+      "id": "en-low-08",
+      "language": "en",
+      "expected": "low",
+      "text": "Just saying hello and sending warm greetings"
+    },
+    {
+      "id": "ar-critical-01",
+      "language": "ar",
+      "expected": "critical",
+      "text": "خالي وقع عالارض ومش عم يتنفس الحقونا بسرعة"
+    },
+    {
+      "id": "ar-critical-02",
+      "language": "ar",
+      "expected": "critical",
+      "text": "البنت عندها نزيف شديد والدم مش راضي يوقف"
+    },
+    {
+      "id": "ar-critical-03",
+      "language": "ar",
+      "expected": "critical",
+      "text": "في حريق بالعمارة والناس عالقين جوا بدنا مساعدة"
+    },
+    {
+      "id": "ar-critical-04",
+      "language": "ar",
+      "expected": "critical",
+      "text": "انهار سقف البيت وفي ناس محاصرين تحت الانقاض"
+    },
+    {
+      "id": "ar-critical-05",
+      "language": "ar",
+      "expected": "critical",
+      "text": "ابن الجيران غرق بالمسبح ومش قادر يتنفس"
+    },
+    {
+      "id": "ar-critical-06",
+      "language": "ar",
+      "expected": "critical",
+      "text": "اختي فاقدة الوعي بعد حادث سيارة عند السوق"
+    },
+    {
+      "id": "ar-critical-07",
+      "language": "ar",
+      "expected": "critical",
+      "text": "الدخان مليان الغرفة واحنا مش قادرين نتنفس"
+    },
+    {
+      "id": "ar-critical-08",
+      "language": "ar",
+      "expected": "critical",
+      "text": "صار انفجار والناس بتنـزف قدام المدرسة"
+    },
+    {
+      "id": "ar-high-01",
+      "language": "ar",
+      "expected": "high",
+      "text": "المركز الصحي محتاج انسولين بشكل عاجل للمرضى"
+    },
+    {
+      "id": "ar-high-02",
+      "language": "ar",
+      "expected": "high",
+      "text": "بنتنا مفقودة قرب محطة الباص ساعدونا نلاقيها"
+    },
+    {
+      "id": "ar-high-03",
+      "language": "ar",
+      "expected": "high",
+      "text": "محتاجين مي شرب نظيفة للاطفال بالمأوى اليوم"
+    },
+    {
+      "id": "ar-high-04",
+      "language": "ar",
+      "expected": "high",
+      "text": "بدنا اسعاف لجارنا المصاب عند باب المدرسة"
+    },
+    {
+      "id": "ar-high-05",
+      "language": "ar",
+      "expected": "high",
+      "text": "ضروري اخلاء كبار السن من المنطقة بسرعة"
+    },
+    {
+      "id": "ar-high-06",
+      "language": "ar",
+      "expected": "high",
+      "text": "الكهرباء مقطوعة عن الاجهزة الطبية الضرورية"
+    },
+    {
+      "id": "ar-high-07",
+      "language": "ar",
+      "expected": "high",
+      "text": "الادوية الاساسية خلصت بالمركز بدنا مساعدة عاجلة"
+    },
+    {
+      "id": "ar-high-08",
+      "language": "ar",
+      "expected": "high",
+      "text": "محتاجين مساعدة عاجلة بالبحث عن طفل مفقود"
+    },
+    {
+      "id": "ar-normal-01",
+      "language": "ar",
+      "expected": "normal",
+      "text": "ما في حريق بالبيت وما حدا محتاج مساعدة"
+    },
+    {
+      "id": "ar-normal-02",
+      "language": "ar",
+      "expected": "normal",
+      "text": "الانفجار كان بالفيلم اللي حضرناه مبارح"
+    },
+    {
+      "id": "ar-normal-03",
+      "language": "ar",
+      "expected": "normal",
+      "text": "بموت من الضحك على النكتة اللي بعتلي اياها"
+    },
+    {
+      "id": "ar-normal-04",
+      "language": "ar",
+      "expected": "normal",
+      "text": "انطفى الحريق والكل صار بخير والحمد لله"
+    },
+    {
+      "id": "ar-normal-05",
+      "language": "ar",
+      "expected": "normal",
+      "text": "الجريدة بتحكي عن انهيار مبنى من السنة الماضية"
+    },
+    {
+      "id": "ar-normal-06",
+      "language": "ar",
+      "expected": "normal",
+      "text": "اكدلي موعد اجتماع مجموعة الحارة لو سمحت"
+    },
+    {
+      "id": "ar-normal-07",
+      "language": "ar",
+      "expected": "normal",
+      "text": "عم بقرأ عن الاسعافات لدورة تدريبية"
+    },
+    {
+      "id": "ar-normal-08",
+      "language": "ar",
+      "expected": "normal",
+      "text": "الاسعاف مش مطلوب انتهى التدريب والكل بخير"
+    },
+    {
+      "id": "ar-low-01",
+      "language": "ar",
+      "expected": "low",
+      "text": "شكرا على لطفك ومساء هادي للجميع"
+    },
+    {
+      "id": "ar-low-02",
+      "language": "ar",
+      "expected": "low",
+      "text": "صباح الخير يا صاحبي ان شاء الله نمت منيح"
+    },
+    {
+      "id": "ar-low-03",
+      "language": "ar",
+      "expected": "low",
+      "text": "تمام وصلتني رسالتك شكرا كتير الك"
+    },
+    {
+      "id": "ar-low-04",
+      "language": "ar",
+      "expected": "low",
+      "text": "كل سنة واختك بخير بعيد ميلادها"
+    },
+    {
+      "id": "ar-low-05",
+      "language": "ar",
+      "expected": "low",
+      "text": "تصبحوا على خير ونشوفكم بكرا ان شاء الله"
+    },
+    {
+      "id": "ar-low-06",
+      "language": "ar",
+      "expected": "low",
+      "text": "يسلمو ايديك على الصورة الحلوة"
+    },
+    {
+      "id": "ar-low-07",
+      "language": "ar",
+      "expected": "low",
+      "text": "مش مستعجل بالرد استمتع بعطلتك مع اهلك"
+    },
+    {
+      "id": "ar-low-08",
+      "language": "ar",
+      "expected": "low",
+      "text": "بس حبيت اسلم وابعتلك احلى تحية"
+    }
+  ]
+}

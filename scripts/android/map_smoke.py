@@ -12,17 +12,17 @@ import subprocess
 import sys
 import time
 import smoke
+from emulator_network import interface_names, radio_is_off
 
 
-def interface_names(output: str) -> list[str]:
-    names = re.findall(r'^\d+: ([A-Za-z0-9_.-]+)(?:@[^:]+)?:', output, re.MULTILINE)
-    if 'lo' not in names: raise RuntimeError('Cannot identify emulator loopback interface')
-    return [name for name in names if name != 'lo']
-
-
-def radio_is_off(value: str, hardware_present: bool) -> bool:
-    # Absence is accepted only when Android does not advertise that radio.
-    return value == '0' or (value == 'null' and not hardware_present)
+def map_thumbnail(image, limit: int = 350000) -> str:
+    """Bound only the log preview; retain and assess the original PNG pixels."""
+    for size in ((1024, 768), (800, 600), (640, 480), (480, 360), (320, 240)):
+        thumb = image.copy().convert('RGB'); thumb.thumbnail(size)
+        stream = io.BytesIO(); thumb.save(stream, format='JPEG', quality=80, optimize=True)
+        encoded = base64.b64encode(stream.getvalue()).decode('ascii')
+        if len(encoded) <= limit: return encoded
+    raise RuntimeError('Map evidence thumbnail exceeds bound')
 
 
 def render_records(log: str) -> list[dict]:
@@ -72,51 +72,6 @@ def map_pixels(image, bounds: tuple[int, int, int, int]) -> dict:
 
 class MapSmoke(smoke.Smoke):
     system_baseline = False
-    def isolate(self) -> None:
-        # Disposable official AOSP guest only; preserve normal ADB authentication.
-        # No physical serial or existing AVD can reach this point in smoke.main.
-        root_attempts = []
-        for _ in range(3):
-            result = subprocess.run([str(self.adb), '-s', self.serial, 'root'], check=False, capture_output=True, text=True, timeout=30)
-            root_attempts.append((result.stdout + result.stderr)[-1000:])
-            self.output.joinpath('emulator-root.txt').write_text('\n'.join(root_attempts))
-            try:
-                self.command('wait-for-device', timeout=20)
-                if self.command('shell', 'id', '-u') == '0': break
-            except (RuntimeError, subprocess.TimeoutExpired): pass
-            time.sleep(2)
-        else: raise RuntimeError('Disposable AOSP guest root unavailable; firewall isolation was not established')
-        for tool in ('iptables', 'ip6tables'):
-            self.command('shell', tool, '-I', 'OUTPUT', '1', '!', '-o', 'lo', '-j', 'REJECT')
-            rules = self.command('shell', tool, '-S', 'OUTPUT')
-            if '! -o lo -j REJECT' not in rules: raise RuntimeError('External network block was not installed')
-            self.output.joinpath(tool + '-output.txt').write_text(rules + '\n')
-        self.command('shell', 'cmd', 'connectivity', 'airplane-mode', 'enable')
-        for radio in ('wifi', 'data', 'bluetooth'):
-            self.command('shell', 'svc', radio, 'disable')
-        # New AOSP images may expose virtual Ethernet, which airplane mode does
-        # not turn off. Disable every non-loopback interface in this fresh guest.
-        interfaces = self.command('shell', 'ip', '-o', 'link', 'show')
-        self.output.joinpath('network-interfaces-before.txt').write_text(interfaces + '\n')
-        for interface in interface_names(interfaces):
-            self.command('shell', 'ip', 'link', 'set', 'dev', interface, 'down')
-        features = set(self.command('shell', 'pm', 'list', 'features').splitlines())
-        deadline = time.monotonic() + 45
-        while time.monotonic() < deadline:
-            connectivity = self.command('shell', 'dumpsys', 'connectivity')
-            settings = {key: self.command('shell', 'settings', 'get', 'global', key)
-                        for key in ('wifi_on', 'bluetooth_on')}
-            self.output.joinpath('offline-connectivity.txt').write_text(connectivity + '\n')
-            self.output.joinpath('radio-settings.json').write_text(json.dumps({'settings': settings, 'features': sorted(features)}, indent=2) + '\n')
-            radios_off = all(radio_is_off(settings[key], feature in features)
-                             for key, feature in (('wifi_on', 'feature:android.hardware.wifi'),
-                                                  ('bluetooth_on', 'feature:android.hardware.bluetooth')))
-            if radios_off and re.search(r'Active default network:\s*none\b', connectivity, re.IGNORECASE):
-                self.output.joinpath('offline-network.txt').write_text('Active default network: none\nNon-loopback IPv4/IPv6 egress rejected\n')
-                return
-            time.sleep(2)
-        raise RuntimeError('Emulator offline isolation failed; inspect offline-connectivity.txt and radio-settings.json')
-
     def evidence(self) -> list[dict]:
         log = self.command('logcat', '-d', '-t', '2000', 'PalMeshOfflineMap:I', '*:S')
         self.output.joinpath('map-network.txt').write_text(log + '\n')
@@ -140,10 +95,7 @@ class MapSmoke(smoke.Smoke):
             if name.startswith('first-'):
                 # A bounded map-only thumbnail in logs permits independent review
                 # without exposing app identity text or relying on artifact APIs.
-                thumb = image.crop(area).convert('RGB'); thumb.thumbnail((1024, 768))
-                stream = io.BytesIO(); thumb.save(stream, format='PNG')
-                encoded = base64.b64encode(stream.getvalue()).decode('ascii')
-                if len(encoded) > 350000: raise RuntimeError('Map evidence thumbnail exceeds bound')
+                encoded = map_thumbnail(image.crop(area))
                 for index in range(0, len(encoded), 4000):
                     print('MAP_IMAGE_CHUNK ' + name + ' ' + encoded[index:index+4000], flush=True)
             return summary

@@ -76,12 +76,12 @@ export const en = {
   "ai.priority.high": "Urgent",
   "ai.priority.normal": "Normal",
   "ai.priority.low": "Low",
-  "ai.draftPriority": "AI priority: {priority} · {confidence}%",
+  "ai.draftPriority": "Suggested priority: {priority}",
   "ai.manualPriority": "Priority: {priority} (chosen by you)",
   "ai.signals": "Detected: {signals}",
   "ai.changePriority": "Change message priority",
   "ai.changePriorityHint": "Cycles critical, urgent, normal, low and back to the AI estimate",
-  "ai.priorityHelp": "Estimated on this phone without internet. Higher priority messages are relayed first; SOS always goes first. Relays and recipients can see the priority, not the private text.",
+  "ai.priorityHelp": "A fallible on-device language estimate, not a diagnosis or probability of danger. You can change it. SOS always routes first; sharing an SOS is your choice. Relays can see priority, not encrypted private text.",
   "ai.sosSuggestion": "This sounds life-threatening. Send it as an SOS? SOS is public to everyone on the mesh.",
   "ai.sendAsSos": "Send as SOS",
   "ai.keepMessage": "Keep as message",
@@ -357,6 +357,38 @@ export const en = {
 
   "emMap.public": "SOS and shared locations are public to mesh participants.",
   "emMap.allowLocation": "Allow location access",
+  "chat.timestamp.sender": "Sender time: {time}",
+  "chat.timestamp.received": "Stored on this device: {time}",
+  "chat.timestamp.unavailable": "Time unavailable",
+  "chat.timestamp.unverified": "Sender-assigned time; the sender’s clock may be inaccurate.",
+  "chat.timestamp.clockWarning": "Sender clock may be inaccurate",
+  "app.diagnostics": "Connection diagnostics",
+  "app.radioTroubleSummary": "Transient radio interruptions recorded: {count}",
+  "app.radioTroubleHelp": "Recovery runs automatically. These counts contain no message contents or peer identifiers.",
+  "app.issue.shutdown-failed": "PalMesh could not finish stopping its services. Reopen the app without clearing saved data.",
+
+  "names.sharingError": "Name sharing needs attention. Your local name and messages are kept.",
+  "names.sharingTitle": "Name sharing · Public to the mesh",
+  "names.publicHelp": "Off by default. If enabled, your saved name is signed and shared publicly through the mesh, including relays. Turning it off requests removal but cannot erase copies already received.",
+  "names.sharePublic": "Share my name with the mesh",
+  "names.needName": "Save an optional display name first.",
+  "names.selfDeclared": "Self-declared name authenticated to this fingerprint; verify the person separately.",
+  "names.shared": "Shared name",
+  "names.retry": "Retry name update",
+  "names.queued": "Name update queued locally. Delivery is not confirmed.",
+  "names.announcement": "Shared display name: {name}",
+  "names.withdrawal": "Sender requested removal of their shared name.",
+  "contacts.shared": "Self-declared shared name · fingerprint not compared",
+
+  "ai.estimateDisclaimer": "Local estimate; not a diagnosis.",
+
+  "names.openIdentity": "Sender identity: {name}",
+  "names.identityDetails": "Sender identity details",
+  "names.closeIdentity": "Close identity details",
+
+  "names.fingerprintHelp": "A fingerprint identifies keys, not a person’s real-world identity.",
+  "names.localAnnotation": "This nickname was chosen on this device.",
+
 } as const;
 
 export type TranslationKey = keyof typeof en;

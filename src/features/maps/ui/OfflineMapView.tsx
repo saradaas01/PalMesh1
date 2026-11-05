@@ -6,6 +6,7 @@ import type {EmergencyEntry} from '../../emergency/domain/types';
 import {emergencyMapPoints, pressedReportId, type MapFocus} from '../domain/emergencyMap';
 import type { LocationFix, PowerMode } from '../../dtn/domain/types';
 import { buildOfflineStyle } from '../domain/offlineStyle';
+import { aqabaInitialCamera } from '../domain/offlineMap';
 import type { OfflineMapDescriptor, PeerLocation } from '../domain/types';
 
 export interface OfflineMapViewProps {
@@ -53,6 +54,7 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
       // This is only the SDK scheduler hint, never a device/network setting.
       // buildOfflineStyle admits exclusively tokenized 127.0.0.1 resources.
       buildOfflineStyle(descriptor); // Fail closed before enabling local resource scheduling.
+      aqabaInitialCamera(descriptor); // Never silently display an old/out-of-region pack.
       if (Platform.OS === 'android') NetworkManager.setConnected(true);
       setPrepared(true);
     } catch { onUnavailable(); }
@@ -63,7 +65,11 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
     try { return buildOfflineStyle(descriptor); }
     catch { return null; }
   }, [descriptor]);
-  useEffect(() => { if (mapStyle === null) onUnavailable(); }, [mapStyle, onUnavailable]);
+  const initialViewState = useMemo(() => {
+    try { return aqabaInitialCamera(descriptor); }
+    catch { return null; }
+  }, [descriptor]);
+  useEffect(() => { if (mapStyle === null || initialViewState === null) onUnavailable(); }, [mapStyle, initialViewState, onUnavailable]);
   const points = useMemo(() => emergencyMapPoints(localLocation,peers,emergencies,Date.now()),[localLocation,peers,emergencies]);
   useEffect(()=>{if(rendered&&focus)camera.current?.flyTo({center:[focus.location.longitude,focus.location.latitude],zoom:Math.min(14,descriptor.maxZoom),duration:350});},[rendered,focus?.id,focus?.revision,descriptor.maxZoom]);
   const inspectRendering = async (): Promise<void> => {
@@ -125,7 +131,6 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
   // Stable props keep unrelated report-clock updates from reapplying native
   // camera constraints while the user is interacting with the map.
   const bounds = useMemo<[number, number, number, number]>(() => [...descriptor.bounds], [descriptor]);
-  const initialViewState = useMemo(() => ({ bounds, padding: { top: 24, right: 24, bottom: 24, left: 24 } }), [bounds]);
   const maxZoom = Math.min(22, descriptor.maxZoom + 4);
   const changeZoom = async (delta: number): Promise<void> => {
     const cycle = generation.current;
@@ -140,7 +145,7 @@ function OfflineMapViewComponent({ descriptor, localLocation, peers, powerMode, 
     } catch { if (alive.current && cycle === generation.current) onUnavailable(); }
     finally { if (zoomBusy.current === cycle) zoomBusy.current = null; }
   };
-  if (mapStyle === null || !prepared) return <View style={styles.map} />;
+  if (mapStyle === null || initialViewState === null || !prepared) return <View style={styles.map} />;
   return (
     <View style={styles.map}>
     <Map key={descriptor.tileUrlTemplate} ref={map} style={styles.map} mapStyle={mapStyle} attribution={false} logo={false}

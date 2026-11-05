@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Replay foreground GPS on a pinned synthetic x86 APK in a fresh offline guest."""
 import json
+import time
 
 import smoke
 from emergency_smoke import BaseSmoke, EmergencySmoke
+from emergency_gps_provider import SYNTHETIC_COORDINATE_LABEL
 
 
+# Historical sealed replay pins. Repin the APK and source guard to an Aqaba
+# build before invoking this updated harness; the old pack covers Palestine.
 APK_SOURCE = '68afa7bb3e5ae9a5362e4e6125b086e58de44ff0'
 APK_SHA256 = 'edd60d53fb59844764bc2170248f24c73b6f0bd41d67a58d2ff304a37722292b'
 
@@ -90,6 +94,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
             self.tap(smoke.SOS)
             self.wait_ui(lambda x: smoke.has_text(x, smoke.QUEUED),
                          'SOS queued during GPS acquisition', 'gps-waiting-sos.xml')
+            self.sos_queued_at=time.monotonic()
             self.tap('Dismiss SOS notice')
             self.press('Cancel GPS request')
             self.wait_ui(lambda x: smoke.find_control(x, 'My location') is not None,
@@ -120,7 +125,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
                                       for n in smoke.nodes(x)),
                          'GPS quality after cold restart', 'gps-retained-quality.xml')
             self.press('Coordinates (optional)')
-            self.wait_ui(lambda x: smoke.has_text(x, 'Latitude 31.50000, longitude 34.47000'),
+            self.wait_ui(lambda x: smoke.has_text(x, SYNTHETIC_COORDINATE_LABEL),
                          'persisted original local GPS coordinates', 'gps-retained-coordinates.xml')
             self.capture('gps-retained-local-fix')
             self.progress('complete', passed=True, localFixAndQualityPersisted=True)

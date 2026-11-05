@@ -256,8 +256,8 @@ test('radio events update peer and radio status while stale callbacks after stop
   assert.equal(runtime.getSnapshot().connectedPeers, 2);
   assert.deepEqual(runtime.getSnapshot().radios.ble, { available: false, reason: 'powered-off' });
   emit({ type: 'error', operation: 'discover', error: new Error('Adapter temporarily unavailable') });
-  assert.equal(runtime.getSnapshot().issue, 'radio-error');
-  runtime.dismissIssue(); assert.equal(runtime.getSnapshot().issue, null);
+  assert.equal(runtime.getSnapshot().issue, null, 'transient recovery is not an action failure');
+  assert.deepEqual(runtime.getSnapshot().radioDiagnostics, { transientFailures: 1 });
   const stale = subscriptions[0]!;
   await runtime.stop();
   assert.equal(listeners.size, 0);
@@ -332,6 +332,7 @@ test('shutdown hides both features immediately, completes all stops despite fail
   nodeRelease.resolve(); await stopping;
   assert.equal(log.at(-1), 'release');
   assert.equal(runtime.getSnapshot().status, 'idle'); assert.equal(runtime.getSnapshot().resources, null);
+  assert.equal(runtime.getSnapshot().issue, 'shutdown-failed', 'a service/storage shutdown failure is not hidden as transient radio trouble');
 });
 
 test('a resource-factory failure leaves an actionable startup error and retries with fresh resources', async t => {
@@ -427,7 +428,7 @@ test('a radio startup failure leaves local features and SOS usable and can recov
   const { runtime, effects, log } = fixture(t);
   effects['mesh.start'] = async () => { throw new Error('Bluetooth is powered off'); };
   await runtime.start();
-  await until(() => runtime.getSnapshot().issue === 'radio-error');
+  await until(() => runtime.getSnapshot().radioDiagnostics?.transientFailures === 1);
   assert.equal(runtime.getSnapshot().status, 'ready');
   assert.equal(log.includes('chat.stop'), false); assert.equal(log.includes('locations.stop'), false);
   assert.equal((await runtime.sendSos()).status, 'queued');
@@ -435,6 +436,31 @@ test('a radio startup failure leaves local features and SOS usable and can recov
   await runtime.requestPermissions();
   assert.ok(log.includes('mesh.refresh'));
   assert.equal(runtime.getSnapshot().issue, null);
+});
+
+test('transient radio errors preserve rejected SOS feedback and retain no native error data', async t => {
+  const { runtime, emit, setSos } = fixture(t);
+  await runtime.start();
+  setSos(async () => ({ status: 'rejected', reason: 'capacity' }));
+  assert.equal((await runtime.sendSos()).status, 'rejected');
+  emit({ type: 'error', operation: 'private-operation-peer-123', error: new Error('private-message signingSecret fake-native-path') });
+  assert.equal(runtime.getSnapshot().issue, 'queue-full');
+  assert.equal(runtime.getSnapshot().notice, null);
+  assert.deepEqual(runtime.getSnapshot().radioDiagnostics, { transientFailures: 1 });
+  assert.doesNotMatch(JSON.stringify(runtime.getSnapshot().radioDiagnostics), /private|Secret|native-path|peer-123/);
+});
+
+test('radio diagnostics are bounded, ephemeral and cannot change an SOS queue confirmation', async t => {
+  const { runtime, emit } = fixture(t);
+  await runtime.start();
+  assert.equal((await runtime.sendSos()).status, 'queued');
+  for (let i = 0; i < 1_010; i += 1) emit({ type: 'error', operation: 'retry', error: 'not-retained' });
+  assert.deepEqual(runtime.getSnapshot().radioDiagnostics, { transientFailures: 1_000 });
+  assert.equal(runtime.getSnapshot().notice, 'sos-queued');
+  assert.equal(runtime.getSnapshot().issue, null);
+  await runtime.stop();
+  await runtime.start();
+  assert.equal(runtime.getSnapshot().radioDiagnostics, null);
 });
 
 test('a delayed startup permission check cannot overwrite the newer report from an explicit permission request', { timeout: 5_000 }, async t => {

@@ -34,6 +34,12 @@ RCT_EXPORT_MODULE()
 }
 - (void)stopObserving { _observing = NO; [NSNotificationCenter.defaultCenter removeObserver:self]; }
 RCT_REMAP_METHOD(getBatteryState, batteryWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) { resolve([self battery]); }
+/** The locale's j template incorporates the user's 12/24-hour preference. */
+RCT_REMAP_METHOD(getClockFormat, clockFormatWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  NSString *pattern = [NSDateFormatter dateFormatFromTemplate:@"j" options:0 locale:NSLocale.currentLocale];
+  if (pattern.length == 0) { reject(@"CLOCK_FORMAT_UNAVAILABLE",@"Clock display preference unavailable",nil); return; }
+  resolve(@([pattern containsString:@"a"]));
+}
 - (BOOL)notificationsAllowed:(UNNotificationSettings *)settings {
   return settings.authorizationStatus == UNAuthorizationStatusAuthorized || settings.authorizationStatus == UNAuthorizationStatusProvisional || settings.authorizationStatus == UNAuthorizationStatusEphemeral;
 }

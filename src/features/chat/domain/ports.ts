@@ -4,7 +4,8 @@ import type { ChatMessage, Conversation, ConversationId, RoutingChatEntry } from
 
 export interface ChatRepository {
   initialize(): Promise<void>;
-  /** Archive only user-visible chat/SOS. First payload wins; custody is monotonic. */
+  /** Archive visible chat/SOS. First payload and both original timestamps win;
+   * repeated snapshots or custody ACKs cannot refresh a message's age. */
   upsert(entries: readonly RoutingChatEntry[], localDeviceId: PeerId): Promise<void>;
   markPeerStored(messageId: string): Promise<void>;
   markRead(conversationId: ConversationId, throughSequence: number): Promise<void>;

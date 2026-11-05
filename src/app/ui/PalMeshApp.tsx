@@ -9,6 +9,7 @@ import { EmergencyBanner, EmergencyInbox } from '../../features/emergency/ui';
 import { LocalizedText as Text, useI18n, type Translate } from '../../shared/i18n';
 import { SecurityScreen } from './SecurityScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { ConnectionSummary } from './ConnectionSummary';
 import { ContactsExperienceV2, ProfileExperience } from '../../features/contacts/IdentityExperience';
 import { useContactNames } from '../../features/contacts/ContactNames';
 import { FirstRun } from '../../features/onboarding/OnboardingScreen';
@@ -87,6 +88,9 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
   };
   const needsPermissions = snapshot.permissions === null || !snapshot.permissions.bluetooth ||
     (snapshot.permissions.platform === 'android' && !snapshot.permissions.wifiDirect);
+  // Compatibility with older runtime snapshots: transient radio trouble is
+  // passive diagnostics, never a dismissible action failure on main screens.
+  const actionIssue = snapshot.issue === 'radio-error' ? null : snapshot.issue;
   const selectRoute = (route: AppRoute): void => runtime.navigate(route);
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics}>
@@ -95,7 +99,7 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
       <StatusBar barStyle="dark-content"/>
       <KeyboardFrame>
       <View style={styles.header}>
-        <View style={ui.grow}><Text accessibilityRole="header" style={styles.brand}>PalMesh</Text><Text style={styles.caption}>{t('ui.offline')}</Text></View>
+        <View style={ui.grow}><Text accessibilityRole="header" style={styles.brand}>PalMesh</Text><Text style={styles.caption}>{t('ui.offline')}</Text>{ready&&<ConnectionSummary snapshot={snapshot}/>}</View>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.sos')} accessibilityHint={t('ui.sosHint')}
           accessibilityState={{disabled:!ready||snapshot.pendingSos,busy:snapshot.pendingSos}} disabled={!ready||snapshot.pendingSos} onPress={requestSos} style={styles.sos}>
           <Text style={styles.sosText}>{t(snapshot.pendingSos?'common.queueingSos':'ui.sos')}</Text>
@@ -139,9 +143,9 @@ export function PalMeshApp({ runtime }: PalMeshAppProps): React.JSX.Element {
         </FirstRun>
       </View>
 
-      {(snapshot.issue !== null || snapshot.notice !== null) && <ScrollView style={styles.feedback} keyboardShouldPersistTaps="handled">
-        {snapshot.issue !== null && <>
-          <Text accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.body}>{snapshot.issue === 'background-unavailable' ? t('app.backgroundUnavailable') : t(`app.issue.${snapshot.issue}`)}</Text>
+      {(actionIssue !== null || snapshot.notice !== null) && <ScrollView style={styles.feedback} keyboardShouldPersistTaps="handled">
+        {actionIssue !== null && <>
+          <Text accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.body}>{actionIssue === 'background-unavailable' ? t('app.backgroundUnavailable') : t(`app.issue.${actionIssue}`)}</Text>
           <Button label={t('app.dismissError')} onPress={() => runtime.dismissIssue()} />
         </>}
         {snapshot.notice === 'sos-queued' && <>

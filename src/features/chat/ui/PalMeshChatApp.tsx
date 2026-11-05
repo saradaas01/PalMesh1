@@ -9,6 +9,9 @@ import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-nati
 import { LocalizedText as Text, useI18n, type TranslationKey } from '../../../shared/i18n';
 import { isPeerId } from '../../dtn/domain/validation';
 import { deliveryState } from '../domain/messages';
+import { MessageTimestamp } from './MessageTimestamp';
+import {IdentityName} from '../../contacts/IdentityName';
+import { parseProfileAnnouncement } from '../../contacts/profilePayload';
 import type { ChatDeliveryState, ChatIssue, ChatMessage, Conversation, UnreadUrgency } from '../domain/types';
 import type { MessagePriority } from '../../dtn/domain/types';
 import { ChatProvider, type ChatUiService, useChat } from './ChatProvider';
@@ -45,6 +48,14 @@ const urgencyLabels: Readonly<Record<UnreadUrgency, TranslationKey>> = {
   high: 'ai.unread.high',
 };
 
+/** Chat archives normalize omitted wire priority to normal. Only that public
+ * chat context can present a profile update; other message bodies stay literal. */
+function messageSummary(message:ChatMessage,t:ReturnType<typeof useI18n>['t']):string {
+  const normal=message.priority===undefined||message.priority==='normal';
+  const profile=message.kind==='chat'&&message.destination==='*'&&normal?parseProfileAnnouncement(message.text):null;
+  return profile?profile.name?t('names.announcement',{name:profile.name}):t('names.withdrawal'):message.text;
+}
+
 // Manual choices cycle through every priority, then return to the AI estimate.
 const overrideCycle: readonly (MessagePriority | null)[] = [null, 'critical', 'high', 'normal', 'low'];
 
@@ -73,16 +84,15 @@ function ConversationRow({ item, onOpen }: {
   const unread = item.unreadCount > 0 ? `, ${t('chat.unread', { count: item.unreadCount })}` : '';
   const urgency = item.unreadUrgency ? `, ${t(urgencyLabels[item.unreadUrgency])}` : '';
   return <Pressable accessibilityRole="button" accessibilityLabel={`${t('chat.openConversation',{title:accessibleTitle})}${unread}${urgency}`} onPress={()=>onOpen(item.id)} style={[styles.conversation, item.unreadUrgency && styles.urgentConversation]}>
-    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{item.lastMessage.text}</Text></View>
+    <Avatar name={entry?.name||title}/><View style={styles.grow}><View style={styles.row}><Text style={[styles.peer,styles.grow]} numberOfLines={1}>{title}</Text>{item.unreadUrgency&&<PriorityChip priority={item.unreadUrgency}/>}{item.unreadCount>0&&<Text style={styles.badge}>{item.unreadCount}</Text>}</View>{entry?.duplicateName&&<Text style={styles.secondary}>{names.short(item.id)}</Text>}<Text style={styles.secondary} numberOfLines={1}>{item.lastMessage.kind==='sos'?'SOS · ':''}{messageSummary(item.lastMessage,t)}</Text><MessageTimestamp createdAt={item.lastMessage.createdAt} receivedAt={item.lastMessage.receivedAt} style={styles.messageMeta} testID={`conversation-time-${item.id}`}/></View>
   </Pressable>;
 }
 
 function MessageBubble({ message, deviceId, now }: {
   readonly message: ChatMessage; readonly deviceId: string; readonly now: number;
 }): React.JSX.Element {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const status = t(deliveryLabels[deliveryState(message, deviceId, now)]);
-  const time = new Date(message.receivedAt).toLocaleTimeString(language === 'ar' ? 'ar-JO' : 'en', { hour: '2-digit', minute: '2-digit' });
   const names = useContactNames();
   const sender = message.outgoing ? t('chat.you') : names.label(message.source);
   const elevated = message.kind === 'chat' && (message.priority === 'critical' || message.priority === 'high') ? message.priority : null;
@@ -91,10 +101,10 @@ function MessageBubble({ message, deviceId, now }: {
       (message.kind === 'sos' || elevated === 'critical') && styles.emergencyMessage, elevated === 'high' && styles.urgentMessage]}>
       <View style={[styles.row, styles.wrap]}>
         {elevated && <PriorityChip priority={elevated} />}
-        <Text style={styles.messageSender}>{message.kind === 'sos' ? 'SOS · ' : ''}{sender}</Text>
+        {message.outgoing?<Text style={styles.messageSender}>{message.kind==='sos'?'SOS · ':''}{sender}</Text>:<IdentityName id={message.source} label={(message.kind==='sos'?'SOS · ':'')+sender} style={styles.messageSender}/>}
       </View>
-      <Text selectable style={styles.messageText}>{message.text}</Text>
-      <Text style={styles.messageMeta}>{time} · {status}</Text>
+      <Text selectable style={styles.messageText}>{messageSummary(message,t)}</Text>
+      <View style={[styles.row,styles.wrap]}><MessageTimestamp createdAt={message.createdAt} receivedAt={message.receivedAt} style={styles.messageMeta} testID={`message-time-${message.id}`}/><Text style={styles.messageMeta}>{` · ${status}`}</Text></View>
     </View>
   );
 }
@@ -110,7 +120,7 @@ function DraftPriority({ showSos }: { readonly showSos: boolean }): React.JSX.El
   const priority = override ?? assessment!.priority;
   const label = override !== null || assessment === null
     ? t('ai.manualPriority', { priority: t(priorityLabels[priority]) })
-    : t('ai.draftPriority', { priority: t(priorityLabels[priority]), confidence: Math.round(assessment.confidence * 100) });
+    : t('ai.draftPriority', { priority: t(priorityLabels[priority]) });
   const signals = override === null && assessment !== null && assessment.signals.length > 0
     ? t('ai.signals', { signals: assessment.signals.join(language === 'ar' ? '، ' : ', ') }) : null;
   const next = overrideCycle[(overrideCycle.indexOf(override) + 1) % overrideCycle.length] ?? null;
@@ -122,6 +132,7 @@ function DraftPriority({ showSos }: { readonly showSos: boolean }): React.JSX.El
       <Text style={[styles.aiText, styles.grow]}>{label}</Text>
     </Pressable>
     {signals !== null && <Text style={styles.aiSignals}>{signals}</Text>}
+    <Text style={styles.aiSignals}>{t('ai.estimateDisclaimer')}</Text>
     {showSos && override === null && assessment?.suggestSos && !sosDismissed && <View accessibilityRole="alert" style={styles.sosSuggestion}>
       <Text style={styles.bodyText}>{t('ai.sosSuggestion')}</Text>
       <View style={[styles.row, styles.wrap]}>
@@ -237,7 +248,7 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
             <Button label={t('chat.back')} onPress={closeConversation} />
             <Text accessibilityRole="header" style={[styles.threadTitle, styles.grow]} numberOfLines={2}>{isBroadcast ? t('chat.broadcasts') : names.label(selectedId)}</Text>
           </View>
-          <View style={{paddingBottom:8}}><Text style={ui.muted}>{t(isBroadcast?'ui.public':'ui.private')}</Text><Disclosure title={t('ui.details')}>{!isBroadcast&&<><Text selectable style={ui.fingerprint}>{selectedId}</Text><Text style={ui.muted}>{t(`contacts.${names.status(selectedId)}`)}</Text></>}<Text style={ui.muted}>{t(isBroadcast?'chat.broadcastPrivacy':'ui.privacyShort')}</Text><Text style={ui.muted}>{t('ui.deliveryHelp')}</Text></Disclosure></View>
+          <View style={{paddingBottom:8}}><Text style={ui.muted}>{t(isBroadcast?'ui.public':'ui.private')}</Text><Disclosure title={t('ui.details')}>{!isBroadcast&&<><Text selectable style={ui.fingerprint}>{selectedId}</Text><Text style={ui.muted}>{t(`contacts.${names.status(selectedId)}`)}</Text></>}<Text style={ui.muted}>{t(isBroadcast?'chat.broadcastPrivacy':'ui.privacyShort')}</Text><Text style={ui.muted}>{t('ui.deliveryHelp')}</Text><Text style={ui.muted}>{t('ai.priorityHelp')}</Text></Disclosure></View>
           <FlatList ref={messageList} data={snapshot.messages} keyExtractor={(message) => message.id}
             renderItem={({ item }) => <MessageBubble message={item} deviceId={deviceId} now={snapshot.now} />}
             keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}

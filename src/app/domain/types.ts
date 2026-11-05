@@ -1,5 +1,6 @@
 import type { OnboardingPreferences } from '../../features/onboarding/OnboardingPreferences';
 import type { ContactDirectory } from '../../features/contacts/ContactDirectory';
+import type { SharedProfileService } from '../../features/contacts/SharedProfileService';
 import type { ChatService } from '../../features/chat';
 import type { LocationService } from '../../features/maps';
 import type { AcceptResult, OutgoingMessage, PeerId, PowerMode } from '../../features/dtn';
@@ -42,6 +43,7 @@ export interface AppNode {
 
 export interface RuntimeResources {
   readonly contacts?: ContactDirectory;
+  readonly names?: SharedProfileService;
   readonly onboarding?: OnboardingPreferences;
   readonly deviceId: PeerId;
   readonly node: AppNode;
@@ -64,6 +66,8 @@ export interface AppSnapshot {
   readonly permissions: RadioPermissionReport | null;
   readonly radios: Readonly<Partial<Record<RadioKind, RadioStatus>>>;
   readonly connectedPeers: number;
+  /** Ephemeral, bounded diagnostics only. Never contains native errors or peer IDs. */
+  readonly radioDiagnostics?: Readonly<{ readonly transientFailures: number }> | null;
   readonly requestingPermissions: boolean;
   readonly pendingSos: boolean;
   readonly powerMode: PowerMode;
@@ -74,6 +78,6 @@ export interface AppSnapshot {
   readonly automaticPowerMode: boolean;
   readonly alertsEnabled: boolean | null;
   readonly alertsBusy: boolean;
-  readonly issue: 'startup-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'sos-limited' | 'background-unavailable' | 'alerts-unavailable' | null;
+  readonly issue: 'startup-failed' | 'shutdown-failed' | 'permissions-unavailable' | 'radio-error' | 'queue-full' | 'sos-unavailable' | 'sos-limited' | 'background-unavailable' | 'alerts-unavailable' | null;
   readonly notice: 'sos-queued' | null;
 }

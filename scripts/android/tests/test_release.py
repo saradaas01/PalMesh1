@@ -63,6 +63,35 @@ class ApkVerificationTests(unittest.TestCase):
             self.assertEqual(alignment.call_count, 1)
             return json.loads(output.getvalue())
 
+    def aqaba(self, *, architecture='arm64-v8a', synthetic=False, diagnostics=False, allowance=False):
+        self.badging = "package: name='org.palmesh.aqabademo' versionCode='1' versionName='0.1.0'\nlaunchable-activity: name='org.palmesh.MainActivity'\napplication-label:'PalMesh Aqaba Demo'\napplication-debuggable\n"
+        with patch.object(self.module,'validate_aqaba_assets',return_value={'glyphRangeCount':256}) as assets, patch.object(self.module,'apk_diagnostics',return_value=diagnostics):
+            options=['--isolated-aqaba-demo']
+            if synthetic:options.append('--synthetic-emergency-fixture')
+            if allowance:options.append('--allow-map-diagnostics')
+            result=self.verify(self.apk(map_data=True,architecture=architecture,synthetic=synthetic),*options)
+            assets.assert_called_once()
+            return result
+
+    def test_aqaba_human_build_has_a_unique_package_and_sealed_no_diagnostics(self):
+        result=self.aqaba()
+        self.assertEqual(result['applicationId'],'org.palmesh.aqabademo')
+        self.assertEqual(result['verificationMode'],'isolated-aqaba-demo')
+        self.assertFalse(result['existingIdentityMigrated']);self.assertFalse(result['mapDiagnosticsEnabled'])
+        self.assertTrue(result['signatureVerified'])
+        with self.assertRaisesRegex(ValueError,'requires isolated x86_64'):self.aqaba(synthetic=True)
+        with self.assertRaisesRegex(ValueError,'diagnostics differ'):self.aqaba(diagnostics=True)
+
+    def test_aqaba_emulator_fixture_and_diagnostics_need_explicit_x86_scope(self):
+        result=self.aqaba(architecture='x86_64',synthetic=True,diagnostics=True,allowance=True)
+        self.assertTrue(result['mapDiagnosticsEnabled'])
+        with self.assertRaisesRegex(ValueError,'only for isolated Aqaba x86'):self.aqaba(diagnostics=True,allowance=True)
+        with self.assertRaisesRegex(ValueError,'requires isolated x86_64'):self.aqaba(synthetic=True,allowance=True)
+
+    def test_aqaba_asset_inspection_refuses_unpinned_fake_map(self):
+        with zipfile.ZipFile(self.apk(map_data=True)) as archive:
+            with self.assertRaisesRegex(ValueError,'pinned genuine Jordan map'):self.module.validate_aqaba_assets(archive)
+
     def test_bundled_development_apk_reports_limits(self):
         report = self.verify(self.apk(), '--require-bundle', '--architectures', 'arm64-v8a')
         self.assertTrue(report['embeddedJavaScriptBundle'])

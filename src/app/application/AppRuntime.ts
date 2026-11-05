@@ -37,7 +37,7 @@ export class AppRuntime {
   constructor(private readonly options: AppRuntimeOptions) {
     this.state = Object.freeze({
       status: 'idle', startupFailure: null, route: 'chat', foreground: options.initiallyForeground ?? true,
-      resources: null, permissions: null, radios: Object.freeze({}), connectedPeers: 0,
+      resources: null, permissions: null, radios: Object.freeze({}), connectedPeers: 0, radioDiagnostics: null,
       requestingPermissions: false, pendingSos: false, powerMode: 'normal', issue: null, notice: null,
       backgroundEnabled: false, backgroundBusy: false, backgroundSupported: options.platformRuntime?.supportsBackground ?? false,
       battery: null, automaticPowerMode: true,
@@ -60,7 +60,7 @@ export class AppRuntime {
       this.attachPlatform(generation);
       let resources: RuntimeResources | null = null;
       this.patch({ status: 'starting', startupFailure: null, issue: null, notice: null, pendingSos: false, requestingPermissions: false,
-        permissions: null, resources: null, radios: Object.freeze({}), connectedPeers: 0 });
+        permissions: null, resources: null, radios: Object.freeze({}), connectedPeers: 0, radioDiagnostics: null });
       void this.checkPermissions(generation);
       try {
         resources = await this.options.createResources();
@@ -74,13 +74,13 @@ export class AppRuntime {
           if (!this.live(generation)) return;
           if (event.type === 'peers') this.patch({ connectedPeers: this.radiosAllowed() ? event.peers.length : 0 });
           else if (event.type === 'radio-status') this.patch({ radios: Object.freeze({ ...this.state.radios, [event.radio]: Object.freeze({ ...event.status }) }) });
-          else if (event.type === 'error') this.patch({ issue: 'radio-error' });
+          else if (event.type === 'error') this.recordRadioFailure();
         });
         // createMeshNode.start() starts discovery too. Starting its engine
         // independently avoids ever starting radios in an initial background launch.
         await resources.node.engine.start();
         if (!this.live(generation)) return;
-        const features = await Promise.allSettled([resources.chat.start(), resources.locations.start(), resources.emergency?.start()]);
+        const features = await Promise.allSettled([resources.chat.start(), resources.locations.start(), resources.emergency?.start(), resources.names?.start()]);
         const failure = features.find(result => result.status === 'rejected');
         if (failure?.status === 'rejected') throw failure.reason;
         if (!this.live(generation)) return;
@@ -128,7 +128,7 @@ export class AppRuntime {
       await stoppingBackground;
       if (resources) {
         try { await this.cleanup(resources); }
-        catch { this.patch({ issue: 'radio-error' }); }
+        catch { this.patch({ issue: 'shutdown-failed' }); }
       }
       if (this.resources === resources) this.resources = null;
     });
@@ -312,14 +312,14 @@ export class AppRuntime {
     catch { stopping = Promise.reject(new Error('Could not stop mesh')); }
     // Observe the eager stop immediately; queue ownership still ensures a new
     // foreground start waits for that stop to finish.
-    const observed = stopping.catch(() => { if (this.active) this.patch({ issue: 'radio-error' }); });
+    const observed = stopping.catch(() => { if (this.active) this.recordRadioFailure(); });
     void this.queueRadios(() => observed, this.generation);
     this.patch({ connectedPeers: 0 });
   }
 
   private queueRadios(operation: () => Promise<void>, generation: number): Promise<void> {
     const next = this.radioWork.then(operation);
-    this.radioWork = next.catch(() => { if (this.live(generation)) this.patch({ issue: 'radio-error' }); });
+    this.radioWork = next.catch(() => { if (this.live(generation)) this.recordRadioFailure(); });
     return this.radioWork;
   }
 
@@ -334,6 +334,7 @@ export class AppRuntime {
         Promise.resolve().then(() => resources.chat.stop()),
         Promise.resolve().then(() => resources.locations.stop()),
         Promise.resolve().then(() => resources.emergency?.stop()),
+        Promise.resolve().then(() => resources.names?.stop()),
       ]);
       const node = await Promise.allSettled([Promise.resolve().then(() => resources.node.stop())]);
       const released = await Promise.allSettled([Promise.resolve().then(() => resources.release())]);
@@ -396,6 +397,12 @@ export class AppRuntime {
     this.resources?.locations.setPowerMode(powerMode);
   }
   private live(generation: number): boolean { return this.active && this.generation === generation; }
+  private recordRadioFailure(): void {
+    // Background transport recovery must not replace a failed user action or
+    // claim that a queued packet was lost. MeshCoordinator owns bounded retry.
+    this.patch({ radioDiagnostics: Object.freeze({ transientFailures: Math.min(1_000,
+      (this.state.radioDiagnostics?.transientFailures ?? 0) + 1) }) });
+  }
   private transition(operation: () => Promise<void>): Promise<void> {
     const next = this.lifecycle.then(operation);
     this.lifecycle = next.catch(() => {});

@@ -1,3 +1,4 @@
+import {IdentityName} from '../../contacts/IdentityName';
 import { Action, Disclosure, ui, palette } from '../../../shared/ui/design';
 import { useContactNames } from '../../contacts/ContactNames';
 import React, { useCallback, useRef, useState, useEffect, useSyncExternalStore, useMemo } from 'react';
@@ -34,7 +35,7 @@ function PeerReport({ peer, now, onView }: { readonly peer: PeerLocation; readon
   const { t } = useI18n();
   const names=useContactNames();
   return <View style={[styles.peer, peer.origin === 'sos' && styles.sosPeer]}>
-    <Text selectable style={styles.peerName}>{peer.origin === 'sos' ? 'SOS · ' : ''}{names.label(peer.deviceId)}</Text>
+    <IdentityName id={peer.deviceId} label={(peer.origin==='sos'?'SOS · ':'')+names.label(peer.deviceId)} style={styles.peerName}/>
     <LocationDetails location={peer.location} now={now}/><Action label={t('emMap.view')} onPress={onView}/>
     <Text style={ui.muted}>{t('emMap.notLive')}</Text>
     <Text style={styles.secondary}>{t('maps.reportAge', { age: reportAge(peer.receivedAt, now, t) })}</Text>

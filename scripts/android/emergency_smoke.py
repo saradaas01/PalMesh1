@@ -4,7 +4,7 @@ import json,re,time,xml.etree.ElementTree as ET
 import smoke
 from map_smoke import MapSmoke,map_pixels
 from ux_smoke import UxSmoke
-from emergency_gps_provider import EmulatorGpsProvider
+from emergency_gps_provider import EmulatorGpsProvider, SYNTHETIC_COORDINATE_LABEL
 BaseSmoke=smoke.Smoke
 REPORT_ID='80222222-2222-4222-8222-222222222222'
 REPORT_BODIES={
@@ -39,7 +39,7 @@ def report_control(xml,report_id,label):
   # and its controls as siblings. Its clipped native rectangle still owns
   # those controls; accept only one enabled action wholly inside that card.
   bounds=smoke.BOUNDS.fullmatch(card.get('bounds',''))
-  if bounds and not any(n.get('clickable')=='true' for n in card.iter('node')):
+  if bounds and smoke.find_control(ET.tostring(card,encoding='unicode'),label) is None:
    left,top,right,bottom=map(int,bounds.groups());matches=[]
    for node in nodes:
     if node.get('enabled')!='true' or node.get('clickable')!='true':continue
@@ -103,6 +103,14 @@ class EmergencySmoke(MapSmoke):
   super().isolate()
   self.gps_provider=EmulatorGpsProvider(self)
   self.gps_provider.install()
+ def queue_sos(self):
+  # Keep the real two-minute sender limit intact after the earlier GPS/SOS case.
+  remaining=max(0,getattr(self,'sos_queued_at',time.monotonic()-121)+121-time.monotonic())
+  if remaining>125:raise RuntimeError('Unexpected SOS cooldown budget')
+  if remaining:print('EMERGENCY_SOS_COOLDOWN_WAIT seconds='+str(round(remaining,1)),flush=True)
+  while remaining>0:
+   duration=min(10,remaining);time.sleep(duration);remaining-=duration
+  BaseSmoke.queue_sos(self)
  def finish_guide(self,name):
   if name!='first':return
   self.wait_ui(lambda x:smoke.find_control(x,'Skip for now') is not None,'first-run guide after resource readiness','guide-ready.xml')
@@ -201,7 +209,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'SOS inbox'),'actual cold notification inbox route','cold-notification-inbox.xml')
    # Review reports explicitly so the global urgent banner does not obscure the viewport.
    for _ in range(3):self.press('Mark reviewed')
-   self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','sos-no-location.xml','Location unavailable');self.capture('inbox-no-location')
+   self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','sos-no-location.xml','Location unavailable');self.capture('inbox-no-location');self.wait_ui(lambda x:smoke.find_control(x,'Sender identity: SIMULATED Rescue Contact') is not None and smoke.has_text(x,'Self-declared name authenticated to this fingerprint; verify the person separately.'),'authenticated voluntarily shared sender name','shared-name-inbox.xml')
    self.tap('Map');self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline marker overview','marker-overview-ready.xml');self.top();self.map_image('marker-overview',red=True)
    records=self.evidence()
    if not records:raise RuntimeError('Native camera evidence absent before marker tap')
@@ -237,7 +245,7 @@ class EmergencySmoke(MapSmoke):
    self.top();self.press('My location')
    self.wait_ui(lambda x:smoke.find_control(x,'Cancel GPS request') is not None,'bounded cancellable GPS','gps-waiting.xml')
    # SOS must queue while the real native request is still waiting for a fix.
-   self.tap(smoke.SOS);self.wait_ui(lambda x:smoke.has_text(x,smoke.QUEUED),'SOS independent of GPS','gps-waiting-sos.xml');self.tap('Dismiss SOS notice');self.press('Cancel GPS request')
+   self.tap(smoke.SOS);self.wait_ui(lambda x:smoke.has_text(x,smoke.QUEUED),'SOS independent of GPS','gps-waiting-sos.xml');self.sos_queued_at=time.monotonic();self.tap('Dismiss SOS notice');self.press('Cancel GPS request')
    self.wait_ui(lambda x:smoke.find_control(x,'My location') is not None,'cancelled GPS','gps-cancelled.xml')
    self.top();self.press('My location')
    self.gps_provider.inject_fix()
@@ -248,7 +256,7 @@ class EmergencySmoke(MapSmoke):
    self.wait_ui(lambda x:smoke.has_text(x,'Location report queued locally. Delivery is not confirmed.'),'explicit one-time share','shared-once.xml');self.press('Dismiss map notice')
   else:
    self.tap('Map');self.top();self.wait_ui(lambda x:any(n.get('text','').startswith('Reported accuracy:') for n in smoke.nodes(x)),'GPS quality after restart','retained-gps.xml')
-   self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,'Latitude 31.50000, longitude 34.47000'),'original persisted GPS coordinates','retained-gps-coordinates.xml')
+   self.press('Coordinates (optional)');self.wait_ui(lambda x:smoke.has_text(x,SYNTHETIC_COORDINATE_LABEL),'original persisted GPS coordinates','retained-gps-coordinates.xml')
    self.open_inbox();self.top();self.show_report_text('80333333-3333-4333-8333-333333333333','retained-missing-location.xml','Location unavailable');self.press_report(REPORT_ID,'View on map')
    self.wait_ui(lambda x:smoke.has_text(x,'Offline map ready'),'offline map after original SOS focus','retained-map-ready.xml');self.top();self.map_image('restart-sos-map',red=True)
    self.show_report_text(REPORT_ID,'retained-sos-focus.xml')

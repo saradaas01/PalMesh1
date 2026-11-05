@@ -1,5 +1,18 @@
 import type { OfflineMapDescriptor } from './types';
 
+/** A viewport only: never a GPS fix, location report or shared position. */
+export function aqabaInitialCamera(input: OfflineMapDescriptor): { center: [number, number]; zoom: number } {
+  const map = validateOfflineMapDescriptor(input);
+  const center: [number, number] = [35.006, 29.531];
+  if (center[0] < map.bounds[0] || center[0] > map.bounds[2]
+    || center[1] < map.bounds[1] || center[1] > map.bounds[3]) {
+    throw new Error('Bundled map does not cover Aqaba');
+  }
+  // Streets/buildings begin at 13 in the genuine Jordan pack. Users can zoom
+  // into its level-14 detail and overzoom locally without any online resources.
+  return { center, zoom: Math.max(map.minZoom, Math.min(13, map.maxZoom)) };
+}
+
 export function validateOfflineMapDescriptor(value: unknown): OfflineMapDescriptor {
   if (!value || typeof value !== 'object') throw new Error('Invalid offline map descriptor');
   const record = value as Record<string, unknown>;

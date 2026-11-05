@@ -31,6 +31,17 @@ COVERAGE_POINTS = {
     "Karak": (35.70, 31.18), "Ma'an": (35.73, 30.19),
     "Jerash": (35.90, 32.28), "Salt": (35.73, 32.04),
 }
+# These sample the demonstration area, independently of country-wide coverage.
+# Names describe sample areas, not a promise that a particular OSM feature exists.
+AQABA_COVERAGE_POINTS = {
+    'Central Aqaba': (35.006, 29.531),
+    'Fort and waterfront area': (35.006, 29.526),
+    'Northern Aqaba': (35.016, 29.550),
+    'Eastern Aqaba': (35.030, 29.535),
+}
+# Require built detail at the urban samples. Surrounding coverage is still
+# inspected and reported verbatim; genuine sparse tiles need not invent buildings.
+AQABA_URBAN_SAMPLES = frozenset({'Central Aqaba', 'Fort and waterfront area', 'Northern Aqaba'})
 
 
 def data_timestamp(value: object) -> dt.datetime:
@@ -144,6 +155,81 @@ def xyz_tile(longitude: float, latitude: float, zoom: int) -> tuple[int, int]:
     return column, count - 1 - xyz_row  # MBTiles uses TMS rows.
 
 
+def named_feature_counts(stored: bytes) -> dict[str, tuple[int, int]]:
+    """Count actual nonempty name tags, rather than just layer key declarations."""
+    result = {}
+    for number, wire, layer in fields(decoded_tile(stored)):
+        if number != 3 or wire != 2:
+            raise ValueError('Vector tile contains a non-layer top-level field')
+        name, keys, values, features = None, [], [], []
+        for number, wire, value in fields(layer):
+            if number == 1 and wire == 2:
+                name = value.decode('utf-8')
+            elif number == 2 and wire == 2:
+                features.append(value)
+            elif number == 3 and wire == 2:
+                keys.append(value.decode('utf-8'))
+            elif number == 4 and wire == 2:
+                strings = [item.decode('utf-8') for field, kind, item in fields(value) if field == 1 and kind == 2]
+                values.append(strings[0] if strings else None)
+        named, arabic = 0, 0
+        for feature in features:
+            names = {}
+            for number, wire, packed in fields(feature):
+                if number != 2 or wire != 2:
+                    continue
+                tags, offset = [], 0
+                while offset < len(packed):
+                    tag, offset = varint(packed, offset)
+                    tags.append(tag)
+                if len(tags) % 2:
+                    raise ValueError('Invalid feature name tags')
+                for index in range(0, len(tags), 2):
+                    key, value = tags[index:index + 2]
+                    if key >= len(keys) or value >= len(values):
+                        raise ValueError('Invalid feature name tag index')
+                    if keys[key] in ('name', 'name:ar', 'name:en', 'name:latin') and values[value]:
+                        names[keys[key]] = values[value]
+            named += bool(names)
+            arabic += bool(re.search(r'[\u0600-\u06ff]', names.get('name:ar', '')))
+        result[name] = (named, arabic)
+    return result
+
+
+def aqaba_coverage(db: sqlite3.Connection, zoom: int) -> dict:
+    """Require urban street/building detail and report surrounding coverage honestly."""
+    if zoom < 14:
+        raise ValueError('Aqaba streets/buildings require detailed zoom 14 or greater')
+    samples, landmarks, arabic_names = {}, 0, 0
+    for place, (lon, lat) in AQABA_COVERAGE_POINTS.items():
+        column, row = xyz_tile(lon, lat, zoom)
+        tile = db.execute('SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1',
+                          (zoom, column, row)).fetchone()
+        if tile is None:
+            raise ValueError('No detailed map coverage at ' + place)
+        layers = tile_layers(tile[0])
+        roads = sum(int(details['features']) for name, details in layers.items() if re.search('road|transport|street', name, re.I))
+        buildings = sum(int(details['features']) for name, details in layers.items() if 'building' in name.lower())
+        names = named_feature_counts(tile[0])
+        named = sum(count for count, _ in names.values())
+        arabic = sum(count for _, count in names.values())
+        local_landmarks = sum(count for name, (count, _) in names.items() if re.search('poi|place', name, re.I))
+        urban = place in AQABA_URBAN_SAMPLES
+        if urban and (not roads or not buildings):
+            raise ValueError(f'Aqaba sample lacks street/building detail: {place} (streets={roads}, buildings={buildings})')
+        samples[place] = {'longitude': lon, 'latitude': lat, 'zoom': zoom,
+                          'streetFeatures': roads, 'buildingFeatures': buildings,
+                          'tileColumn': column, 'tileRowTms': row, 'urbanDetailRequired': urban,
+                          'sparseBuiltDetail': not roads or not buildings,
+                          'namedFeatures': named, 'arabicNamedFeatures': arabic,
+                          'namedPlaceOrPoiFeatures': local_landmarks}
+        landmarks += local_landmarks
+        arabic_names += arabic
+    if not landmarks or not arabic_names:
+        raise ValueError('Aqaba coverage must include named places/POIs and Arabic names')
+    return samples
+
+
 def validate(path: Path, expected_sha256: str, require_region: bool = True) -> dict:
     if not re.fullmatch(r'[a-f0-9]{64}', expected_sha256):
         raise ValueError('A trusted lowercase SHA-256 digest is required')
@@ -202,6 +288,7 @@ def validate(path: Path, expected_sha256: str, require_region: bool = True) -> d
             counts[str(zoom)] = counts.get(str(zoom), 0) + 1
         if not counts or str(lower) not in counts or str(upper) not in counts:
             raise ValueError('Map is empty or declared zoom endpoints are absent')
+        local_coverage = None
         if require_region:
             if not any(re.search('road|transport|street', n, re.I) and c for n, c in layer_features.items()) or not any('building' in n.lower() and c for n, c in layer_features.items()):
                 raise ValueError('Map must contain streets and buildings')
@@ -212,6 +299,7 @@ def validate(path: Path, expected_sha256: str, require_region: bool = True) -> d
                 tile = db.execute('SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1', (upper, column, row)).fetchone()
                 if tile is None or not any(d['features'] for d in tile_layers(tile[0]).values()):
                     raise ValueError('No detailed map coverage at ' + place)
+            local_coverage = aqaba_coverage(db, upper)
         # Native tile lookups must use an index, including normalized MBTiles views.
         query_plan = ' '.join(str(part) for row in db.execute('EXPLAIN QUERY PLAN SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1', (upper, 0, 0)) for part in row)
         if 'SEARCH' not in query_plan.upper():
@@ -222,6 +310,8 @@ def validate(path: Path, expected_sha256: str, require_region: bool = True) -> d
         if 'osm_data_timestamp' in metadata:
             data_timestamp(metadata['osm_data_timestamp'])
             report['dataTimestamp'] = metadata['osm_data_timestamp']
+        if local_coverage is not None:
+            report['aqabaCoverage'] = local_coverage
         return report
 
 

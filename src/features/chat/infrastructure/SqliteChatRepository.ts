@@ -63,7 +63,9 @@ export class SqliteChatRepository implements ChatRepository {
     this.requireInitialized();
     if (!isPeerId(localDeviceId)) throw new TypeError('Invalid archive device identity');
     // Discard invisible/malformed projections before they can reach storage.
-    // Stable sort preserves local source order at equal arrival time.
+    // Local arrival order controls archive sequence and unread watermarks. A
+    // sender's createdAt is shown verbatim, never trusted to reorder or pin a
+    // conversation. Stable sort preserves source order at equal arrival time.
     const projected = entries.map(entry => projectEntry(entry, localDeviceId))
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
       .sort((a, b) => a.receivedAt - b.receivedAt);
@@ -74,6 +76,8 @@ export class SqliteChatRepository implements ChatRepository {
       for (const entry of projected) {
         const existing = this.database.execute('SELECT message_id FROM palmesh_chat_seen WHERE message_id = ?', [entry.id]).rows[0];
         if (existing) {
+          // Preserve the first signed createdAt AND first local receivedAt.
+          // A retry/replayed routing snapshot may only establish peer custody.
           if (entry.peerStored) this.database.execute(
             'UPDATE palmesh_chat_messages SET peer_stored = 1 WHERE message_id = ? AND outgoing = 1', [entry.id],
           );
