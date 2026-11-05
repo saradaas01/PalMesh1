@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   emergency:
+    if: github.base_ref != 'feat/ai-message-priority'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:

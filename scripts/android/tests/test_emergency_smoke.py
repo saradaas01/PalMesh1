@@ -3,7 +3,7 @@ import json,sys,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from emergency_smoke import scroll_surface, report_control, report_label_visible, EmergencySmoke, REPORT_ID, REPORT_BODIES
-from unittest.mock import Mock,patch
+from unittest.mock import Mock,patch,patch
 
 def native_card(body,heading='Incoming SOS',button=True,button_bounds='[48,780][672,852]',resource_id=''):
  return f'''<node class="android.view.ViewGroup" resource-id="{resource_id}" scrollable="false" bounds="[24,500][696,950]">
@@ -19,6 +19,14 @@ def native_inbox(*cards):
  return '<hierarchy><node class="android.view.ViewGroup" bounds="[0,0][720,1280]"><node class="android.widget.TextView" text="SOS inbox" bounds="[24,230][696,290]"/><node class="androidx.recyclerview.widget.RecyclerView" scrollable="true" bounds="[24,480][696,1109]">'+''.join(cards)+'</node></node></hierarchy>'
 
 class EmergencyScrollTests(unittest.TestCase):
+ def test_second_sos_waits_for_real_sender_cooldown_without_changing_limits(self):
+  harness=object.__new__(EmergencySmoke);harness.sos_queued_at=100;harness.tap=Mock();harness.wait_ui=Mock()
+  with patch('emergency_smoke.time.monotonic',return_value=130),patch('emergency_smoke.time.sleep') as waiting:
+   harness.queue_sos()
+  self.assertAlmostEqual(sum(call.args[0] for call in waiting.call_args_list),91)
+  self.assertTrue(all(call.args[0]<=10 for call in waiting.call_args_list))
+  harness.tap.assert_any_call('I Need Help · SOS');harness.wait_ui.assert_called_once()
+
  def test_restart_checks_the_exact_injected_aqaba_location(self):
   with tempfile.TemporaryDirectory() as temporary:
    harness=object.__new__(EmergencySmoke);harness.output=Path(temporary)

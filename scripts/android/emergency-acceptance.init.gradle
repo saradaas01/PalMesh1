@@ -2,7 +2,7 @@
 gradle.beforeProject { project ->
     if (project.path == ':app') {
         project.pluginManager.withPlugin('com.facebook.react') {
-            if (project.providers.gradleProperty('palmeshEmergencyTest').orNull != 'true' || project.providers.gradleProperty('reactNativeArchitectures').orNull != 'x86_64') throw new GradleException('Synthetic emergency entry requires isolated x86_64 test app')
+            if ((project.providers.gradleProperty('palmeshEmergencyTest').orNull != 'true' && project.providers.gradleProperty('palmeshAqabaDemo').orNull != 'true') || project.providers.gradleProperty('reactNativeArchitectures').orNull != 'x86_64') throw new GradleException('Synthetic emergency entry requires isolated x86_64 test app')
             project.extensions.getByName('react').entryFile.set(new File(System.getenv('PALMESH_REPOSITORY_ROOT'), 'tests/android/emergency-entry.tsx'))
         }
     }

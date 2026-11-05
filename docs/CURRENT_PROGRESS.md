@@ -1,5 +1,32 @@
 # Current progress checkpoint
 
+## Aqaba demonstration improvements — November 5, 2026
+
+Branch `feat/aqaba-demo-improvements` starts from the latest requested
+`feat/ai-message-priority` checkpoint `714fff7315f44de18548d32cd3e9e420fc4010f9`.
+It preserves the Jordan pack, 90-second cancellable native GPS, original SOS IDs,
+manual SOS decisions, encryption and SOS/response abuse limits. No existing PR is
+merged. Separate commits cover sender timestamps, passive radio recovery,
+Aqaba map/detail validation, contextual AI and opt-in authenticated public names.
+
+Local TypeScript/module build, 471 core tests, 125 UI tests, 91 Android-tool tests
+and 60 map-tool tests pass. Model training and the frozen 64-case Arabic/English
+holdout reproduce exactly. Holdout critical TP/FP/FN are 16/6/0; precision 72.7%,
+recall 100%, F1 84.2%. These are synthetic engineering cases, not clinical or
+physical-field validation. The requested user lexicon JSON was not attached;
+only the explicitly documented project baseline is integrated. See
+[AI evaluation](ai-risk-evaluation.md) and [name protocol](protocol-profile-names.md).
+
+The isolated `org.palmesh.aqabademo` / **PalMesh Aqaba Demo** delivery workflow
+validates the exact genuine Jordan artifact and all 256 Arabic glyph pages,
+then builds an ARM64 human APK and two distinct emulator acceptance APKs.
+Hosted build, actual packaged-map coverage and emulator evidence are pending
+until their exact workflow completes; local tooling tests alone do not establish
+them. Download and physical acceptance instructions are in
+[Aqaba demo build](milestones/aqaba-demo-build.md). Existing app storage and keys
+are untouched. Real GNSS, two-phone names/replay/delayed messaging and physical
+radio recovery still need device tests.
+
 ## Emergency Map and GPS follow-up
 
 The user confirms successful two-phone messages/SOS. TECNO POVA 5 / Android 14

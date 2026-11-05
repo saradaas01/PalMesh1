@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Replay foreground GPS on a pinned synthetic x86 APK in a fresh offline guest."""
 import json
+import time
 
 import smoke
 from emergency_smoke import BaseSmoke, EmergencySmoke
@@ -93,6 +94,7 @@ class EmergencyGpsSmoke(EmergencySmoke):
             self.tap(smoke.SOS)
             self.wait_ui(lambda x: smoke.has_text(x, smoke.QUEUED),
                          'SOS queued during GPS acquisition', 'gps-waiting-sos.xml')
+            self.sos_queued_at=time.monotonic()
             self.tap('Dismiss SOS notice')
             self.press('Cancel GPS request')
             self.wait_ui(lambda x: smoke.find_control(x, 'My location') is not None,

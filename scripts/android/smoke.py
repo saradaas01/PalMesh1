@@ -241,6 +241,11 @@ class Smoke:
             return False
         self.wait_ui(visible, 'the retained outgoing public message with local custody status', name)
 
+    def queue_sos(self) -> None:
+        self.tap(SOS)
+        self.wait_ui(lambda xml: has_text(xml, QUEUED), 'the durable local SOS queue notice', 'sos-queued.xml')
+        self.tap('Dismiss SOS notice')
+
     def retained_public_chat(self) -> None:
         self.public_thread('second')
         self.wait_public_history('retained-chat.xml')
@@ -278,12 +283,15 @@ def main() -> None:
                         help='Official emulator software graphics backend; no host GPU required')
     parser.add_argument('--isolated-map-test', action='store_true', help='Launch only the separately identified PalMesh map-test app')
     parser.add_argument('--emergency-test',action='store_true')
+    parser.add_argument('--aqaba-demo-test',action='store_true',help='Separate Aqaba demo application')
     parser.add_argument('--ux-test',action='store_true',help='Separate redesign app')
     parser.add_argument('--camera-image',type=Path,help='Explicit synthetic image-backed emulator camera')
     parser.add_argument('--contacts-test', action='store_true', help='Separate offline contacts app')
     parser.add_argument('--map-performance-test', action='store_true', help='Launch the separately identified map performance app')
     args = parser.parse_args()
-    PACKAGE = 'org.palmesh.emergencytest' if args.emergency_test else 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
+    if sum([args.aqaba_demo_test,args.emergency_test,args.ux_test,args.contacts_test,args.map_performance_test,args.isolated_map_test]) > 1:
+        parser.error('Choose one isolated application identity.')
+    PACKAGE = 'org.palmesh.aqabademo' if args.aqaba_demo_test else 'org.palmesh.emergencytest' if args.emergency_test else 'org.palmesh.uxtest' if args.ux_test else 'org.palmesh.contacttest' if args.contacts_test else 'org.palmesh.mapperftest' if args.map_performance_test else 'org.palmesh.maptest' if args.isolated_map_test else 'org.palmesh'
     if not 10 <= args.boot_timeout <= 900 or not 10 <= args.ui_timeout <= 300:
         parser.error('Boot/UI budgets must be bounded (10–900 / 10–300 seconds).')
     sdk_value = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
@@ -332,9 +340,7 @@ def main() -> None:
             smoke.launch('first')
             before = smoke.identity('first-identity.xml')
             smoke.queue_public_chat()
-            smoke.tap(SOS)
-            smoke.wait_ui(lambda xml: has_text(xml, QUEUED), 'the durable local SOS queue notice', 'sos-queued.xml')
-            smoke.tap('Dismiss SOS notice')
+            smoke.queue_sos()
             smoke.open_inbox()
             smoke.wait_ui(lambda xml: has_text(xml, 'Your SOS'), 'the outgoing SOS history', 'sos-history.xml')
             smoke.launch('second')

@@ -1,0 +1,190 @@
+name: Aqaba demo APK and offline acceptance
+on:
+  pull_request:
+    branches: ['feat/ai-message-priority']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: aqaba-demo-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Reproduce the committed model and frozen bilingual evaluation
+        run: |
+          ./node_modules/.bin/tsx scripts/ai/train-priority-model.ts --check
+          ./node_modules/.bin/tsx scripts/ai/evaluate-risk.ts --check
+      - run: python3 -m unittest discover -s scripts/android/tests -v
+      - run: python3 -m unittest discover -s scripts/maps/tests -v
+  android:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: human-arm64
+            architecture: arm64-v8a
+            artifact: android-aqaba-demo-arm64-apk
+          - lane: emergency-fixture-x86_64
+            architecture: x86_64
+            artifact: android-aqaba-demo-emergency-fixture-x86_64-apk
+          - lane: map-interaction-x86_64
+            architecture: x86_64
+            artifact: android-aqaba-demo-map-interaction-x86_64-apk
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - name: Verify the pinned genuine Jordan artifact and successful producer
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = {owner: context.repo.owner, repo: context.repo.repo};
+            const [{data: run}, {data: artifact}] = await Promise.all([
+              github.rest.actions.getWorkflowRun({...repo, run_id: 42001163336}),
+              github.rest.actions.getArtifact({...repo, artifact_id: 13403170758}),
+            ]);
+            const expected = 'f8d89e8d8977625fb724f4c560197c92f9492e1d';
+            if (run.head_sha !== expected || run.status !== 'completed' || run.conclusion !== 'success') {
+              throw new Error('Unexpected or unsuccessful Jordan map producer');
+            }
+            if (artifact.id !== 13403170758 || artifact.name !== 'palmesh-candidate-jordan-map' || artifact.expired ||
+                artifact.workflow_run?.id !== run.id || artifact.workflow_run?.head_sha !== expected) {
+              throw new Error('Pinned genuine Jordan map artifact is unavailable or has unexpected provenance');
+            }
+            const fs = require('fs');
+            fs.mkdirSync('dist/maps', {recursive: true});
+            fs.writeFileSync('dist/maps/artifact-provenance.json', JSON.stringify({
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              runId: run.id, producerSha: run.head_sha,
+              artifactId: artifact.id, artifactName: artifact.name,
+              artifactCreatedAt: artifact.created_at, artifactDigest: artifact.digest ?? null,
+            }, null, 2) + '\n');
+      - name: Download that exact same-repository artifact with the Actions token
+        uses: actions/download-artifact@v5
+        with:
+          artifact-ids: '13403170758'
+          run-id: 42001163336
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: mapdata
+      - name: Validate original map bytes and manifest, Aqaba detail and all bundled glyphs
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts/maps')
+          from mbtiles import checked_manifest
+          manifest = checked_manifest(Path('mapdata/jordan.manifest.json'), Path('mapdata/jordan.mbtiles'))
+          assert manifest['sha256'] == '4a291b601e85628eea7e0d51595c027044c078eee89ec5ff39866d49ec106ba2', 'Unexpected genuine Jordan map bytes'
+          assert manifest['dataTimestamp'] == '2026-11-03T21:24:23Z', 'Unexpected original OSM data time'
+          PY
+          python3 scripts/maps/package.py --report dist/maps/aqaba-coverage.json
+      - uses: ./.github/actions/setup-android
+      - name: Install disposable API 35 emulator and screenshot analysis dependency
+        if: matrix.architecture == 'x86_64'
+        run: |
+          android --no-metrics --sdk="$ANDROID_HOME" sdk install emulator 'system-images;android-35;default;x86_64'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpulse0 libnss3 libx11-6 libxcb1 libxcomposite1 libxcursor1 libxi6 libxtst6 libxrandr2 libglu1-mesa libasound2t64
+          "$ANDROID_HOME/emulator/emulator" -version
+          python3 -m pip install --target "$RUNNER_TEMP/map-test-python" Pillow==12.0.0
+          test -c /dev/kvm
+          sudo chown "$(id -u):$(id -g)" /dev/kvm
+          sudo chmod 600 /dev/kvm
+      - name: Build and verify the separately identified Aqaba demo variant
+        id: build
+        env:
+          AQABA_LANE: ${{ matrix.lane }}
+          AQABA_ABI: ${{ matrix.architecture }}
+        run: |
+          options=(-PpalmeshAqabaDemo=true)
+          verify=(--isolated-aqaba-demo --architectures "$AQABA_ABI")
+          mode=()
+          if [ "$AQABA_ABI" = x86_64 ]; then
+            options+=(-PpalmeshMapDiagnostics=true)
+            verify+=(--allow-map-diagnostics)
+            mode+=(--enabled)
+          fi
+          if [ "$AQABA_LANE" = emergency-fixture-x86_64 ]; then
+            options+=(-I ../scripts/android/emergency-acceptance.init.gradle)
+            verify+=(--synthetic-emergency-fixture)
+          fi
+          python3 scripts/android/gradle.py --bundle-debug --architectures "$AQABA_ABI" "${options[@]}" :palmesh_runtime:testDebugUnitTest :app:assembleDebug
+          python3 scripts/android/verify-apk.py android/app/build/outputs/apk/debug/app-debug.apk "${verify[@]}" --report dist/android/aqaba-verification.json
+          python3 scripts/android/verify-map-mode.py android/app/build/outputs/apk/debug/app-debug.apk "${mode[@]}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/android/palmesh-aqaba-demo-$AQABA_LANE.apk"
+      - name: Exercise exact SOS reports, permission failures and bounded foreground GPS offline
+        if: matrix.lane == 'emergency-fixture-x86_64'
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+          PALMESH_TEST_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python3 scripts/android/emergency_smoke.py --aqaba-demo-test --gpu swangle
+          --apk android/app/build/outputs/apk/debug/app-debug.apk
+          --output "$RUNNER_TEMP/aqaba-emergency-results"
+          --state "$RUNNER_TEMP/private-aqaba-emergency-emulator"
+      - name: Exercise ordinary map rendering, measured pan and zoom, and offline restart
+        if: matrix.lane == 'map-interaction-x86_64'
+        env:
+          PYTHONPATH: ${{ runner.temp }}/map-test-python
+          PALMESH_TEST_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python3 scripts/android/map_smoke.py --aqaba-demo-test --gpu swangle
+          --apk android/app/build/outputs/apk/debug/app-debug.apk
+          --output "$RUNNER_TEMP/aqaba-map-results"
+          --state "$RUNNER_TEMP/private-aqaba-map-emulator"
+      - name: Publish the verified APK with packaging, coverage and original provenance
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/android/palmesh-aqaba-demo-${{ matrix.lane }}.apk
+            dist/android/aqaba-verification.json
+            dist/maps/aqaba-coverage.json
+            dist/maps/artifact-provenance.json
+            mapdata/jordan.manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain separate synthetic emergency evidence
+        if: always() && matrix.lane == 'emergency-fixture-x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqaba-demo-emergency-fixture-evidence
+          path: ${{ runner.temp }}/aqaba-emergency-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Retain ordinary map interaction evidence
+        if: always() && matrix.lane == 'map-interaction-x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqaba-demo-map-interaction-evidence
+          path: ${{ runner.temp }}/aqaba-map-results/
+          if-no-files-found: ignore
+          retention-days: 14
