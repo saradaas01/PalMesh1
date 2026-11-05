@@ -1,0 +1,1921 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "project-curated-baseline",
+    "description": "Migrated from PalMesh signals.ts at714fff7, with contextual regression additions. The user-referenced lexicon was not received; this is not that attachment."
+  },
+  "entries": [
+    {
+      "id": "critical-1",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "bleeding"
+    },
+    {
+      "id": "critical-2",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "bleed"
+    },
+    {
+      "id": "critical-3",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "trapped"
+    },
+    {
+      "id": "critical-4",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "rubble"
+    },
+    {
+      "id": "critical-5",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "under the rubble"
+    },
+    {
+      "id": "critical-6",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "collapsed"
+    },
+    {
+      "id": "critical-7",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "not breathing"
+    },
+    {
+      "id": "critical-8",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "can t breathe"
+    },
+    {
+      "id": "critical-9",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "cant breathe"
+    },
+    {
+      "id": "critical-10",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "unconscious"
+    },
+    {
+      "id": "critical-11",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "passed out"
+    },
+    {
+      "id": "critical-12",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "fainted"
+    },
+    {
+      "id": "critical-13",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "heart attack"
+    },
+    {
+      "id": "critical-14",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "stroke"
+    },
+    {
+      "id": "critical-15",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "seizure"
+    },
+    {
+      "id": "critical-16",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "on fire"
+    },
+    {
+      "id": "critical-17",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "fire"
+    },
+    {
+      "id": "critical-18",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "burning"
+    },
+    {
+      "id": "critical-19",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "shot"
+    },
+    {
+      "id": "critical-20",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "gunshot"
+    },
+    {
+      "id": "critical-21",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "stabbed"
+    },
+    {
+      "id": "critical-22",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "explosion"
+    },
+    {
+      "id": "critical-23",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "drowning"
+    },
+    {
+      "id": "critical-24",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "dying"
+    },
+    {
+      "id": "critical-25",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "injured"
+    },
+    {
+      "id": "critical-26",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "wounded"
+    },
+    {
+      "id": "critical-27",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "choking"
+    },
+    {
+      "id": "critical-28",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "overdose"
+    },
+    {
+      "id": "critical-29",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "giving birth"
+    },
+    {
+      "id": "critical-30",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "gas leak"
+    },
+    {
+      "id": "critical-31",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "ambulance"
+    },
+    {
+      "id": "critical-32",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "burns"
+    },
+    {
+      "id": "critical-33",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "burned"
+    },
+    {
+      "id": "critical-34",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "smoke"
+    },
+    {
+      "id": "critical-35",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "debris"
+    },
+    {
+      "id": "critical-36",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "shelling"
+    },
+    {
+      "id": "critical-37",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "airstrike"
+    },
+    {
+      "id": "critical-38",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "lost consciousness"
+    },
+    {
+      "id": "critical-39",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "chest pain"
+    },
+    {
+      "id": "critical-40",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "not moving"
+    },
+    {
+      "id": "critical-41",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "not responding"
+    },
+    {
+      "id": "critical-42",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "crushed"
+    },
+    {
+      "id": "critical-43",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "pinned"
+    },
+    {
+      "id": "critical-44",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "electrocuted"
+    },
+    {
+      "id": "critical-45",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "shrapnel"
+    },
+    {
+      "id": "critical-46",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "نزيف"
+    },
+    {
+      "id": "critical-47",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ينزف"
+    },
+    {
+      "id": "critical-48",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بنزف"
+    },
+    {
+      "id": "critical-49",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تنزف"
+    },
+    {
+      "id": "critical-50",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عالق"
+    },
+    {
+      "id": "critical-51",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عالقين"
+    },
+    {
+      "id": "critical-52",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عالقه"
+    },
+    {
+      "id": "critical-53",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "محاصر"
+    },
+    {
+      "id": "critical-54",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "محاصرين"
+    },
+    {
+      "id": "critical-55",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تحت الركام"
+    },
+    {
+      "id": "critical-56",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تحت الانقاض"
+    },
+    {
+      "id": "critical-57",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ركام"
+    },
+    {
+      "id": "critical-58",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انقاض"
+    },
+    {
+      "id": "critical-59",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انهار"
+    },
+    {
+      "id": "critical-60",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انهيار"
+    },
+    {
+      "id": "critical-61",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما بتنفس"
+    },
+    {
+      "id": "critical-62",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش قادر اتنفس"
+    },
+    {
+      "id": "critical-63",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "لا يتنفس"
+    },
+    {
+      "id": "critical-64",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما بيتنفس"
+    },
+    {
+      "id": "critical-65",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "اختناق"
+    },
+    {
+      "id": "critical-66",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "فاقد الوعي"
+    },
+    {
+      "id": "critical-67",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مغمي عليه"
+    },
+    {
+      "id": "critical-68",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "اغمي"
+    },
+    {
+      "id": "critical-69",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "نوبه قلبيه"
+    },
+    {
+      "id": "critical-70",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "جلطه"
+    },
+    {
+      "id": "critical-71",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تشنج"
+    },
+    {
+      "id": "critical-72",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تشنجات"
+    },
+    {
+      "id": "critical-73",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "حريق"
+    },
+    {
+      "id": "critical-74",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انفجار"
+    },
+    {
+      "id": "critical-75",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "قصف"
+    },
+    {
+      "id": "critical-76",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مصاب"
+    },
+    {
+      "id": "critical-77",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مصابه"
+    },
+    {
+      "id": "critical-78",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مصابين"
+    },
+    {
+      "id": "critical-79",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "اصابه"
+    },
+    {
+      "id": "critical-80",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "جريح"
+    },
+    {
+      "id": "critical-81",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "جرحي"
+    },
+    {
+      "id": "critical-82",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "طلق ناري"
+    },
+    {
+      "id": "critical-83",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "رصاص"
+    },
+    {
+      "id": "critical-84",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "غرق"
+    },
+    {
+      "id": "critical-85",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بيموت"
+    },
+    {
+      "id": "critical-86",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بتموت"
+    },
+    {
+      "id": "critical-87",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "يموت"
+    },
+    {
+      "id": "critical-88",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "حروق"
+    },
+    {
+      "id": "critical-89",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "اسعاف"
+    },
+    {
+      "id": "critical-90",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بتولد"
+    },
+    {
+      "id": "critical-91",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ولاده"
+    },
+    {
+      "id": "critical-92",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تسرب غاز"
+    },
+    {
+      "id": "critical-93",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "دخان"
+    },
+    {
+      "id": "critical-94",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "فقد الوعي"
+    },
+    {
+      "id": "critical-95",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مخنوق"
+    },
+    {
+      "id": "critical-96",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انخنق"
+    },
+    {
+      "id": "critical-97",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انطعن"
+    },
+    {
+      "id": "critical-98",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ضيق نفس"
+    },
+    {
+      "id": "critical-99",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما بيتحرك"
+    },
+    {
+      "id": "critical-100",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "شظيه"
+    },
+    {
+      "id": "critical-101",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "شظايا"
+    },
+    {
+      "id": "critical-102",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انكهرب"
+    },
+    {
+      "id": "critical-103",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "غيبوبه"
+    },
+    {
+      "id": "critical-104",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "محشور"
+    },
+    {
+      "id": "critical-105",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "انحرق"
+    },
+    {
+      "id": "critical-106",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عم تموت"
+    },
+    {
+      "id": "critical-107",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عم يموت"
+    },
+    {
+      "id": "critical-108",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "غاره"
+    },
+    {
+      "id": "high-1",
+      "priority": "high",
+      "language": "en",
+      "phrase": "water"
+    },
+    {
+      "id": "high-2",
+      "priority": "high",
+      "language": "en",
+      "phrase": "food"
+    },
+    {
+      "id": "high-3",
+      "priority": "high",
+      "language": "en",
+      "phrase": "medicine"
+    },
+    {
+      "id": "high-4",
+      "priority": "high",
+      "language": "en",
+      "phrase": "medication"
+    },
+    {
+      "id": "high-5",
+      "priority": "high",
+      "language": "en",
+      "phrase": "insulin"
+    },
+    {
+      "id": "high-6",
+      "priority": "high",
+      "language": "en",
+      "phrase": "baby formula"
+    },
+    {
+      "id": "high-7",
+      "priority": "high",
+      "language": "en",
+      "phrase": "diapers"
+    },
+    {
+      "id": "high-8",
+      "priority": "high",
+      "language": "en",
+      "phrase": "shelter"
+    },
+    {
+      "id": "high-9",
+      "priority": "high",
+      "language": "en",
+      "phrase": "tent"
+    },
+    {
+      "id": "high-10",
+      "priority": "high",
+      "language": "en",
+      "phrase": "evacuate"
+    },
+    {
+      "id": "high-11",
+      "priority": "high",
+      "language": "en",
+      "phrase": "evacuation"
+    },
+    {
+      "id": "high-12",
+      "priority": "high",
+      "language": "en",
+      "phrase": "missing"
+    },
+    {
+      "id": "high-13",
+      "priority": "high",
+      "language": "en",
+      "phrase": "lost child"
+    },
+    {
+      "id": "high-14",
+      "priority": "high",
+      "language": "en",
+      "phrase": "doctor"
+    },
+    {
+      "id": "high-15",
+      "priority": "high",
+      "language": "en",
+      "phrase": "hospital"
+    },
+    {
+      "id": "high-16",
+      "priority": "high",
+      "language": "en",
+      "phrase": "pregnant"
+    },
+    {
+      "id": "high-17",
+      "priority": "high",
+      "language": "en",
+      "phrase": "elderly"
+    },
+    {
+      "id": "high-18",
+      "priority": "high",
+      "language": "en",
+      "phrase": "wheelchair"
+    },
+    {
+      "id": "high-19",
+      "priority": "high",
+      "language": "en",
+      "phrase": "oxygen"
+    },
+    {
+      "id": "high-20",
+      "priority": "high",
+      "language": "en",
+      "phrase": "dialysis"
+    },
+    {
+      "id": "high-21",
+      "priority": "high",
+      "language": "en",
+      "phrase": "urgent"
+    },
+    {
+      "id": "high-22",
+      "priority": "high",
+      "language": "en",
+      "phrase": "asap"
+    },
+    {
+      "id": "high-23",
+      "priority": "high",
+      "language": "en",
+      "phrase": "hungry"
+    },
+    {
+      "id": "high-24",
+      "priority": "high",
+      "language": "en",
+      "phrase": "blanket"
+    },
+    {
+      "id": "high-25",
+      "priority": "high",
+      "language": "en",
+      "phrase": "blankets"
+    },
+    {
+      "id": "high-26",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مي"
+    },
+    {
+      "id": "high-27",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ميه"
+    },
+    {
+      "id": "high-28",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ماء"
+    },
+    {
+      "id": "high-29",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مياه"
+    },
+    {
+      "id": "high-30",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "اكل"
+    },
+    {
+      "id": "high-31",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "طعام"
+    },
+    {
+      "id": "high-32",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "دوا"
+    },
+    {
+      "id": "high-33",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "دواء"
+    },
+    {
+      "id": "high-34",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ادويه"
+    },
+    {
+      "id": "high-35",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "انسولين"
+    },
+    {
+      "id": "high-36",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "حليب اطفال"
+    },
+    {
+      "id": "high-37",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "حليب"
+    },
+    {
+      "id": "high-38",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "حفاضات"
+    },
+    {
+      "id": "high-39",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ماوي"
+    },
+    {
+      "id": "high-40",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "خيمه"
+    },
+    {
+      "id": "high-41",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "اخلاء"
+    },
+    {
+      "id": "high-42",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "نزوح"
+    },
+    {
+      "id": "high-43",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مفقود"
+    },
+    {
+      "id": "high-44",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مفقوده"
+    },
+    {
+      "id": "high-45",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ضايع"
+    },
+    {
+      "id": "high-46",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ضايعه"
+    },
+    {
+      "id": "high-47",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "دكتور"
+    },
+    {
+      "id": "high-48",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "طبيب"
+    },
+    {
+      "id": "high-49",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مستشفي"
+    },
+    {
+      "id": "high-50",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "حامل"
+    },
+    {
+      "id": "high-51",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "كبار السن"
+    },
+    {
+      "id": "high-52",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "اكسجين"
+    },
+    {
+      "id": "high-53",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "غسيل كلي"
+    },
+    {
+      "id": "high-54",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "ضروري"
+    },
+    {
+      "id": "high-55",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مستعجل"
+    },
+    {
+      "id": "high-56",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "عاجل"
+    },
+    {
+      "id": "high-57",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "جوعانين"
+    },
+    {
+      "id": "high-58",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "جوع"
+    },
+    {
+      "id": "high-59",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "بطانيات"
+    },
+    {
+      "id": "high-60",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "حرامات"
+    },
+    {
+      "id": "low-1",
+      "priority": "low",
+      "language": "en",
+      "phrase": "thanks"
+    },
+    {
+      "id": "low-2",
+      "priority": "low",
+      "language": "en",
+      "phrase": "thank you"
+    },
+    {
+      "id": "low-3",
+      "priority": "low",
+      "language": "en",
+      "phrase": "ok"
+    },
+    {
+      "id": "low-4",
+      "priority": "low",
+      "language": "en",
+      "phrase": "okay"
+    },
+    {
+      "id": "low-5",
+      "priority": "low",
+      "language": "en",
+      "phrase": "good morning"
+    },
+    {
+      "id": "low-6",
+      "priority": "low",
+      "language": "en",
+      "phrase": "good night"
+    },
+    {
+      "id": "low-7",
+      "priority": "low",
+      "language": "en",
+      "phrase": "lol"
+    },
+    {
+      "id": "low-8",
+      "priority": "low",
+      "language": "en",
+      "phrase": "haha"
+    },
+    {
+      "id": "low-9",
+      "priority": "low",
+      "language": "en",
+      "phrase": "how are you"
+    },
+    {
+      "id": "low-10",
+      "priority": "low",
+      "language": "en",
+      "phrase": "bye"
+    },
+    {
+      "id": "low-11",
+      "priority": "low",
+      "language": "en",
+      "phrase": "see you"
+    },
+    {
+      "id": "low-12",
+      "priority": "low",
+      "language": "en",
+      "phrase": "nice"
+    },
+    {
+      "id": "low-13",
+      "priority": "low",
+      "language": "en",
+      "phrase": "cool"
+    },
+    {
+      "id": "low-14",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "شكرا"
+    },
+    {
+      "id": "low-15",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "يسلمو"
+    },
+    {
+      "id": "low-16",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "مشكور"
+    },
+    {
+      "id": "low-17",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "تمام"
+    },
+    {
+      "id": "low-18",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "ماشي"
+    },
+    {
+      "id": "low-19",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "اوكي"
+    },
+    {
+      "id": "low-20",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "صباح الخير"
+    },
+    {
+      "id": "low-21",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "مساء الخير"
+    },
+    {
+      "id": "low-22",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "تصبح علي خير"
+    },
+    {
+      "id": "low-23",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "هه"
+    },
+    {
+      "id": "low-24",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "كيفك"
+    },
+    {
+      "id": "low-25",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "شو اخبارك"
+    },
+    {
+      "id": "low-26",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "مع السلامه"
+    },
+    {
+      "id": "low-27",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "حبيبي"
+    },
+    {
+      "id": "low-28",
+      "priority": "low",
+      "language": "ar",
+      "phrase": "يعطيك العافيه"
+    },
+    {
+      "id": "critical-expanded-1",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "cannot breathe"
+    },
+    {
+      "id": "critical-expanded-2",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "unable to breathe"
+    },
+    {
+      "id": "critical-expanded-3",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "stopped breathing"
+    },
+    {
+      "id": "critical-expanded-4",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "isn t breathing"
+    },
+    {
+      "id": "critical-expanded-5",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "no pulse"
+    },
+    {
+      "id": "critical-expanded-6",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "no heartbeat"
+    },
+    {
+      "id": "critical-expanded-7",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "no one is breathing"
+    },
+    {
+      "id": "critical-expanded-8",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "turning blue"
+    },
+    {
+      "id": "critical-expanded-9",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "blue lips"
+    },
+    {
+      "id": "critical-expanded-10",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "heavy bleeding"
+    },
+    {
+      "id": "critical-expanded-11",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "bleeding will not stop"
+    },
+    {
+      "id": "critical-expanded-12",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "bleeding won t stop"
+    },
+    {
+      "id": "critical-expanded-13",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "severe accident"
+    },
+    {
+      "id": "critical-expanded-14",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "building collapse"
+    },
+    {
+      "id": "critical-expanded-15",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "child trapped"
+    },
+    {
+      "id": "critical-expanded-16",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما عم بتنفس"
+    },
+    {
+      "id": "critical-expanded-17",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش بتنفس"
+    },
+    {
+      "id": "critical-expanded-18",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش عم يتنفس"
+    },
+    {
+      "id": "critical-expanded-19",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش قادره اتنفس"
+    },
+    {
+      "id": "critical-expanded-20",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما في نبض"
+    },
+    {
+      "id": "critical-expanded-21",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مافي نبض"
+    },
+    {
+      "id": "critical-expanded-22",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "الدم مش واقف"
+    },
+    {
+      "id": "critical-expanded-23",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "النزيف مش راضي يوقف"
+    },
+    {
+      "id": "critical-expanded-24",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "شفايفه زرق"
+    },
+    {
+      "id": "critical-expanded-25",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ازرق وما بصحي"
+    },
+    {
+      "id": "critical-expanded-26",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عالق تحت الردم"
+    },
+    {
+      "id": "critical-expanded-27",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "تحت الردم"
+    },
+    {
+      "id": "critical-expanded-28",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مخنوقين"
+    },
+    {
+      "id": "critical-expanded-29",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "عم ينزف"
+    },
+    {
+      "id": "critical-expanded-30",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بنزف دم كتير"
+    },
+    {
+      "id": "critical-expanded-31",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "حادث خطير"
+    },
+    {
+      "id": "critical-expanded-32",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "نار"
+    },
+    {
+      "id": "critical-expanded-33",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مولعه"
+    },
+    {
+      "id": "high-expanded-1",
+      "priority": "high",
+      "language": "en",
+      "phrase": "missing child"
+    },
+    {
+      "id": "high-expanded-2",
+      "priority": "high",
+      "language": "en",
+      "phrase": "missing children"
+    },
+    {
+      "id": "high-expanded-3",
+      "priority": "high",
+      "language": "en",
+      "phrase": "urgent evacuation"
+    },
+    {
+      "id": "high-expanded-4",
+      "priority": "high",
+      "language": "en",
+      "phrase": "insulin ran out"
+    },
+    {
+      "id": "high-expanded-5",
+      "priority": "high",
+      "language": "en",
+      "phrase": "oxygen ran out"
+    },
+    {
+      "id": "high-expanded-6",
+      "priority": "high",
+      "language": "en",
+      "phrase": "medical supplies urgently"
+    },
+    {
+      "id": "high-expanded-7",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "طفل مفقود"
+    },
+    {
+      "id": "high-expanded-8",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "الولد ضايع"
+    },
+    {
+      "id": "high-expanded-9",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "بنتي ضايعه"
+    },
+    {
+      "id": "high-expanded-10",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "طفلي ضايع"
+    },
+    {
+      "id": "high-expanded-11",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "اخلاء عاجل"
+    },
+    {
+      "id": "high-expanded-12",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "خلص الانسولين"
+    },
+    {
+      "id": "high-expanded-13",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "خلص الاكسجين"
+    },
+    {
+      "id": "high-expanded-14",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "بحاجه لدواء"
+    },
+    {
+      "id": "high-expanded-15",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "محتاجين ادويه"
+    },
+    {
+      "id": "critical-context-expanded-1",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "trouble breathing"
+    },
+    {
+      "id": "critical-context-expanded-2",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "difficulty breathing"
+    },
+    {
+      "id": "critical-context-expanded-3",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "gasping for air"
+    },
+    {
+      "id": "critical-context-expanded-4",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "فاقده الوعي"
+    },
+    {
+      "id": "critical-context-expanded-5",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "صعوبه في التنفس"
+    },
+    {
+      "id": "critical-context-expanded-6",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "صعوبه تنفس"
+    },
+    {
+      "id": "critical-context-expanded-7",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ضيق بالتنفس"
+    },
+    {
+      "id": "high-context-expanded-1",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مش لاقي ابني"
+    },
+    {
+      "id": "high-context-expanded-2",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مش لاقيه بنتي"
+    },
+    {
+      "id": "high-context-expanded-3",
+      "priority": "high",
+      "language": "ar",
+      "phrase": "مش لاقين الولد"
+    },
+    {
+      "id": "critical-variant-1",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بقدرش اتنفس"
+    },
+    {
+      "id": "critical-variant-2",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش قادرين نتنفس"
+    },
+    {
+      "id": "critical-variant-3",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما بقدر اتنفس"
+    },
+    {
+      "id": "critical-variant-4",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "ما بقدرش اتنفس"
+    },
+    {
+      "id": "critical-variant-5",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بتنزف"
+    },
+    {
+      "id": "critical-variant-6",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "نزف شديد"
+    },
+    {
+      "id": "critical-variant-7",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "بغرق"
+    },
+    {
+      "id": "critical-variant-8",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش عم بصحي"
+    },
+    {
+      "id": "critical-variant-9",
+      "priority": "critical",
+      "language": "ar",
+      "phrase": "مش راضي يصحي"
+    },
+    {
+      "id": "critical-variant-10",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "bleading"
+    },
+    {
+      "id": "critical-variant-11",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "unconcious"
+    },
+    {
+      "id": "critical-variant-12",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "cant breath"
+    },
+    {
+      "id": "critical-variant-13",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "can t breath"
+    },
+    {
+      "id": "critical-variant-14",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "cantbreath"
+    },
+    {
+      "id": "critical-variant-15",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "cantbreathe"
+    },
+    {
+      "id": "critical-variant-16",
+      "priority": "critical",
+      "language": "en",
+      "phrase": "notbreathing"
+    }
+  ],
+  "context": {
+    "arabicPrefixes": [
+      "وال",
+      "بال",
+      "فال",
+      "كال",
+      "لل",
+      "ال",
+      "و",
+      "ف",
+      "ب",
+      "ل"
+    ],
+    "negators": [
+      "no",
+      "not",
+      "without",
+      "never",
+      "لا",
+      "ليس",
+      "ليست",
+      "بدون",
+      "دون",
+      "مش",
+      "مافي",
+      "مافيش",
+      "مفيش",
+      "ما في",
+      "لا يوجد",
+      "ما فيش",
+      "ليس هناك"
+    ],
+    "needNegations": [
+      "no need for",
+      "do not need",
+      "don t need",
+      "does not need",
+      "doesn t need",
+      "ما بدنا",
+      "مش محتاجين",
+      "لا نحتاج",
+      "لسنا بحاجه"
+    ],
+    "resolved": [
+      "extinguished",
+      "has stopped",
+      "have stopped",
+      "is over",
+      "was resolved",
+      "are safe now",
+      "everyone is safe",
+      "under control",
+      "no longer",
+      "انطفي",
+      "انطفت",
+      "انطفا",
+      "انتهت",
+      "انتهي",
+      "خلص الحريق",
+      "وقف النزيف",
+      "توقف النزيف",
+      "صار بخير",
+      "كلنا بخير",
+      "صاروا بخير",
+      "stopped",
+      "ended",
+      "finished",
+      "وقف",
+      "توقف",
+      "انتهي",
+      "انتهت"
+    ],
+    "reference": [
+      "fire drill",
+      "training exercise",
+      "practice scenario",
+      "in the movie",
+      "in a movie",
+      "the story says",
+      "the article says",
+      "the word",
+      "the phrase",
+      "translate",
+      "translation",
+      "example sentence",
+      "quoting a textbook",
+      "safety poster",
+      "تدريب",
+      "تمرين",
+      "في الفيلم",
+      "بالفيلم",
+      "بالمسلسل",
+      "في القصه",
+      "الجمله",
+      "ترجمه",
+      "مثال تعليمي",
+      "خبر قديم",
+      "fictional story",
+      "in the novel",
+      "class covers",
+      "first aid poster",
+      "في الروايه",
+      "للدرس"
+    ],
+    "figurative": [
+      "dying laughing",
+      "dying of laughter",
+      "dead laughing",
+      "this song is fire",
+      "the song is fire",
+      "this song is on fire",
+      "the team is on fire",
+      "our team is on fire",
+      "shot a photo",
+      "shot a video",
+      "photo shot",
+      "بموت من الضحك",
+      "متت من الضحك",
+      "موتني ضحك",
+      "الاغنيه نار",
+      "مباراه نار"
+    ],
+    "criticalNegationExceptions": [
+      "not breathing",
+      "can t breathe",
+      "cant breathe",
+      "cannot breathe",
+      "isn t breathing",
+      "not moving",
+      "not responding",
+      "no pulse",
+      "no heartbeat",
+      "no one is breathing",
+      "ما بتنفس",
+      "مش قادر اتنفس",
+      "لا يتنفس",
+      "ما بيتنفس",
+      "ما بيتحرك",
+      "ما عم بتنفس",
+      "مش بتنفس",
+      "مش عم يتنفس",
+      "مش قادره اتنفس",
+      "ما في نبض",
+      "مافي نبض",
+      "الدم مش واقف",
+      "النزيف مش راضي يوقف",
+      "بقدرش اتنفس",
+      "مش قادرين نتنفس",
+      "ما بقدر اتنفس",
+      "ما بقدرش اتنفس",
+      "مش عم بصحي",
+      "مش راضي يصحي"
+    ],
+    "resourceNeeds": [
+      "water",
+      "food",
+      "medicine",
+      "medication",
+      "insulin",
+      "baby formula",
+      "diapers",
+      "shelter",
+      "tent",
+      "doctor",
+      "hospital",
+      "oxygen",
+      "dialysis",
+      "blanket",
+      "blankets",
+      "مي",
+      "ميه",
+      "ماء",
+      "مياه",
+      "اكل",
+      "طعام",
+      "دوا",
+      "دواء",
+      "ادويه",
+      "انسولين",
+      "حليب اطفال",
+      "حليب",
+      "حفاضات",
+      "ماوي",
+      "خيمه",
+      "دكتور",
+      "طبيب",
+      "مستشفي",
+      "اكسجين",
+      "غسيل كلي",
+      "بطانيات",
+      "حرامات"
+    ],
+    "negationFillers": [
+      "a",
+      "an",
+      "any",
+      "is",
+      "are",
+      "was",
+      "were",
+      "one",
+      "of",
+      "signs",
+      "sign",
+      "currently",
+      "active",
+      "more",
+      "longer",
+      "severe",
+      "serious",
+      "في",
+      "اي",
+      "ايا",
+      "يوجد",
+      "هناك",
+      "عندنا",
+      "عندي",
+      "عنده",
+      "عندها",
+      "حاليا",
+      "الان",
+      "هو",
+      "هي",
+      "انه",
+      "انها"
+    ],
+    "resolutionFillers": [
+      "has",
+      "have",
+      "is",
+      "are",
+      "was",
+      "were",
+      "been",
+      "now",
+      "قد",
+      "تم",
+      "هو",
+      "هي"
+    ],
+    "postNegations": [
+      "is not active",
+      "not active",
+      "is absent",
+      "not present",
+      "مش موجود",
+      "غير موجود",
+      "مافيش",
+      "مفيش"
+    ],
+    "postNeedNegations": [
+      "is not needed",
+      "not needed",
+      "is not required",
+      "not required",
+      "مش مطلوب",
+      "غير مطلوب",
+      "مش لازمه",
+      "غير لازم"
+    ],
+    "safeResolution": [
+      "everyone is safe",
+      "all safe now",
+      "is awake now",
+      "are awake now",
+      "fully recovered",
+      "كلنا بخير",
+      "الكل بخير",
+      "صار بخير",
+      "صاحي وبخير",
+      "استعاد الوعي",
+      "رجع وعيه"
+    ],
+    "pastMarkers": [
+      "was",
+      "were",
+      "had",
+      "كان",
+      "كانت",
+      "كنا"
+    ],
+    "persistenceMarkers": [
+      "still",
+      "again",
+      "now",
+      "لسه",
+      "لسا",
+      "ما زال",
+      "بعده",
+      "هلا"
+    ]
+  }
+}

@@ -370,10 +370,10 @@ describe('on-device message priority UI', () => {
     await render(<PalMeshChatApp service={service} />);
     await openAlice();
     await act(async () => { service.patch({ draft: 'He is not breathing', draftAssessment: critical }); });
-    expect(screen.getByText('AI priority: Critical · 97%')).toBeOnTheScreen();
+    expect(screen.getByText('Suggested priority: Critical')).toBeOnTheScreen();
     expect(screen.getByText('Detected: not breathing')).toBeOnTheScreen();
     expect(screen.getByText(/This sounds life-threatening/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Change message priority: AI priority: Critical · 97%' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Change message priority: Suggested priority: Critical' }));
     expect(service.setPriorityOverride).toHaveBeenLastCalledWith('critical');
     expect(screen.getByText('Priority: Critical (chosen by you)')).toBeOnTheScreen();
     expect(screen.queryByText(/This sounds life-threatening/)).toBeNull();

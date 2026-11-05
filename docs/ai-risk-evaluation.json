@@ -1,0 +1,206 @@
+{
+  "version": 1,
+  "method": "Manually authored balanced synthetic holdout. Not training data or clinical/field validation. Frozen before first evaluation; no accuracy guarantee.",
+  "limitations": [
+    "Author-labeled synthetic examples; not independent human adjudication or field/medical validation.",
+    "Balanced classes do not represent deployment prevalence.",
+    "Curated lexical rules and the trained model are evaluated together.",
+    "User-mentioned palmesh_risk_lexicon_ar_en.json was not received; project baseline resource only."
+  ],
+  "inputSha256": {
+    "scripts/ai/risk-holdout.v1.json": "a2784bc96f7ddef701a1c9df118fe10245e0c6f1ed2d3b5a9dc869744f7b37bd",
+    "scripts/ai/priority-corpus.json": "abd96ecb783ddbe6db7c22734fa09f123226e2a13e4657e59f9e0bda7e44b085",
+    "src/features/ai/data/curated-risk-lexicon.v1.json": "22bcb4d49603a0e3eee19769884b67b708f5ae2eb9f39cd1ae10b85bbf8e9d7e",
+    "src/features/ai/model/priorityModel.ts": "292f14d0507247b27c55dd433f5a127ce061cc1fb4f018ed0ba257ed1c52ebde"
+  },
+  "overall": {
+    "examples": 64,
+    "critical": {
+      "truePositives": 16,
+      "falsePositives": 6,
+      "falseNegatives": 0,
+      "precision": 0.727273,
+      "recall": 1,
+      "f1": 0.842105
+    },
+    "confusion": {
+      "critical": {
+        "critical": 16,
+        "high": 0,
+        "normal": 0,
+        "low": 0
+      },
+      "high": {
+        "critical": 2,
+        "high": 13,
+        "normal": 1,
+        "low": 0
+      },
+      "normal": {
+        "critical": 4,
+        "high": 0,
+        "normal": 12,
+        "low": 0
+      },
+      "low": {
+        "critical": 0,
+        "high": 0,
+        "normal": 4,
+        "low": 12
+      }
+    }
+  },
+  "arabic": {
+    "examples": 32,
+    "critical": {
+      "truePositives": 8,
+      "falsePositives": 3,
+      "falseNegatives": 0,
+      "precision": 0.727273,
+      "recall": 1,
+      "f1": 0.842105
+    },
+    "confusion": {
+      "critical": {
+        "critical": 8,
+        "high": 0,
+        "normal": 0,
+        "low": 0
+      },
+      "high": {
+        "critical": 1,
+        "high": 6,
+        "normal": 1,
+        "low": 0
+      },
+      "normal": {
+        "critical": 2,
+        "high": 0,
+        "normal": 6,
+        "low": 0
+      },
+      "low": {
+        "critical": 0,
+        "high": 0,
+        "normal": 1,
+        "low": 7
+      }
+    }
+  },
+  "english": {
+    "examples": 32,
+    "critical": {
+      "truePositives": 8,
+      "falsePositives": 3,
+      "falseNegatives": 0,
+      "precision": 0.727273,
+      "recall": 1,
+      "f1": 0.842105
+    },
+    "confusion": {
+      "critical": {
+        "critical": 8,
+        "high": 0,
+        "normal": 0,
+        "low": 0
+      },
+      "high": {
+        "critical": 1,
+        "high": 7,
+        "normal": 0,
+        "low": 0
+      },
+      "normal": {
+        "critical": 2,
+        "high": 0,
+        "normal": 6,
+        "low": 0
+      },
+      "low": {
+        "critical": 0,
+        "high": 0,
+        "normal": 3,
+        "low": 5
+      }
+    }
+  },
+  "errors": [
+    {
+      "id": "en-high-04",
+      "language": "en",
+      "expected": "high",
+      "text": "Need an ambulance for an injured neighbor at the school gate",
+      "predicted": "critical"
+    },
+    {
+      "id": "en-normal-04",
+      "language": "en",
+      "expected": "normal",
+      "text": "The fire has been put out and everyone is safe now",
+      "predicted": "critical"
+    },
+    {
+      "id": "en-normal-05",
+      "language": "en",
+      "expected": "normal",
+      "text": "The newspaper discusses a collapsed building from last year",
+      "predicted": "critical"
+    },
+    {
+      "id": "en-low-04",
+      "language": "en",
+      "expected": "low",
+      "text": "Happy birthday to your sister from all of us",
+      "predicted": "normal"
+    },
+    {
+      "id": "en-low-07",
+      "language": "en",
+      "expected": "low",
+      "text": "No rush replying, enjoy your weekend with family",
+      "predicted": "normal"
+    },
+    {
+      "id": "en-low-08",
+      "language": "en",
+      "expected": "low",
+      "text": "Just saying hello and sending warm greetings",
+      "predicted": "normal"
+    },
+    {
+      "id": "ar-high-04",
+      "language": "ar",
+      "expected": "high",
+      "text": "بدنا اسعاف لجارنا المصاب عند باب المدرسة",
+      "predicted": "critical"
+    },
+    {
+      "id": "ar-high-06",
+      "language": "ar",
+      "expected": "high",
+      "text": "الكهرباء مقطوعة عن الاجهزة الطبية الضرورية",
+      "predicted": "normal"
+    },
+    {
+      "id": "ar-normal-04",
+      "language": "ar",
+      "expected": "normal",
+      "text": "انطفى الحريق والكل صار بخير والحمد لله",
+      "predicted": "critical"
+    },
+    {
+      "id": "ar-normal-05",
+      "language": "ar",
+      "expected": "normal",
+      "text": "الجريدة بتحكي عن انهيار مبنى من السنة الماضية",
+      "predicted": "critical"
+    },
+    {
+      "id": "ar-low-07",
+      "language": "ar",
+      "expected": "low",
+      "text": "مش مستعجل بالرد استمتع بعطلتك مع اهلك",
+      "predicted": "normal"
+    }
+  ]
+}

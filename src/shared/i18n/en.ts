@@ -76,12 +76,12 @@ export const en = {
   "ai.priority.high": "Urgent",
   "ai.priority.normal": "Normal",
   "ai.priority.low": "Low",
-  "ai.draftPriority": "AI priority: {priority} · {confidence}%",
+  "ai.draftPriority": "Suggested priority: {priority}",
   "ai.manualPriority": "Priority: {priority} (chosen by you)",
   "ai.signals": "Detected: {signals}",
   "ai.changePriority": "Change message priority",
   "ai.changePriorityHint": "Cycles critical, urgent, normal, low and back to the AI estimate",
-  "ai.priorityHelp": "Estimated on this phone without internet. Higher priority messages are relayed first; SOS always goes first. Relays and recipients can see the priority, not the private text.",
+  "ai.priorityHelp": "A fallible on-device language estimate, not a diagnosis or probability of danger. You can change it. SOS always routes first; sharing an SOS is your choice. Relays can see priority, not encrypted private text.",
   "ai.sosSuggestion": "This sounds life-threatening. Send it as an SOS? SOS is public to everyone on the mesh.",
   "ai.sendAsSos": "Send as SOS",
   "ai.keepMessage": "Keep as message",
@@ -367,6 +367,7 @@ export const en = {
   "app.radioTroubleHelp": "Recovery runs automatically. These counts contain no message contents or peer identifiers.",
   "app.issue.shutdown-failed": "PalMesh could not finish stopping its services. Reopen the app without clearing saved data.",
 
+  "ai.estimateDisclaimer": "Local estimate; not a diagnosis.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

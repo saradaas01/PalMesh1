@@ -110,7 +110,7 @@ function DraftPriority({ showSos }: { readonly showSos: boolean }): React.JSX.El
   const priority = override ?? assessment!.priority;
   const label = override !== null || assessment === null
     ? t('ai.manualPriority', { priority: t(priorityLabels[priority]) })
-    : t('ai.draftPriority', { priority: t(priorityLabels[priority]), confidence: Math.round(assessment.confidence * 100) });
+    : t('ai.draftPriority', { priority: t(priorityLabels[priority]) });
   const signals = override === null && assessment !== null && assessment.signals.length > 0
     ? t('ai.signals', { signals: assessment.signals.join(language === 'ar' ? '، ' : ', ') }) : null;
   const next = overrideCycle[(overrideCycle.indexOf(override) + 1) % overrideCycle.length] ?? null;
@@ -122,6 +122,7 @@ function DraftPriority({ showSos }: { readonly showSos: boolean }): React.JSX.El
       <Text style={[styles.aiText, styles.grow]}>{label}</Text>
     </Pressable>
     {signals !== null && <Text style={styles.aiSignals}>{signals}</Text>}
+    <Text style={styles.aiSignals}>{t('ai.estimateDisclaimer')}</Text>
     {showSos && override === null && assessment?.suggestSos && !sosDismissed && <View accessibilityRole="alert" style={styles.sosSuggestion}>
       <Text style={styles.bodyText}>{t('ai.sosSuggestion')}</Text>
       <View style={[styles.row, styles.wrap]}>
@@ -237,7 +238,7 @@ export function ChatScreen({ embedded = false, showSos = true, savedRecipients =
             <Button label={t('chat.back')} onPress={closeConversation} />
             <Text accessibilityRole="header" style={[styles.threadTitle, styles.grow]} numberOfLines={2}>{isBroadcast ? t('chat.broadcasts') : names.label(selectedId)}</Text>
           </View>
-          <View style={{paddingBottom:8}}><Text style={ui.muted}>{t(isBroadcast?'ui.public':'ui.private')}</Text><Disclosure title={t('ui.details')}>{!isBroadcast&&<><Text selectable style={ui.fingerprint}>{selectedId}</Text><Text style={ui.muted}>{t(`contacts.${names.status(selectedId)}`)}</Text></>}<Text style={ui.muted}>{t(isBroadcast?'chat.broadcastPrivacy':'ui.privacyShort')}</Text><Text style={ui.muted}>{t('ui.deliveryHelp')}</Text></Disclosure></View>
+          <View style={{paddingBottom:8}}><Text style={ui.muted}>{t(isBroadcast?'ui.public':'ui.private')}</Text><Disclosure title={t('ui.details')}>{!isBroadcast&&<><Text selectable style={ui.fingerprint}>{selectedId}</Text><Text style={ui.muted}>{t(`contacts.${names.status(selectedId)}`)}</Text></>}<Text style={ui.muted}>{t(isBroadcast?'chat.broadcastPrivacy':'ui.privacyShort')}</Text><Text style={ui.muted}>{t('ui.deliveryHelp')}</Text><Text style={ui.muted}>{t('ai.priorityHelp')}</Text></Disclosure></View>
           <FlatList ref={messageList} data={snapshot.messages} keyExtractor={(message) => message.id}
             renderItem={({ item }) => <MessageBubble message={item} deviceId={deviceId} now={snapshot.now} />}
             keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}

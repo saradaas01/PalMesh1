@@ -1,6 +1,7 @@
 import type { MessagePriority } from '../../dtn/domain/types';
 import { extractFeatures, tokenize } from '../domain/features';
-import { matchCues } from '../domain/signals';
+import { analyzeCues } from '../domain/signals';
+import { bundledRiskLexicon } from '../domain/lexicon';
 import type { MessageClassifier, PriorityAssessment, PriorityModel } from '../domain/types';
 
 export interface PriorityClassifierOptions {
@@ -12,18 +13,18 @@ export interface PriorityClassifierOptions {
   readonly sosThreshold?: number;
 }
 
-const DEFAULT_CUE_BOOST = Object.freeze({ critical: 6, high: 3, low: 2.5 });
+const DEFAULT_CUE_BOOST = Object.freeze({ critical: 8, high: 3, low: 2.5 });
 const MAX_SIGNALS = 4;
 // Function words can carry statistical weight but explain nothing to a person.
 const STOPWORDS = new Set([
   'the', 'and', 'for', 'are', 'is', 'an', 'on', 'in', 'of', 'to', 'he', 'she', 'we', 'my', 'his', 'her',
-  'our', 'you', 'there', 'with', 'from', 'need', 'please', 'any', 'anyone', 'someone', 'have', 'has',
+  'our', 'you', 'there', 'with', 'from', 'need', 'please', 'any', 'anyone', 'someone', 'have', 'has', 'was', 'were', 'been', 'not', 'no', 'can', 'cannot', 'because', 'still',
   'في', 'من', 'علي', 'عن', 'مع', 'هو', 'هي', 'احنا', 'انا', 'بدنا', 'بدي', 'وين', 'اللي', 'هون', 'خلص',
-  'حدا', 'عنده', 'عندها', 'كتير', 'الله', 'يخليكم',
+  'حدا', 'عنده', 'عندها', 'كتير', 'الله', 'يخليكم', 'ما', 'مش', 'لا', 'كان', 'صار',
 ]);
 
 /** Multinomial naive Bayes over bundled weights, combined with curated cues.
- * Runs synchronously on the device in well under a millisecond per message. */
+ * Runs synchronously on the device over the bounded message body. */
 export class PriorityClassifier implements MessageClassifier {
   private readonly evidenceWindow: number;
   private readonly cueBoost: Readonly<Record<Exclude<MessagePriority, 'normal'>, number>>;
@@ -36,6 +37,11 @@ export class PriorityClassifier implements MessageClassifier {
     for (const priority of ['critical', 'high', 'normal', 'low'] as const) {
       if (!model.classes.includes(priority)) throw new TypeError(`Priority model lacks class ${priority}`);
     }
+    if (new Set(model.classes).size !== 4 || model.priors.some(value => !Number.isFinite(value))
+      || Object.values(model.features).some(weights => weights.length !== 4 || weights.some(value => !Number.isFinite(value)))) {
+      throw new TypeError('Invalid priority model weights');
+    }
+    bundledRiskLexicon();
     this.evidenceWindow = options.evidenceWindow ?? 6;
     this.cueBoost = options.cueBoost ?? DEFAULT_CUE_BOOST;
     this.sosThreshold = options.sosThreshold ?? 0.7;
@@ -43,7 +49,8 @@ export class PriorityClassifier implements MessageClassifier {
 
   classify(text: string): PriorityAssessment {
     const classes = this.model.classes;
-    const features = typeof text === 'string' ? extractFeatures(text) : [];
+    const analysis = analyzeCues(typeof text === 'string' ? text : '');
+    const features = extractFeatures(analysis.evidenceText);
     if (features.length === 0) {
       return Object.freeze({
         priority: 'normal', confidence: 0, signals: Object.freeze([]), suggestSos: false,
@@ -60,10 +67,21 @@ export class PriorityClassifier implements MessageClassifier {
     }
     const scale = known > this.evidenceWindow ? this.evidenceWindow / known : 1;
     const logits = classes.map((_priority, index) => this.model.priors[index]! + evidence[index]! * scale);
-    const cues = matchCues(text);
+    const cues = analysis.matches;
+    const boosted = new Map<string, number>();
     for (const match of cues) {
+      const count = boosted.get(match.priority) ?? 0;
+      if (count >= 2) continue;
+      boosted.set(match.priority, count + 1);
       const index = classes.indexOf(match.priority);
       logits[index]! += this.cueBoost[match.priority];
+    }
+    // A word explicitly denied/resolved/used as fiction is not active danger.
+    // Another active danger or resource request in the same message overrides
+    // this guard. Manual priority and the SOS control remain available.
+    if (analysis.inactiveDangerCues > 0 && !cues.some(cue => cue.priority === 'critical' || cue.priority === 'high')) {
+      logits[classes.indexOf('critical')] = Number.NEGATIVE_INFINITY;
+      logits[classes.indexOf('high')] = Number.NEGATIVE_INFINITY;
     }
     const maximum = Math.max(...logits);
     const exponentials = logits.map(logit => Math.exp(logit - maximum));
@@ -77,7 +95,7 @@ export class PriorityClassifier implements MessageClassifier {
     const confidence = round(probabilities[best]!);
     return Object.freeze({
       priority, confidence, scores: Object.freeze(scores),
-      signals: Object.freeze(this.signals(text, priority, best, cues.filter(match => match.priority === priority).map(match => match.cue))),
+      signals: Object.freeze(this.signals(analysis.evidenceText, priority, best, cues.filter(match => match.priority === priority).map(match => match.cue))),
       suggestSos: priority === 'critical' && confidence >= this.sosThreshold,
     });
   }

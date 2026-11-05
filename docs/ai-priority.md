@@ -28,32 +28,42 @@ word pairs and padded character trigrams, so Arabic clitics such as و، ب and 
 share evidence with the bare word. Long messages are capped to a fixed amount of
 evidence so many repeated trigrams cannot become arbitrarily certain.
 
-A curated cue lexicon (`domain/signals.ts`) adds log-odds for Arabic and English
-phrases. Cues favor recall for life-threatening wording, where a missed emergency
-costs more than a false alarm. Each estimate returns per-priority probabilities,
-a confidence and up to four short signals that explain it, for example
-`تحت الركام` or `not breathing`. Classification takes well under a millisecond.
+The authoritative curated signals and context data are in
+`src/features/ai/data/curated-risk-lexicon.v1.json`, validated lazily at runtime.
+This version migrates the existing project cues and adds contextual regressions.
+The user-mentioned `palmesh_risk_lexicon_ar_en.json` was **not received** and has
+not been integrated. Its provenance is not inferred or invented.
 
-The training corpus, `scripts/ai/priority-corpus.json`, is a small hand-written
-seed set of Palestinian dialect, Modern Standard Arabic and English messages.
-Retrain after changing the corpus, the cues' normalization or the features:
+The rule layer scopes negation, resolved/reference/figurative use, attached Arabic
+prefixes and exceptional danger phrases such as “not breathing.” It processes the
+full bounded 4096-character body. Up to two cue boosts per class prevent repeated
+keywords from creating unlimited evidence. These rules remain fallible; mixed
+contexts and unseen dialect are not solved general language understanding.
+
+Model shares/confidence are relative heuristic strength, not calibrated danger
+probabilities. The composer omits percentages and keeps manual priority and SOS
+choice. A malformed model/resource is caught by the chat assessment boundary and
+ordinary text remains sendable at normal priority.
+
+Training and the separate fixed bilingual holdout are reproducible:
 
 ```sh
-npm run ai:train                                  # 5-fold evaluation, then write the model
-npx tsx scripts/ai/train-priority-model.ts --check  # fail if the bundled model is stale
+npm run ai:train
+npx tsx scripts/ai/train-priority-model.ts --check
+npx tsx scripts/ai/evaluate-risk.ts
+npx tsx scripts/ai/evaluate-risk.ts --check
 ```
 
-Training is deterministic. A core test asserts that the committed
-`src/features/ai/model/priorityModel.ts` equals a fresh training run. The
-current corpus scores about 86% stratified 5-fold accuracy, with about 96%
-recall for `critical`. Those numbers describe the seed corpus, not real traffic.
-Collect consented, de-identified field examples before relying on them.
+The 440 training examples are distinct from the 64 normalized holdout messages.
+See [measured evaluation and limitations](ai-risk-evaluation.md) and the complete
+machine-readable report. This is synthetic author-labeled evaluation, not field,
+clinical or independent human validation.
 
 ## Messaging behavior
 
-- The composer shows the live estimate, its confidence and its signals. Tapping
+- The composer shows the suggested priority and detected signals, with a visible estimate disclaimer. Tapping
   it cycles a manual choice (critical, urgent, normal, low) and back to the AI.
-- A `critical` estimate with at least 70% confidence offers **Send as SOS**.
+- A `critical` estimate crossing the internal heuristic-strength threshold offers **Send as SOS**. This is not a 70% danger probability.
   That publishes the draft text as a public SOS broadcast, and the prompt says so.
   **Keep as message** hides the suggestion for that draft.
 - Messages show Critical/Urgent chips. Conversations with an unread SOS,
@@ -77,3 +87,8 @@ retained critical/high chats per source above normal. Further elevated packets
 from that source are queued as normal locally, while the signed packet is
 forwarded unchanged. When storage is full, a chat displaces only strictly
 lower-priority chat, oldest first; SOS may displace any chat. See [DTN routing](dtn.md).
+
+Existing sender SOS cooldown/hour/day limits, receiver notification limits and
+per-source relay caps are unchanged. Classification cannot automatically send SOS
+or grant extra reserved emergency slots. Optional public profile announcements
+use normal signed chat with no classifier or elevated priority.

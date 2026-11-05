@@ -1,5 +1,6 @@
 import type { MessagePriority } from '../../dtn/domain/types';
 import { extractFeatures } from './features';
+import { analyzeCues } from './signals';
 import type { PriorityModel } from './types';
 
 export interface LabeledMessage {
@@ -9,8 +10,7 @@ export interface LabeledMessage {
 
 export const MODEL_CLASSES: readonly MessagePriority[] = Object.freeze(['critical', 'high', 'normal', 'low']);
 
-/** Expected share of each priority in real traffic, not in the balanced seed
- * corpus. Most mesh chat is routine, so evidence must overcome a normal prior. */
+/** Heuristic class priors, not measured real-world prevalence or danger risk. */
 export const BASE_RATES: Readonly<Record<MessagePriority, number>> = Object.freeze({
   critical: 0.1, high: 0.2, normal: 0.45, low: 0.25,
 });
@@ -29,7 +29,7 @@ export function trainPriorityModel(examples: readonly LabeledMessage[], options:
   const smoothing = options.smoothing ?? 1;
   const documents = new Map<string, number>();
   const extracted = examples.map(example => {
-    const features = extractFeatures(example.text);
+    const features = extractFeatures(analyzeCues(example.text).evidenceText);
     for (const feature of new Set(features)) documents.set(feature, (documents.get(feature) ?? 0) + 1);
     return { priority: example.priority, features };
   });
