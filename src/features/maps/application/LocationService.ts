@@ -1,5 +1,6 @@
 import type { Clock } from '../../dtn/domain/ports';
 import type { DtnEvent, LocationFix, PeerId, PowerMode, StoredMessage } from '../../dtn/domain/types';
+import { EmergencyRateLimitError } from '../../dtn/domain/types';
 import { isPeerId, parseMessage } from '../../dtn/domain/validation';
 import type { LocationEngine, LocationRepository, LocationSource, OfflineMapSource } from '../domain/ports';
 import { projectPeerLocation, validLocationFix } from '../domain/locations';
@@ -208,9 +209,10 @@ export class LocationService {
       }
       if (this.live(generation)) this.patch({ notice: 'sos-queued' });
       return { status: 'queued', messageId: result.record.message.id };
-    } catch {
-      if (this.live(generation)) this.patch({ issue: 'broadcast-unavailable' });
-      return { status: 'rejected', reason: 'unavailable' };
+    } catch (error) {
+      const limited = error instanceof EmergencyRateLimitError;
+      if (this.live(generation)) this.patch({ issue: limited ? 'sos-limited' : 'broadcast-unavailable' });
+      return { status: 'rejected', reason: limited ? 'limited' : 'unavailable' };
     } finally {
       if (this.live(generation)) this.patch({ pendingSos: false });
     }

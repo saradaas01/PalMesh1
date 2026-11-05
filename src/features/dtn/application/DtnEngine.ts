@@ -1,4 +1,5 @@
 import type { Clock, DtnStore, IdGenerator, MeshTransport, PacketSecurity } from '../domain/ports';
+import { EmergencyRateLimitError } from '../domain/types';
 import { canForward, forNextHop } from '../domain/routing';
 import { createMessage, isPeerId, parseMessage } from '../domain/validation';
 import type {
@@ -8,6 +9,14 @@ import type {
 
 export interface DtnConfig extends StorageLimits {
   readonly maxElevatedPerSource: number;
+  readonly maxEmergencyPerSource: number;
+  readonly maxResponsesPerSource: number;
+  /** Local SOS limits. A relay independently enforces maxEmergencyPerSource. */
+  readonly sosCooldownMs: number;
+  readonly maxSosPerHour: number;
+  readonly maxSosPerDay: number;
+  readonly maxResponsesPerHour: number;
+  readonly maxResponsesPerDay: number;
   readonly messageRetentionMs: number;
   readonly dedupRetentionMs: number;
   readonly maxPacketBytes: number;
@@ -26,6 +35,13 @@ export const DEFAULT_DTN_CONFIG: Readonly<DtnConfig> = Object.freeze({
   reservedEmergencySeenIds: 1_000,
   maxPeersPerMessage: 256,
   maxElevatedPerSource: 20,
+  maxEmergencyPerSource: 6,
+  maxResponsesPerSource: 20,
+  sosCooldownMs: 2 * 60 * 1_000,
+  maxSosPerHour: 3,
+  maxSosPerDay: 6,
+  maxResponsesPerHour: 10,
+  maxResponsesPerDay: 20,
   messageRetentionMs: 24 * 60 * 60 * 1_000,
   dedupRetentionMs: 7 * 24 * 60 * 60 * 1_000,
   maxPacketBytes: 16 * 1_024,
@@ -136,9 +152,11 @@ export class DtnEngine {
     this.kick();
   }
 
+  /** Throws EmergencyRateLimitError when this device exceeds its SOS limits. */
   async publish(input: OutgoingMessage): Promise<Exclude<AcceptResult, { readonly status: 'duplicate' }>> {
     this.assertRunning();
     const now = this.now();
+    if (input.kind === 'sos' || input.kind === 'sos-response') await this.checkEmergencyRate(input.kind, now);
     const plaintext = createMessage(input, this.ids.next(), this.deviceId, now, this.config.maxPacketBytes);
     const message = this.security ? await this.security.seal(plaintext) : plaintext;
     const bounded = parseMessage(message, this.config.maxPacketBytes);
@@ -224,6 +242,25 @@ export class DtnEngine {
         if (this.running) this.kick();
       }
     }
+  }
+
+  /** Repeated presses must not flood the mesh with new SOS UUIDs. Earlier SOS
+   * stay queued; the error reports when the next one is allowed. */
+  private async checkEmergencyRate(kind: 'sos' | 'sos-response', now: number): Promise<void> {
+    const hour = 60 * 60 * 1_000;
+    const day = 24 * hour;
+    const recent = await this.store.recentFromSource(this.deviceId, kind, Math.max(0, now - day));
+    const [perHour, perDay, cooldown] = kind === 'sos'
+      ? [this.config.maxSosPerHour, this.config.maxSosPerDay, this.config.sosCooldownMs]
+      : [this.config.maxResponsesPerHour, this.config.maxResponsesPerDay, 0];
+    let retryAt = 0;
+    const latest = recent[0];
+    if (latest !== undefined && cooldown > 0 && now < latest + cooldown) retryAt = latest + cooldown;
+    const lastHour = recent.filter(at => at > now - hour);
+    // The window reopens when the oldest counted packet leaves it.
+    if (lastHour.length >= perHour) retryAt = Math.max(retryAt, lastHour[perHour - 1]! + hour);
+    if (recent.length >= perDay) retryAt = Math.max(retryAt, recent[perDay - 1]! + day);
+    if (retryAt > now) throw new EmergencyRateLimitError(kind, retryAt);
   }
 
   private transition(operation: () => Promise<void>): Promise<void> {
@@ -416,6 +453,9 @@ function validateConfig(config: DtnConfig): void {
     || config.retryMaxMs < config.retryBaseMs
     || config.maxConnectedPeers > 64
     || config.maxPeersPerMessage > 4_096
+    || config.maxSosPerHour > config.maxSosPerDay || config.maxSosPerDay > 64
+    || config.maxResponsesPerHour > config.maxResponsesPerDay || config.maxResponsesPerDay > 64
+    || config.sosCooldownMs > 2_147_483_647
     || config.maxPacketBytes > 64 * 1_024
     || config.sendTimeoutMs > 2_147_483_647
     || config.retryMaxMs > 2_147_483_647

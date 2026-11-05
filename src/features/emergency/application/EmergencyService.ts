@@ -1,5 +1,6 @@
 import type { Clock } from '../../dtn/domain/ports';
 import type { DtnEvent, PeerId, RoutingHistoryEntry } from '../../dtn/domain/types';
+import { EmergencyRateLimitError } from '../../dtn/domain/types';
 import { isPeerId } from '../../dtn/domain/validation';
 import type { EmergencyAlerts, EmergencyEngine, EmergencyRepository } from '../domain/ports';
 import type { EmergencyActionResult, EmergencySnapshot } from '../domain/types';
@@ -13,6 +14,9 @@ export interface EmergencyServiceOptions {
 }
 /** Reactive SOS inbox. The DTN engine owns delivery and authentication; this
  * service records human statements separately from radio hop acknowledgments. */
+/** At most one native SOS alert per sender in this window. */
+const SOURCE_ALERT_INTERVAL_MS = 10 * 60 * 1_000;
+
 export class EmergencyService {
   readonly deviceId: PeerId;
   private readonly engine: EmergencyEngine;
@@ -23,6 +27,7 @@ export class EmergencyService {
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, RoutingHistoryEntry>();
   private readonly responding = new Set<string>();
+  private readonly lastAlertBySource = new Map<PeerId, number>();
   private active = false;
   private generation = 0;
   private unsubscribe: (() => void) | null = null;
@@ -129,9 +134,10 @@ export class EmergencyService {
         await this.reload(generation);
       }, generation);
       return { status: 'queued', messageId: result.record.message.id };
-    } catch {
-      if (this.live(generation)) this.patch({ issue: 'response-unavailable' });
-      return { status: 'rejected', reason: 'unavailable' };
+    } catch (error) {
+      const limited = error instanceof EmergencyRateLimitError;
+      if (this.live(generation)) this.patch({ issue: limited ? 'response-limited' : 'response-unavailable' });
+      return { status: 'rejected', reason: limited ? 'limited' : 'unavailable' };
     } finally {
       this.responding.delete(sosId);
       if (this.live(generation)) this.patch({ pendingResponseIds: Object.freeze([...this.responding]) });
@@ -178,6 +184,14 @@ export class EmergencyService {
       // A recovered history can contain hundreds of emergencies. Keep native
       // work bounded; every item remains visible in the durable inbox.
       if (notificationAttempts >= 4) continue;
+      // One sender cannot keep alerting every nearby phone. Later SOS from the
+      // same source within the window stay in the inbox without a new alert.
+      const lastAlert = this.lastAlertBySource.get(entry.source);
+      if (lastAlert !== undefined && now - lastAlert < SOURCE_ALERT_INTERVAL_MS) continue;
+      // Bounded, most-recent-last: delete before set so eviction drops the oldest.
+      this.lastAlertBySource.delete(entry.source);
+      if (this.lastAlertBySource.size >= 256) this.lastAlertBySource.delete(this.lastAlertBySource.keys().next().value!);
+      this.lastAlertBySource.set(entry.source, now);
       notificationAttempts += 1;
       try { await boundedAlert(this.alerts.notifyIncoming({ id: entry.id, source: entry.source, text: entry.text })); }
       catch { if (this.live(generation)) this.patch({ issue: 'notification-unavailable' }); }

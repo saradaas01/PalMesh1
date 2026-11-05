@@ -1,6 +1,6 @@
 export { DtnEngine, DEFAULT_DTN_CONFIG } from './application/DtnEngine';
 export type { DtnConfig, DtnEngineOptions } from './application/DtnEngine';
-export { BROADCAST, NORMAL_TTL, SOS_TTL, MESSAGE_PRIORITIES } from './domain/types';
+export { BROADCAST, NORMAL_TTL, SOS_TTL, MESSAGE_PRIORITIES, EmergencyRateLimitError } from './domain/types';
 export type {
   AcceptResult, ChatPayload, DeliveryCandidate, DeliveryFailure, DtnEvent,
   LocationFix, LocationPayload, MeshMessage, MessageId, MessagePriority, OutgoingMessage, WirePriority,

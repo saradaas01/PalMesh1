@@ -10,6 +10,8 @@ The archive accepts responses only for an existing SOS belonging to or answered 
 
 SOS UUIDs are durable, first-payload-wins rows; reviewed state and responder statements survive restart. By default the archive retains 200 SOS and 32 responders per SOS. The event coalescing buffer holds at most 1,000 UUIDs; `refresh()` recovers from up to 1,000 retained DTN history records after transient storage errors. Archive expiry ends response eligibility and urgent alerting; it never claims an emergency was resolved.
 
+To limit fake or repeated alarms, a device sends at most one SOS per 2 minutes (3 per hour, 6 per day) and 10 responses per hour (20 per day); relays keep emergency priority for 6 SOS per source; and the inbox raises at most one native alert per source every 10 minutes. See [DTN emergency abuse limits](../../../docs/dtn.md#emergency-abuse-limits).
+
 Native notification delivery is best effort. Notification claims commit before side effects to ensure at most one attempt per retained UUID across restarts. A process crash after a claim can miss that notification, while the SOS remains in the durable inbox. A history batch attempts at most four native notifications to bound alert storms. Native adapters must display generic private text, avoid coordinates/source/message content, and honor notification permission without prompting automatically. Denied alerts do not remove or resolve inbox entries.
 
 DTN schema v2 widens the stored kind constraint for `sos-response`. Its transaction preserves version-one queued packets, sequence, UUID tombstones, retry state and custody receipts.

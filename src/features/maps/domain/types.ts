@@ -34,7 +34,7 @@ export type GpsResult =
   | { readonly status: 'denied' | 'disabled' | 'timeout' | 'unavailable' | 'cancelled' };
 
 export type LocationIssue = 'storage-unavailable' | 'gps-denied' | 'gps-unavailable'
-  | 'gps-disabled' | 'gps-timeout' | 'queue-full' | 'broadcast-unavailable' | 'routing-error';
+  | 'gps-disabled' | 'gps-timeout' | 'queue-full' | 'broadcast-unavailable' | 'routing-error' | 'sos-limited';
 
 export interface MapsSnapshot extends LocationArchive {
   readonly status: 'idle' | 'loading' | 'ready' | 'error';
@@ -52,4 +52,4 @@ export interface MapsSnapshot extends LocationArchive {
 export type LocationActionResult =
   | { readonly status: 'queued'; readonly messageId: MessageId }
   | { readonly status: 'updated' }
-  | { readonly status: 'rejected'; readonly reason: 'busy' | 'unavailable' | 'capacity' | 'no-location' };
+  | { readonly status: 'rejected'; readonly reason: 'busy' | 'unavailable' | 'capacity' | 'no-location' | 'limited' };

@@ -21,7 +21,7 @@ export function EmergencyInbox({ service,onViewMap }: { readonly service: Emerge
     <Disclosure title={t('ui.sosInfo')}><LocalizedText style={ui.muted}>{t('emergency.noGuarantee')}</LocalizedText></Disclosure>
     {snapshot.status === 'loading' && <LocalizedText accessibilityLiveRegion="polite" style={styles.text}>{t('emergency.loading')}</LocalizedText>}
     {snapshot.issue !== null && <View style={styles.issue}>
-      <LocalizedText accessibilityRole="alert" style={styles.text}>{t('emergency.problem')}</LocalizedText>
+      <LocalizedText accessibilityRole="alert" style={styles.text}>{t(snapshot.issue === 'response-limited' ? 'emergency.responseLimited' : 'emergency.problem')}</LocalizedText>
       <Pressable accessibilityRole="button" onPress={() => { void service.refresh(); }} style={styles.button}>
         <LocalizedText style={styles.buttonText}>{t('emergency.retry')}</LocalizedText>
       </Pressable>

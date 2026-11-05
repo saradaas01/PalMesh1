@@ -22,6 +22,8 @@ export interface SynchronousSqliteDatabase {
 const SCHEMA_VERSION = 3;
 const MAX_TRACKED_PEERS = 4096;
 const DEFAULT_MAX_ELEVATED_PER_SOURCE = 20;
+const DEFAULT_MAX_EMERGENCY_PER_SOURCE = 6;
+const DEFAULT_MAX_RESPONSES_PER_SOURCE = 20;
 const MAX_CONNECTED_PEERS = 64;
 
 /** Durable, bounded store-and-forward storage. No React Native or Node imports:
@@ -142,6 +144,16 @@ export class SqliteDtnStore implements DtnStore {
       }
 
       let rank = priorityRank(snapshot);
+      // A source that already holds its emergency budget here cannot claim more
+      // reserved SOS space or priority. The signed packet is still relayed.
+      if (rank === EMERGENCY_RANK) {
+        const kind = snapshot.kind === 'sos' ? 'sos' : 'sos-response';
+        const budget = kind === 'sos'
+          ? limits.maxEmergencyPerSource ?? DEFAULT_MAX_EMERGENCY_PER_SOURCE
+          : limits.maxResponsesPerSource ?? DEFAULT_MAX_RESPONSES_PER_SOURCE;
+        if (this.count(`SELECT COUNT(*) AS count FROM palmesh_dtn_messages
+          WHERE source = ? AND kind = ? AND priority_rank = 0`, [snapshot.source, kind]) >= budget) rank = NORMAL_RANK;
+      }
       const emergency = rank === EMERGENCY_RANK;
       // The signed packet keeps the sender's priority for later hops. Locally, a
       // source that already queued its budget of elevated chats is ranked normal.
@@ -235,7 +247,7 @@ export class SqliteDtnStore implements DtnStore {
        FROM palmesh_dtn_messages m INDEXED BY palmesh_dtn_messages_priority CROSS JOIN connected p
        LEFT JOIN palmesh_dtn_deliveries d ON d.message_id = m.id AND d.peer_id = p.peer_id
        WHERE m.forwardable = 1 AND m.ttl > 0 AND m.expires_at > ?
-         AND m.source <> p.peer_id AND (? = 0 OR m.kind IN ('sos', 'sos-response'))
+         AND m.source <> p.peer_id AND (? = 0 OR m.priority_rank = 0)
          AND ((SELECT COUNT(*) FROM palmesh_dtn_deliveries ledger WHERE ledger.message_id = m.id) < MIN(m.peer_limit, ?)
            OR EXISTS (SELECT 1 FROM palmesh_dtn_deliveries pending INDEXED BY palmesh_dtn_deliveries_pending
              JOIN connected available ON available.peer_id = pending.peer_id
@@ -260,7 +272,7 @@ export class SqliteDtnStore implements DtnStore {
            JOIN palmesh_dtn_messages m ON m.id = d.message_id
            WHERE d.peer_id = p.peer_id AND d.acknowledged = 0 AND d.next_attempt_at > ?
              AND m.forwardable = 1 AND m.ttl > 0 AND m.expires_at > ?
-             AND m.source <> p.peer_id AND (? = 0 OR m.kind IN ('sos', 'sos-response'))
+             AND m.source <> p.peer_id AND (? = 0 OR m.priority_rank = 0)
            ORDER BY d.next_attempt_at LIMIT 1)) AS next_time FROM connected p`,
         [...peerParameters, now, now, emergencyOnly ? 1 : 0],
       ).rows[0];
@@ -272,7 +284,7 @@ export class SqliteDtnStore implements DtnStore {
            FROM palmesh_dtn_messages m INDEXED BY palmesh_dtn_messages_fifo CROSS JOIN connected p
            JOIN palmesh_dtn_deliveries d ON d.message_id = m.id AND d.peer_id = p.peer_id
            WHERE m.forwardable = 1 AND m.ttl > 0 AND m.expires_at > ?
-             AND m.source <> p.peer_id AND (? = 0 OR m.kind IN ('sos', 'sos-response'))
+             AND m.source <> p.peer_id AND (? = 0 OR m.priority_rank = 0)
              AND d.acknowledged = 0 AND d.next_attempt_at = ?
            ORDER BY m.received_at, m.sequence, p.peer_order LIMIT 1`,
           [...peerParameters, now, emergencyOnly ? 1 : 0, numberField(earliest, 'next_time')],
@@ -284,6 +296,16 @@ export class SqliteDtnStore implements DtnStore {
       record: decodeRecord(row), peerId: stringField(row, 'delivery_peer'),
       attempts: numberField(row, 'delivery_attempts'), nextAttemptAt: numberField(row, 'delivery_next_at'),
     };
+  }
+
+  public async recentFromSource(source: PeerId, kind: 'sos' | 'sos-response', since: number): Promise<readonly number[]> {
+    this.requireInitialized();
+    validTime(since, 'since');
+    if (kind !== 'sos' && kind !== 'sos-response') throw new TypeError('kind must be sos or sos-response');
+    return this.database.execute(
+      `SELECT received_at FROM palmesh_dtn_messages WHERE source = ? AND kind = ? AND received_at >= ?
+       ORDER BY received_at DESC LIMIT 64`, [source, kind, since],
+    ).rows.map(row => numberField(row, 'received_at'));
   }
 
   public async markAcknowledged(messageId: MessageId, peerId: PeerId, now: number): Promise<void> {
@@ -418,7 +440,8 @@ function validateLimits(limits: StorageLimits): void {
   integerInRange(limits.reservedEmergencyMessages, 0, limits.maxMessages, 'reservedEmergencyMessages');
   integerInRange(limits.reservedEmergencySeenIds, 0, limits.maxSeenIds, 'reservedEmergencySeenIds');
   integerInRange(limits.maxPeersPerMessage, 1, MAX_TRACKED_PEERS, 'maxPeersPerMessage');
-  if (limits.maxElevatedPerSource !== undefined) {
-    integerInRange(limits.maxElevatedPerSource, 0, Number.MAX_SAFE_INTEGER, 'maxElevatedPerSource');
+  for (const name of ['maxElevatedPerSource', 'maxEmergencyPerSource', 'maxResponsesPerSource'] as const) {
+    const value = limits[name];
+    if (value !== undefined) integerInRange(value, 0, Number.MAX_SAFE_INTEGER, name);
   }
 }

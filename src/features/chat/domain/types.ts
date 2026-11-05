@@ -41,7 +41,7 @@ export interface Conversation {
   readonly unreadUrgency?: UnreadUrgency;
 }
 
-export type ChatIssue = 'history-unavailable' | 'queue-full' | 'send-unavailable' | 'invalid-input' | 'routing-error' | 'recipient-unknown' | 'recipient-keys-unavailable';
+export type ChatIssue = 'history-unavailable' | 'queue-full' | 'send-unavailable' | 'invalid-input' | 'routing-error' | 'recipient-unknown' | 'recipient-keys-unavailable' | 'sos-limited';
 
 export interface ChatSnapshot {
   readonly status: 'idle' | 'loading' | 'ready' | 'error';
@@ -64,4 +64,4 @@ export interface ChatSnapshot {
 
 export type ChatActionResult =
   | { readonly status: 'queued'; readonly messageId: string }
-  | { readonly status: 'rejected'; readonly reason: 'empty' | 'too-long' | 'capacity' | 'unavailable' | 'busy' | 'invalid' };
+  | { readonly status: 'rejected'; readonly reason: 'empty' | 'too-long' | 'capacity' | 'unavailable' | 'busy' | 'invalid' | 'limited' };

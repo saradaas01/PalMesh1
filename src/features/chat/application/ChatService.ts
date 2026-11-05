@@ -1,7 +1,7 @@
 import { RecipientKeyError } from '../../security/domain/errors';
 import type { Clock } from '../../dtn/domain/ports';
 import type { DtnEvent, MessagePriority, PeerId } from '../../dtn/domain/types';
-import { MESSAGE_PRIORITIES } from '../../dtn/domain/types';
+import { EmergencyRateLimitError, MESSAGE_PRIORITIES } from '../../dtn/domain/types';
 import type { MessageClassifier, PriorityAssessment } from '../../ai/domain/types';
 import { isPeerId } from '../../dtn/domain/validation';
 import type { ChatEngine, ChatMesh, ChatRepository } from '../domain/ports';
@@ -247,9 +247,10 @@ export class ChatService {
         this.archive(result.record, generation);
       }
       return { status: 'queued', messageId: result.record.message.id };
-    } catch {
-      if (this.live(generation)) this.patch({ issue: 'send-unavailable' });
-      return { status: 'rejected', reason: 'unavailable' };
+    } catch (error) {
+      const limited = error instanceof EmergencyRateLimitError;
+      if (this.live(generation)) this.patch({ issue: limited ? 'sos-limited' : 'send-unavailable' });
+      return { status: 'rejected', reason: limited ? 'limited' : 'unavailable' };
     } finally {
       if (this.live(generation)) this.patch({ pendingSos: false });
     }

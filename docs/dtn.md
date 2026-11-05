@@ -48,6 +48,9 @@ Override defaults through the constructor's `config`:
 | Message / dedup retention | 24 hours / 7 days |
 | Tracked peers per message, over its lifetime | 256 |
 | Critical/high chats ranked above normal, per source | 20 |
+| SOS / SOS responses keeping emergency priority, per source | 6 / 20 |
+| Local SOS: cooldown, per hour, per day | 2 minutes, 3, 6 |
+| Local SOS responses: per hour, per day | 10, 20 |
 | Simultaneous connected peers | 64 |
 | Serialized packet / text bound | 16 KiB / 4,096 UTF-16 code units |
 | Hop ACK timeout | 10 seconds |
@@ -71,6 +74,32 @@ Apply raw frame-size bounds and inbound backpressure **before** JSON decoding in
 the native transport. It also owns BLE fragmentation/reassembly, connection
 handshakes, peer admission, and link fallback. The engine bounds accepted packets,
 queues, dedup IDs, peer ledgers and worker batches.
+
+## Emergency abuse limits
+
+SOS traffic gets reserved storage, a 15-hop budget and forwarding in battery
+saver, so it is the most attractive packet to fake or flood. Three independent
+limits apply:
+
+- **Sender.** `DtnEngine.publish` refuses a local SOS within 2 minutes of the
+  previous one, or beyond 3 per hour or 6 per 24 hours, and a local SOS response
+  beyond 10 per hour or 20 per day. It throws `EmergencyRateLimitError` with the
+  time the next one is allowed. Earlier emergency packets stay queued. Chat,
+  maps and the emergency inbox show a specific message instead of a generic
+  failure.
+- **Relay.** Every store keeps emergency rank for at most 6 retained SOS and 20
+  retained SOS responses per source. Further packets from that source are still
+  stored and relayed with their signature intact, but at normal rank: they
+  cannot use reserved emergency slots, cannot evict chat, and are not forwarded
+  in conserve mode. The relay cap equals the honest sender's daily cap, so a
+  legitimate user is never downgraded even when all six SOS arrive together.
+- **Receiver.** The emergency inbox raises at most one native alert per source
+  every 10 minutes (in addition to four per history batch). Throttled SOS still
+  appear in the inbox.
+
+These limits are per signing identity. Identities are free to create, so a
+Sybil attacker with many keys is bounded only by the reserved SOS capacity
+(100 slots), signature-verification rate limits and storage limits.
 
 ## Verification
 

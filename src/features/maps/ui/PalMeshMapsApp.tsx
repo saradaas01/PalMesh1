@@ -21,6 +21,7 @@ const issueLabels: Readonly<Record<LocationIssue, TranslationKey>> = {
   'queue-full': 'maps.issue.queue-full',
   'broadcast-unavailable': 'maps.issue.broadcast-unavailable',
   'routing-error': 'maps.issue.routing-error',
+  'sos-limited': 'sos.limited',
 };
 
 function Button({ label, onPress, disabled = false }: {

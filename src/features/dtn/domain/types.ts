@@ -99,6 +99,20 @@ export interface StorageLimits {
   /** Retained critical/high chats queued per source before relays treat more
    * of that source's elevated packets as normal. Bounds priority inflation. */
   readonly maxElevatedPerSource?: number;
+  /** Retained SOS packets per source that keep emergency priority. Further SOS
+   * from that source queue as normal chat, without reserved emergency space. */
+  readonly maxEmergencyPerSource?: number;
+  /** Retained SOS responses per source that keep emergency priority. */
+  readonly maxResponsesPerSource?: number;
+}
+
+/** Thrown by a local publish that exceeds this device's SOS or SOS-response
+ * rate limits. The earlier emergency packets remain queued and forwarding. */
+export class EmergencyRateLimitError extends Error {
+  constructor(readonly kind: 'sos' | 'sos-response', readonly retryAt: number) {
+    super(`${kind === 'sos' ? 'SOS' : 'SOS response'} limit reached; retry after ${new Date(retryAt).toISOString()}`);
+    this.name = 'EmergencyRateLimitError';
+  }
 }
 
 export type AcceptResult =

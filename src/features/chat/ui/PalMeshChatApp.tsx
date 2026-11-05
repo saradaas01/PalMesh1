@@ -29,6 +29,7 @@ const issueLabels: Readonly<Record<ChatIssue, TranslationKey>> = {
   'routing-error': 'chat.issue.routing-error',
   'recipient-unknown': 'chat.issue.recipient-unknown',
   'recipient-keys-unavailable': 'chat.issue.recipient-keys-unavailable',
+  'sos-limited': 'sos.limited',
 };
 
 const priorityLabels: Readonly<Record<MessagePriority, TranslationKey>> = {

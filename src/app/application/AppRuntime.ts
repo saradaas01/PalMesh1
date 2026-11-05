@@ -193,7 +193,8 @@ export class AppRuntime {
       const result = await resources.locations.sendSos(text);
       if (this.live(generation)) {
         if (result.status === 'queued') this.patch({ notice: 'sos-queued' });
-        else this.patch({ issue: result.status === 'rejected' && result.reason === 'capacity' ? 'queue-full' : 'sos-unavailable' });
+        else this.patch({ issue: result.status !== 'rejected' ? 'sos-unavailable'
+          : result.reason === 'capacity' ? 'queue-full' : result.reason === 'limited' ? 'sos-limited' : 'sos-unavailable' });
       }
       return result;
     } catch {

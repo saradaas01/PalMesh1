@@ -14,6 +14,9 @@ export interface DtnStore {
    * are due, return the earliest future retry. Ignore expired/terminal packets,
    * source peers, acknowledged peers, and exhausted peer tracking budgets. */
   getNextDelivery(peers: readonly PeerId[], now: number, emergencyOnly: boolean, maxPeersPerMessage: number): Promise<DeliveryCandidate | null>;
+  /** Local arrival times of retained packets of this kind from this source,
+   * newest first, received at or after `since`. Bounds local SOS rate limits. */
+  recentFromSource(source: PeerId, kind: 'sos' | 'sos-response', since: number): Promise<readonly number[]>;
   markAcknowledged(messageId: MessageId, peerId: PeerId, now: number): Promise<void>;
   markFailed(failure: DeliveryFailure): Promise<void>;
   prune(now: number): Promise<void>;

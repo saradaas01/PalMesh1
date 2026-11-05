@@ -26,9 +26,9 @@ export interface EmergencySnapshot {
   /** Most recent unreviewed incoming SOS. Rendering it must preserve global SOS access. */
   readonly urgent: EmergencyEntry | null;
   readonly pendingResponseIds: readonly string[];
-  readonly issue: 'storage-unavailable' | 'response-unavailable' | 'queue-full' | 'notification-unavailable' | null;
+  readonly issue: 'storage-unavailable' | 'response-unavailable' | 'response-limited' | 'queue-full' | 'notification-unavailable' | null;
   readonly now: number;
 }
 export type EmergencyActionResult =
   | { readonly status: 'queued'; readonly messageId: string }
-  | { readonly status: 'rejected'; readonly reason: 'unavailable' | 'capacity' | 'busy' | 'invalid' | 'expired' };
+  | { readonly status: 'rejected'; readonly reason: 'unavailable' | 'capacity' | 'busy' | 'invalid' | 'expired' | 'limited' };
