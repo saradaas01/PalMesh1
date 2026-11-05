@@ -48,7 +48,7 @@ does not satisfy this build. If the pinned artifact expires or validation fails,
 the workflow fails. Refreshing the map requires a new reviewed producer and
 explicit provenance/digest updates; no fallback artifact is selected.
 
-The older `emergency-map`, `offline-map-render` and `ux-acceptance` jobs are
+The older `emergency-map`, `offline-map-render`, `contacts-acceptance` and `ux-acceptance` jobs are
 skipped only when the pull request targets `feat/ai-message-priority`. Their
 historical Palestine fixtures do not validate this Jordan stack. Existing
 general verification, iOS and Android smoke workflows remain enabled.

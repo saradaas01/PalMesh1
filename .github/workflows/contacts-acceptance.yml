@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   contacts:
-    if: github.head_ref != 'feat/simple-offline-experience' && github.head_ref != 'feat/emergency-map-gps' && github.ref_name != 'feat/simple-offline-experience'
+    # The Jordan demo has its own signed-name/emergency acceptance and genuine map pack.
+    if: github.base_ref != 'feat/ai-message-priority' && github.head_ref != 'feat/simple-offline-experience' && github.head_ref != 'feat/emergency-map-gps' && github.ref_name != 'feat/simple-offline-experience'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
